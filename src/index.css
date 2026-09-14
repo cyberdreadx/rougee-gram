@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-ink text-white antialiased;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Thin, unobtrusive scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a30 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #2a2a30;
+    border-radius: 9999px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-ink-border bg-ink-card;
+  }
+
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-xl px-4 py-2
+      text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-rouge-600 text-white hover:bg-rouge-500 active:bg-rouge-700;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink-muted hover:bg-white/5 hover:text-white;
+  }
+  .btn-soft {
+    @apply btn bg-white/5 text-white hover:bg-white/10;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-ink-border bg-ink-soft px-3.5 py-2.5 text-sm
+      text-white placeholder:text-ink-muted focus:border-rouge-500 focus:outline-none
+      focus:ring-2 focus:ring-rouge-500/30;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-muted;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-white/5;
+  }
+  .skeleton::after {
+    @apply absolute inset-0;
+    content: "";
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.06),
+      transparent
+    );
+    animation: shimmer 1.4s infinite;
+  }
+
+  .brand-gradient {
+    background-image: linear-gradient(135deg, #ff647c 0%, #ff2d55 45%, #8a0e34 100%);
+  }
+  .brand-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #ff8a9c 0%, #ff2d55 60%, #c80839 100%);
+  }
+}

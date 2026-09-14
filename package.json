@@ -1,0 +1,46 @@
+{
+  "name": "rougee-gram",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A decentralized, un-deplatformable Instagram built on RougeChain (post-quantum L1).",
+  "license": "MIT",
+  "author": "RougeChain",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cyberdreadx/rougee-gram.git"
+  },
+  "homepage": "https://github.com/cyberdreadx/rougee-gram#readme",
+  "bugs": "https://github.com/cyberdreadx/rougee-gram/issues",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rougechain/sdk": "^1.4.0",
+    "@tanstack/react-query": "^5.59.0",
+    "clsx": "^2.1.1",
+    "idb": "^8.0.0",
+    "lucide-react": "^0.454.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "tailwind-merge": "^2.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.9"
+  }
+}

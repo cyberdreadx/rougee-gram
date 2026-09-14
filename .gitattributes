@@ -1,0 +1,14 @@
+# Normalize line endings across platforms so Windows (core.autocrlf=true) and
+# Unix contributors don't produce noisy CRLF/LF diffs. Text files are stored
+# with LF in the repository.
+* text=auto eol=lf
+
+# Binary assets: never normalize or diff as text.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary

@@ -1,0 +1,60 @@
+import { useEffect, type ReactNode } from "react";
+import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  onClose: () => void;
+  title?: string;
+  children: ReactNode;
+  maxWidth?: string;
+  hideClose?: boolean;
+}
+
+export default function Modal({
+  onClose,
+  title,
+  children,
+  maxWidth = "max-w-md",
+  hideClose,
+}: Props) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
+        onClick={onClose}
+      />
+      <div
+        className={cn(
+          "relative z-10 w-full animate-fade-in rounded-t-2xl border border-ink-border bg-ink-card p-5 shadow-2xl sm:rounded-2xl",
+          maxWidth,
+        )}
+      >
+        {(title || !hideClose) && (
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold">{title}</h2>
+            {!hideClose && (
+              <button
+                onClick={onClose}
+                className="rounded-lg p-1 text-ink-muted hover:bg-white/5 hover:text-white"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}

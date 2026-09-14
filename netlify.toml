@@ -1,0 +1,23 @@
+# Netlify deployment config for rougee-gram (Vite + React SPA).
+# When you connect the repo in Netlify, these settings are auto-detected
+# from this file, so you don't need to fill in the build UI manually.
+
+[build]
+  # Runs `tsc && vite build` (see package.json). Outputs static assets to dist/.
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Repo requires Node 18+ (Vite 5, @types/node 20). Pin to 20 LTS so builds
+  # are reproducible and don't break when Netlify changes its default Node.
+  NODE_VERSION = "20"
+
+# SPA catch-all. rougee-gram uses react-router BrowserRouter with routes like
+# /p/:postId, /u/:address, /settings and /explore. Without this rule, a direct
+# visit or hard refresh of one of those paths is a request for a file that does
+# not exist in dist/, and Netlify returns a 404. Serving index.html with a 200
+# lets the client-side router resolve the route. Keep this LAST.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

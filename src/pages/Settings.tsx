@@ -1,0 +1,358 @@
+import { useEffect, useState } from "react";
+import {
+  Copy,
+  Check,
+  Eye,
+  EyeOff,
+  Loader2,
+  LogOut,
+  Trash2,
+  Coins,
+  Globe,
+  HardDrive,
+  ShieldCheck,
+  RefreshCw,
+} from "lucide-react";
+import { useAuth } from "@/store/auth";
+import { useToast } from "@/components/Toast";
+import Modal from "@/components/Modal";
+import { getConfig, updateConfig } from "@/lib/config";
+import { testPinataJwt } from "@/lib/media";
+import { requestFaucet } from "@/lib/rouge";
+import { rc } from "@/lib/rouge";
+import { shortAddress } from "@/lib/format";
+
+export default function Settings() {
+  const { wallet, address, balance, publicKey, lock, logout, refreshBalance } = useAuth();
+  const { toast } = useToast();
+
+  return (
+    <div className="pb-10">
+      <header className="sticky top-0 z-20 border-b border-ink-border bg-ink/80 px-4 py-3.5 backdrop-blur">
+        <h1 className="text-base font-semibold">Settings</h1>
+      </header>
+
+      <div className="space-y-6 p-4">
+        <AccountSection
+          address={address}
+          balance={balance}
+          publicKey={publicKey}
+          mnemonic={wallet?.mnemonic}
+          privateKey={wallet?.privateKey ?? ""}
+          onFaucet={async () => {
+            if (!wallet) return;
+            const ok = await requestFaucet(wallet);
+            toast(ok ? "Faucet sent. Balance updating…" : "Faucet request failed", ok ? "success" : "error");
+            setTimeout(refreshBalance, 1500);
+          }}
+          onRefresh={refreshBalance}
+        />
+
+        <MediaSection />
+
+        <NetworkSection />
+
+        <DangerSection
+          address={address}
+          onLock={lock}
+          onLogout={() => logout(address)}
+        />
+
+        <p className="pt-2 text-center text-xs text-ink-muted">
+          Rougee-gram · built on RougeChain · your keys, your photos
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="card overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-ink-border px-4 py-3">
+        <span className="text-rouge-400">{icon}</span>
+        <h2 className="text-sm font-semibold">{title}</h2>
+      </div>
+      <div className="space-y-3 p-4">{children}</div>
+    </section>
+  );
+}
+
+function CopyRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div>
+      <div className="label">{label}</div>
+      <div className="flex items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-lg bg-ink-soft px-3 py-2 font-mono text-xs">
+          {value}
+        </code>
+        <button
+          className="btn-soft h-9 w-9 shrink-0 p-0"
+          onClick={() => {
+            navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          }}
+        >
+          {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AccountSection({
+  address,
+  balance,
+  publicKey,
+  mnemonic,
+  privateKey,
+  onFaucet,
+  onRefresh,
+}: {
+  address: string;
+  balance: number;
+  publicKey: string;
+  mnemonic?: string;
+  privateKey: string;
+  onFaucet: () => void;
+  onRefresh: () => void;
+}) {
+  const [revealPhrase, setRevealPhrase] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
+  const [fauceting, setFauceting] = useState(false);
+
+  return (
+    <Section icon={<ShieldCheck className="h-4 w-4" />} title="Account">
+      <CopyRow label="Address" value={address} />
+
+      <div className="flex items-center justify-between rounded-xl bg-ink-soft px-3 py-2.5">
+        <div className="flex items-center gap-2 text-sm">
+          <Coins className="h-4 w-4 text-rouge-400" />
+          <span className="font-semibold">
+            {balance.toLocaleString(undefined, { maximumFractionDigits: 3 })} XRGE
+          </span>
+        </div>
+        <div className="flex gap-1.5">
+          <button className="btn-ghost h-8 px-2" onClick={onRefresh} title="Refresh">
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <button
+            className="btn-soft h-8 px-3 text-xs"
+            onClick={async () => {
+              setFauceting(true);
+              await onFaucet();
+              setFauceting(false);
+            }}
+            disabled={fauceting}
+          >
+            {fauceting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Get testnet XRGE"}
+          </button>
+        </div>
+      </div>
+
+      {mnemonic && (
+        <div>
+          <button
+            className="flex w-full items-center justify-between rounded-xl bg-ink-soft px-3 py-2.5 text-sm"
+            onClick={() => setRevealPhrase((v) => !v)}
+          >
+            <span>Recovery phrase</span>
+            {revealPhrase ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+          {revealPhrase && (
+            <div className="mt-2 grid grid-cols-3 gap-1.5 rounded-xl border border-ink-border bg-ink-soft p-3 text-xs">
+              {mnemonic.split(/\s+/).map((w, i) => (
+                <span key={i} className="font-mono">
+                  <span className="text-ink-muted">{i + 1}.</span> {w}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <button
+          className="flex w-full items-center justify-between rounded-xl bg-ink-soft px-3 py-2.5 text-sm"
+          onClick={() => setShowKeys((v) => !v)}
+        >
+          <span>Export raw keys</span>
+          {showKeys ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+        {showKeys && (
+          <div className="mt-2 space-y-2">
+            <CopyRow label="Public key" value={publicKey} />
+            <CopyRow label="Private key" value={privateKey} />
+            <p className="text-xs text-rouge-400">
+              Never share your private key or recovery phrase. Anyone with them
+              controls this account.
+            </p>
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+function MediaSection() {
+  const { toast } = useToast();
+  const cfg = getConfig();
+  const [jwt, setJwt] = useState(cfg.pinataJwt);
+  const [gateway, setGateway] = useState(cfg.ipfsGateway);
+  const [testing, setTesting] = useState(false);
+
+  const usingIpfs = Boolean(cfg.pinataJwt);
+
+  async function saveJwt() {
+    setTesting(true);
+    try {
+      if (jwt) {
+        const ok = await testPinataJwt(jwt);
+        if (!ok) {
+          toast("That Pinata JWT didn't authenticate.", "error");
+          setTesting(false);
+          return;
+        }
+      }
+      updateConfig({ pinataJwt: jwt, ipfsGateway: gateway });
+      toast(jwt ? "IPFS enabled 🎉" : "Reverted to local storage", "success");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <Section
+      icon={usingIpfs ? <Globe className="h-4 w-4" /> : <HardDrive className="h-4 w-4" />}
+      title="Photo storage"
+    >
+      <div className="rounded-xl bg-ink-soft px-3 py-2.5 text-xs text-ink-muted">
+        {usingIpfs ? (
+          <span className="text-emerald-400">
+            IPFS active — new photos are pinned and portable across devices.
+          </span>
+        ) : (
+          <span className="text-amber-400">
+            Local mode — photos are stored only in this browser. Add a Pinata JWT
+            to publish to IPFS.
+          </span>
+        )}
+      </div>
+
+      <div>
+        <label className="label">Pinata JWT</label>
+        <textarea
+          className="input h-20 resize-none font-mono text-xs"
+          placeholder="Paste your Pinata JWT to enable IPFS uploads (optional)"
+          value={jwt}
+          onChange={(e) => setJwt(e.target.value)}
+          spellCheck={false}
+        />
+      </div>
+      <div>
+        <label className="label">IPFS gateway</label>
+        <input
+          className="input font-mono text-xs"
+          value={gateway}
+          onChange={(e) => setGateway(e.target.value)}
+        />
+      </div>
+      <button className="btn-primary w-full" onClick={saveJwt} disabled={testing}>
+        {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save storage settings"}
+      </button>
+    </Section>
+  );
+}
+
+function NetworkSection() {
+  const cfg = getConfig();
+  const [health, setHealth] = useState<string>("checking…");
+
+  useEffect(() => {
+    let active = true;
+    rc()
+      .getStats()
+      .then((s) => active && setHealth(`online · height ${s.network_height ?? s.height}`))
+      .catch(() => active && setHealth("unreachable"));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <Section icon={<Globe className="h-4 w-4" />} title="Network">
+      <Row label="Network" value={cfg.network} />
+      <Row label="API" value={cfg.apiUrl} mono />
+      <Row label="Status" value={health} />
+    </Section>
+  );
+}
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-ink-muted">{label}</span>
+      <span className={mono ? "truncate font-mono text-xs" : "truncate"}>{value}</span>
+    </div>
+  );
+}
+
+function DangerSection({
+  address,
+  onLock,
+  onLogout,
+}: {
+  address: string;
+  onLock: () => void;
+  onLogout: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <Section icon={<LogOut className="h-4 w-4" />} title="Session">
+      <button className="btn-soft w-full" onClick={onLock}>
+        <LogOut className="h-4 w-4" /> Lock account
+      </button>
+      <button
+        className="btn w-full bg-rouge-950/60 text-rouge-300 hover:bg-rouge-900/60"
+        onClick={() => setConfirming(true)}
+      >
+        <Trash2 className="h-4 w-4" /> Remove account from this device
+      </button>
+
+      {confirming && (
+        <Modal onClose={() => setConfirming(false)} title="Remove account?">
+          <p className="text-sm text-ink-muted">
+            This deletes the encrypted key for{" "}
+            <span className="font-mono text-white">{shortAddress(address)}</span>{" "}
+            from this device. You can only restore it with your recovery phrase or
+            private key.{" "}
+            <span className="text-rouge-400">
+              Make sure you have a backup first.
+            </span>
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button className="btn-soft flex-1" onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+            <button
+              className="btn flex-1 bg-rouge-600 text-white hover:bg-rouge-500"
+              onClick={onLogout}
+            >
+              Remove
+            </button>
+          </div>
+        </Modal>
+      )}
+    </Section>
+  );
+}
