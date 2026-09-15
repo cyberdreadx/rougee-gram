@@ -34,6 +34,25 @@ export interface PhotoEnvelope {
   alt?: string;
 }
 
+export interface VideoEnvelope {
+  v: 1;
+  /** "video" = regular clip, "reel" = vertical short shown in the reels feed */
+  t: "video" | "reel";
+  /** Video media reference URI: ipfs://… or local://… */
+  cid: string;
+  mime: string;
+  w?: number;
+  h?: number;
+  /** Duration in seconds */
+  dur?: number;
+  /** Poster/thumbnail media reference URI (an image) */
+  poster?: string;
+  /** Caption */
+  cap?: string;
+  /** Alt text for accessibility */
+  alt?: string;
+}
+
 export interface ProfileEnvelope {
   v: 1;
   t: "profile";
@@ -45,11 +64,24 @@ export interface ProfileEnvelope {
 
 export type Decoded =
   | { kind: "photo"; data: PhotoEnvelope }
+  | { kind: "video"; data: VideoEnvelope }
   | { kind: "profile"; data: ProfileEnvelope }
   | { kind: "text"; text: string };
 
 export function encodePhoto(env: Omit<PhotoEnvelope, "v" | "t">): string {
   const full: PhotoEnvelope = { v: 1, t: "photo", ...env };
+  if (full.cap) full.cap = full.cap.slice(0, CAPTION_LIMIT);
+  const json = JSON.stringify(stripUndefined(full));
+  if (json.length > POST_BODY_LIMIT) {
+    throw new Error("Caption too long for a single on-chain post.");
+  }
+  return json;
+}
+
+export function encodeVideo(
+  env: Omit<VideoEnvelope, "v"> & { t: "video" | "reel" },
+): string {
+  const full: VideoEnvelope = { v: 1, ...env };
   if (full.cap) full.cap = full.cap.slice(0, CAPTION_LIMIT);
   const json = JSON.stringify(stripUndefined(full));
   if (json.length > POST_BODY_LIMIT) {
@@ -73,6 +105,14 @@ export function decodeBody(body: string): Decoded {
       if (obj && obj.v === 1 && obj.t === "photo" && typeof obj.cid === "string") {
         return { kind: "photo", data: obj as unknown as PhotoEnvelope };
       }
+      if (
+        obj &&
+        obj.v === 1 &&
+        (obj.t === "video" || obj.t === "reel") &&
+        typeof obj.cid === "string"
+      ) {
+        return { kind: "video", data: obj as unknown as VideoEnvelope };
+      }
       if (obj && obj.v === 1 && obj.t === "profile") {
         return { kind: "profile", data: obj as unknown as ProfileEnvelope };
       }
@@ -85,6 +125,12 @@ export function decodeBody(body: string): Decoded {
 
 export function isPhotoBody(body: string): boolean {
   return decodeBody(body).kind === "photo";
+}
+
+/** True for photo OR video/reel posts (anything with a visual grid thumbnail). */
+export function isMediaBody(body: string): boolean {
+  const k = decodeBody(body).kind;
+  return k === "photo" || k === "video";
 }
 
 function stripUndefined(obj: object): Record<string, unknown> {

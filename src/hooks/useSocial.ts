@@ -8,6 +8,7 @@ import type { SocialPost, PostStats, ArtistStats } from "@rougechain/sdk";
 import { rc } from "@/lib/rouge";
 import { useAuth } from "@/store/auth";
 import { invalidateProfile } from "@/lib/profile";
+import { decodeBody } from "@/lib/envelope";
 
 export const qk = {
   timeline: ["timeline"] as const,
@@ -197,4 +198,98 @@ export function invalidateFeeds(client: QueryClient, publicKey: string) {
 export function isRenderablePost(p: SocialPost): boolean {
   // Hide profile-metadata posts and replies from top-level feeds.
   return !p.reply_to_id;
+}
+
+// ===== Social graph & activity =====
+
+export function useFollowing(pubkey: string | undefined) {
+  return useQuery({
+    queryKey: ["following", pubkey],
+    enabled: Boolean(pubkey),
+    queryFn: () => rc().social.getUserFollowing(pubkey as string),
+    staleTime: 30_000,
+  });
+}
+
+/** Suggested accounts to follow: active posters on the global timeline, minus
+ *  yourself and people you already follow. */
+export function useSuggestedUsers(limit = 5): {
+  suggestions: string[];
+  isLoading: boolean;
+} {
+  const { publicKey } = useAuth();
+  const timeline = useGlobalTimeline();
+  const following = useFollowing(publicKey);
+
+  const followingSet = new Set(following.data ?? []);
+  const seen = new Set<string>();
+  const suggestions: string[] = [];
+  for (const p of timeline.data ?? []) {
+    const a = p.author_pubkey;
+    if (!a || a === publicKey || followingSet.has(a) || seen.has(a)) continue;
+    seen.add(a);
+    suggestions.push(a);
+    if (suggestions.length >= limit) break;
+  }
+  return { suggestions, isLoading: timeline.isLoading || following.isLoading };
+}
+
+export interface ActivityComment {
+  post: SocialPost;
+  comment: SocialPost;
+}
+export interface ActivityData {
+  comments: ActivityComment[];
+  totalLikes: number;
+  followers: number;
+  postCount: number;
+}
+
+/** Your activity: comments on your posts + aggregate like/follower counts.
+ *  Note: RougeChain exposes who *commented*, but only counts (not identities)
+ *  for likes/follows — so those are shown as totals. */
+export function useActivity() {
+  const { publicKey } = useAuth();
+  return useQuery({
+    queryKey: ["activity", publicKey],
+    enabled: Boolean(publicKey),
+    staleTime: 60_000,
+    queryFn: async (): Promise<ActivityData> => {
+      const { posts } = await rc().social.getUserPosts(publicKey, 15, 0);
+      const mine = posts.filter(
+        (p) => !p.reply_to_id && decodeBody(p.body).kind !== "profile",
+      );
+      const results = await Promise.all(
+        mine.map(async (p) => {
+          const [replies, stats] = await Promise.all([
+            rc().social.getPostReplies(p.id, 30, 0).catch(() => [] as SocialPost[]),
+            rc().social.getPostStats(p.id, publicKey).catch(() => null),
+          ]);
+          return { post: p, replies, stats };
+        }),
+      );
+
+      const comments: ActivityComment[] = [];
+      let totalLikes = 0;
+      for (const r of results) {
+        totalLikes += r.stats?.likes ?? 0;
+        for (const c of r.replies) {
+          if (c.author_pubkey !== publicKey) comments.push({ post: r.post, comment: c });
+        }
+      }
+      comments.sort(
+        (a, b) =>
+          Date.parse(b.comment.created_at) - Date.parse(a.comment.created_at),
+      );
+
+      let followers = 0;
+      try {
+        followers = (await rc().social.getArtistStats(publicKey, publicKey)).followers;
+      } catch {
+        /* ignore */
+      }
+
+      return { comments, totalLikes, followers, postCount: mine.length };
+    },
+  });
 }

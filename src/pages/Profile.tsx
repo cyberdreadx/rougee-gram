@@ -54,7 +54,11 @@ export default function Profile() {
           {profile ? displayName(profile) : shortAddress(address ?? "")}
         </h1>
         {isMe && (
-          <button className="btn-ghost h-10 w-10 p-0" onClick={() => navigate("/settings")}>
+          <button
+            className="btn-ghost h-10 w-10 p-0"
+            onClick={() => navigate("/settings")}
+            aria-label="Settings"
+          >
             <Settings className="h-5 w-5" />
           </button>
         )}

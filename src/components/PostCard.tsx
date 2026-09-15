@@ -17,8 +17,10 @@ import { useToast } from "./Toast";
 import { shortAddress, timeAgo, formatCount } from "@/lib/format";
 import Avatar from "./Avatar";
 import MediaImage from "./MediaImage";
+import MediaVideo from "./MediaVideo";
 import UserLink from "./UserLink";
 import Caption from "./Caption";
+import { Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function PostCard({ post }: { post: SocialPost }) {
@@ -30,16 +32,19 @@ export default function PostCard({ post }: { post: SocialPost }) {
   const [burst, setBurst] = useState(false);
   const lastTap = useRef(0);
 
-  // Non-photo posts (plain text already on-chain) render as a simple text card.
-  if (decoded.kind !== "photo") {
+  // Only photo/video posts render as media cards; plain text renders as text.
+  if (decoded.kind !== "photo" && decoded.kind !== "video") {
     if (decoded.kind === "profile") return null; // profile-metadata posts are hidden
     return <TextPostCard post={post} profile={profile} />;
   }
 
-  const photo = decoded.data;
+  const isVideo = decoded.kind === "video";
+  const media = decoded.data; // photo or video envelope (shared: cid, w, h, cap, alt)
+  const isReel = isVideo && (media as { t?: string }).t === "reel";
+  const posterRef = isVideo ? (media as { poster?: string }).poster : undefined;
   const liked = stats?.liked ?? false;
-  // Reserve the image's real aspect ratio so the feed doesn't jump when it loads.
-  const aspectRatio = photo.w && photo.h ? `${photo.w} / ${photo.h}` : "1 / 1";
+  // Reserve the media's real aspect ratio so the feed doesn't jump when it loads.
+  const aspectRatio = media.w && media.h ? `${media.w} / ${media.h}` : "1 / 1";
 
   function triggerLike() {
     if (!liked) {
@@ -81,18 +86,33 @@ export default function PostCard({ post }: { post: SocialPost }) {
         <PostMenu postId={post.id} authorPubkey={post.author_pubkey} />
       </header>
 
-      {/* image */}
+      {/* media */}
       <div
         className="relative mt-3 max-h-[85vh] w-full select-none overflow-hidden bg-black sm:rounded-2xl"
         style={{ aspectRatio }}
-        onClick={onImageTap}
+        onClick={isVideo ? undefined : onImageTap}
         onDoubleClick={() => !liked && triggerLike()}
       >
-        <MediaImage
-          refUri={photo.cid}
-          alt={photo.alt || photo.cap || "photo"}
-          className="h-full w-full object-cover"
-        />
+        {isVideo ? (
+          <MediaVideo
+            refUri={media.cid}
+            poster={posterRef}
+            className="h-full w-full bg-black object-contain"
+            loop={isReel}
+            controls
+          />
+        ) : (
+          <MediaImage
+            refUri={media.cid}
+            alt={media.alt || media.cap || "photo"}
+            className="h-full w-full object-cover"
+          />
+        )}
+        {isReel && (
+          <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-xs font-medium text-white backdrop-blur">
+            <Film className="h-3 w-3" /> Reel
+          </span>
+        )}
         {burst && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <Heart className="h-24 w-24 animate-pop fill-white text-white drop-shadow-lg" />
@@ -129,10 +149,10 @@ export default function PostCard({ post }: { post: SocialPost }) {
             {formatCount(stats!.likes)} {stats!.likes === 1 ? "like" : "likes"}
           </div>
         )}
-        {photo.cap && (
+        {media.cap && (
           <Caption
             authorPubkey={post.author_pubkey}
-            text={photo.cap}
+            text={media.cap}
           />
         )}
         {(stats?.replies ?? 0) > 0 && (

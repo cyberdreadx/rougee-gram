@@ -57,15 +57,31 @@ into a photo post by storing a compact JSON **envelope** in the body:
 
 ## Features
 
-- 🔐 Wallet onboarding — create (24-word recovery phrase) or import; keys
-  encrypted at rest with AES-256-GCM (PBKDF2, 600k iterations), decrypted only
-  in memory.
+- 🔐 Wallet onboarding — create (24-word recovery phrase, shown & confirmed) or
+  import; keys encrypted at rest with AES-256-GCM (PBKDF2, 600k iterations),
+  decrypted only in memory.
 - 🚰 Auto-faucet on signup (testnet) so you can post immediately.
 - 🏠 Home feed (Following + Discover), Explore grid.
 - 📷 Post photos — client-side crop/compress → IPFS → signed on-chain post.
+- 🎬 Post **video & reels** — client-side poster-frame generation + metadata,
+  size/duration guardrails; a dedicated vertical, autoplay **Reels** feed.
 - ❤️ Likes (with double-tap), 💬 threaded comments, 👤 follows.
+- 🔎 User search (rouge1… address / handle) and **Who to follow** suggestions.
+- 🔔 Activity — comments on your posts + aggregate likes/followers.
 - 🪪 Editable profile (avatar, name, bio) — published as a signed post.
+- 🌐 Runtime network switcher (Testnet / Mainnet / Custom) — no rebuild.
 - ⚙️ Settings — faucet, recovery-phrase/key export, IPFS config, network status.
+
+### Media envelope
+
+A post's on-chain `body` is a compact JSON envelope: `photo`, `video`/`reel`
+(adds `dur` + `poster` thumbnail), or `profile`. All media (images + video)
+uploads through one pluggable `MediaStore` — **IPFS (Pinata)** by default, with a
+local IndexedDB fallback for dev.
+
+> **Scaling video:** Pinata's free tier (~1 GB) fills fast with video. Because
+> `MediaStore` is pluggable, swapping in a streaming backend
+> (**Livepeer** / Cloudflare Stream / R2) is a drop-in with no app rewrite.
 
 ## Getting started
 

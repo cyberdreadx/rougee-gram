@@ -1,10 +1,11 @@
 import { type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Home, Compass, PlusSquare, Settings, LogOut } from "lucide-react";
+import { Home, Compass, PlusSquare, Settings, LogOut, Film, Heart } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { CreatePostProvider, useCreatePost } from "./CreatePost";
 import Logo from "./Logo";
 import Avatar from "./Avatar";
+import WhoToFollow from "./WhoToFollow";
 import { cn } from "@/lib/utils";
 import { shortAddress } from "@/lib/format";
 import { useMyProfile } from "@/hooks/useProfile";
@@ -32,6 +33,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 const navItems = [
   { to: "/", label: "Home", icon: Home, end: true },
   { to: "/explore", label: "Explore", icon: Compass, end: false },
+  { to: "/reels", label: "Reels", icon: Film, end: false },
 ];
 
 function DesktopSidebar() {
@@ -54,6 +56,7 @@ function DesktopSidebar() {
         <PlusSquare className="h-6 w-6" />
         Create
       </button>
+      <SideLink to="/activity" label="Activity" icon={Heart} end={false} />
       <SideLink
         to={`/u/${address}`}
         label="Profile"
@@ -134,6 +137,7 @@ function RightRail() {
           </span>
         </div>
       </div>
+      <WhoToFollow limit={5} />
       <p className="px-2 text-xs leading-relaxed text-ink-muted">
         Rougee-gram runs on RougeChain. Your posts are signed with your key and
         stored on-chain — no company can shadowban or delete your account.
@@ -143,12 +147,16 @@ function RightRail() {
 }
 
 function MobileTopBar() {
-  const { open } = useCreatePost();
+  const navigate = useNavigate();
   return (
     <header className="sticky top-0 z-30 flex h-[var(--top-bar-h)] items-center justify-between border-b border-ink-border bg-ink/80 px-4 backdrop-blur md:hidden">
       <Logo size={28} withWordmark />
-      <button onClick={open} className="btn-ghost h-9 w-9 p-0" aria-label="Create post">
-        <PlusSquare className="h-6 w-6" />
+      <button
+        onClick={() => navigate("/activity")}
+        className="btn-ghost h-9 w-9 p-0"
+        aria-label="Activity"
+      >
+        <Heart className="h-6 w-6" />
       </button>
     </header>
   );
@@ -171,7 +179,7 @@ function MobileBottomNav() {
       >
         <PlusSquare className="h-6 w-6" />
       </button>
-      <BottomLink to="/settings" icon={Settings} label="Settings" />
+      <BottomLink to="/reels" icon={Film} label="Reels" />
       <button
         onClick={() => navigate(`/u/${address}`)}
         className="flex min-h-[44px] flex-col items-center justify-center gap-0.5 px-4 py-1"

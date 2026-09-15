@@ -82,7 +82,7 @@ async function loadBitmap(file: File | Blob): Promise<ImageBitmap | HTMLImageEle
   }
 }
 
-function canvasToBlob(
+export function canvasToBlob(
   canvas: HTMLCanvasElement,
   mime: string,
   quality: number,
@@ -97,7 +97,7 @@ function canvasToBlob(
 }
 
 let webpSupport: boolean | null = null;
-async function supportsWebp(): Promise<boolean> {
+export async function supportsWebp(): Promise<boolean> {
   if (webpSupport !== null) return webpSupport;
   const canvas = document.createElement("canvas");
   canvas.width = 1;

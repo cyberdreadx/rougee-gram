@@ -5,6 +5,8 @@ import Onboarding from "./pages/Onboarding";
 import Unlock from "./pages/Unlock";
 import Home from "./pages/Home";
 import Explore from "./pages/Explore";
+import Reels from "./pages/Reels";
+import Activity from "./pages/Activity";
 import Profile from "./pages/Profile";
 import PostDetail from "./pages/PostDetail";
 import Settings from "./pages/Settings";
@@ -22,6 +24,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
+        <Route path="/reels" element={<Reels />} />
+        <Route path="/activity" element={<Activity />} />
         <Route path="/p/:postId" element={<PostDetail />} />
         <Route path="/u/:address" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
