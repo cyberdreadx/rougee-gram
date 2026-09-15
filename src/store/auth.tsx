@@ -18,6 +18,7 @@ import {
 } from "@/lib/keystore";
 import { requestFaucet, getXrgeBalance } from "@/lib/rouge";
 import { invalidateProfile } from "@/lib/profile";
+import * as extSigner from "@/lib/extensionSigner";
 
 type Status = "loading" | "onboarding" | "locked" | "ready";
 
@@ -30,11 +31,16 @@ interface AuthState {
   address: string;
   wallets: StoredWalletMeta[];
   balance: number;
+  /** True when signed in via the RougeChain browser extension (key stays in it). */
+  isExtensionWallet: boolean;
+  /** True when a RougeChain extension is present (desktop). */
+  extensionDetected: boolean;
 }
 
 interface AuthActions {
   createWallet: (password: string) => Promise<{ mnemonic: string; address: string }>;
   finalizeOnboarding: () => Promise<void>;
+  connectExtension: () => Promise<void>;
   importMnemonic: (mnemonic: string, password: string) => Promise<string>;
   importKeys: (publicKey: string, privateKey: string, password: string) => Promise<string>;
   unlock: (address: string, password: string) => Promise<void>;
@@ -58,6 +64,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState("");
   const [wallets, setWallets] = useState<StoredWalletMeta[]>([]);
   const [balance, setBalance] = useState(0);
+  const [isExtensionWallet, setIsExtensionWallet] = useState(false);
+  const [extensionDetected, setExtensionDetected] = useState(false);
+
+  // Detect a RougeChain browser extension (desktop only).
+  useEffect(() => {
+    const check = () => setExtensionDetected(extSigner.extensionAvailable());
+    check();
+    window.addEventListener("rougechain#initialized", check);
+    return () => window.removeEventListener("rougechain#initialized", check);
+  }, []);
 
   const refreshWallets = useCallback(async () => {
     const list = await listWallets();
@@ -78,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const addr = await pubkeyToAddress(keys.publicKey);
     setWallet(keys);
     setAddress(addr);
+    setIsExtensionWallet(false);
     setStatus("ready");
     try {
       localStorage.setItem(LAST_ADDR_KEY, addr);
@@ -87,6 +104,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Fetch balance in the background.
     getXrgeBalance(keys.publicKey).then(setBalance).catch(() => {});
     return addr;
+  }, []);
+
+  // Connect the RougeChain browser extension: the private key stays in the
+  // extension (wallet.privateKey stays ""), so writes route through it.
+  const connectExtension = useCallback(async () => {
+    const pk = await extSigner.connect();
+    const addr = await pubkeyToAddress(pk);
+    setWallet({ publicKey: pk, privateKey: "" });
+    setAddress(addr);
+    setIsExtensionWallet(true);
+    setStatus("ready");
+    try {
+      localStorage.setItem(LAST_ADDR_KEY, addr);
+    } catch {
+      /* ignore */
+    }
+    getXrgeBalance(pk).then(setBalance).catch(() => {});
   }, []);
 
   const persistAndActivate = useCallback(
@@ -171,18 +205,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setWallet(null);
     setAddress("");
     setBalance(0);
-    setStatus((s) => (s === "onboarding" ? "onboarding" : "locked"));
-  }, []);
+    setIsExtensionWallet(false);
+    // Extension sessions aren't in the keystore, so fall back to onboarding
+    // when there are no stored wallets to unlock.
+    setStatus(wallets.length > 0 ? "locked" : "onboarding");
+  }, [wallets.length]);
 
   const logout = useCallback(
     async (addr: string) => {
-      await deleteWallet(addr);
+      if (addr) await deleteWallet(addr);
       if (wallet) invalidateProfile(wallet.publicKey);
       const list = await listWallets();
       setWallets(list);
       setWallet(null);
       setAddress("");
       setBalance(0);
+      setIsExtensionWallet(false);
       setStatus(list.length > 0 ? "locked" : "onboarding");
     },
     [wallet],
@@ -202,8 +240,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       address,
       wallets,
       balance,
+      isExtensionWallet,
+      extensionDetected,
       createWallet,
       finalizeOnboarding,
+      connectExtension,
       importMnemonic,
       importKeys,
       unlock,
@@ -218,6 +259,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       address,
       wallets,
       balance,
+      isExtensionWallet,
+      extensionDetected,
+      connectExtension,
       createWallet,
       finalizeOnboarding,
       importMnemonic,

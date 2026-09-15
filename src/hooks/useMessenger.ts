@@ -15,10 +15,12 @@ function toMs(s: string | number): number {
 
 /** My deterministically-derived ML-KEM keypair (cached forever per session). */
 export function useMyKem() {
-  const { wallet } = useAuth();
+  const { wallet, isExtensionWallet } = useAuth();
   return useQuery({
     queryKey: ["kem", wallet?.publicKey],
-    enabled: !!wallet,
+    // Extension wallets don't expose a private key, so a KEM key can't be
+    // derived — DMs are gated off for them.
+    enabled: !!wallet && !isExtensionWallet,
     staleTime: Infinity,
     queryFn: () => deriveKemKeypair(wallet!),
   });
@@ -62,10 +64,10 @@ export function useMessengerDirectory() {
 
 /** Publish my encryption public key so others can message me (once). */
 export function useEnsureRegistered() {
-  const { wallet, publicKey, address } = useAuth();
+  const { wallet, publicKey, address, isExtensionWallet } = useAuth();
   const { data: kem } = useMyKem();
   useEffect(() => {
-    if (!wallet || !kem) return;
+    if (!wallet || isExtensionWallet || !kem) return;
     const flag = `rougee-gram:msg-reg:${publicKey.slice(0, 24)}:${kem.publicKeyHex.slice(0, 12)}`;
     if (localStorage.getItem(flag)) return;
     rc()
@@ -80,7 +82,7 @@ export function useEnsureRegistered() {
         if (res.success) localStorage.setItem(flag, "1");
       })
       .catch(() => {});
-  }, [wallet, kem, publicKey, address]);
+  }, [wallet, kem, publicKey, address, isExtensionWallet]);
 }
 
 export function useConversations() {

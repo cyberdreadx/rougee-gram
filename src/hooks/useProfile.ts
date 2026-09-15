@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getProfile, invalidateProfile, type Profile } from "@/lib/profile";
 import { useAuth } from "@/store/auth";
-import { rc } from "@/lib/rouge";
 import { encodeProfile } from "@/lib/envelope";
 import { invalidateFeeds } from "./useSocial";
+import * as write from "@/lib/write";
 
 export function useProfile(pubkey: string | undefined) {
   return useQuery({
@@ -29,7 +29,7 @@ export interface ProfileUpdate {
 
 /** Publishes a `profile`-type post that becomes the user's current profile. */
 export function useUpdateProfile() {
-  const { wallet, publicKey } = useAuth();
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (update: ProfileUpdate) => {
@@ -39,7 +39,7 @@ export function useUpdateProfile() {
         bio: update.bio.trim() || undefined,
         avatar: update.avatarRef || undefined,
       });
-      const res = await rc().social.createPost(wallet, body);
+      const res = await write.createPost({ wallet, publicKey, isExtensionWallet }, body);
       if (!res.success) throw new Error(res.error || "Failed to save profile");
       return res;
     },

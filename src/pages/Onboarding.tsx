@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  Plug,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
@@ -19,7 +20,14 @@ import { cn } from "@/lib/utils";
 type View = "welcome" | "create" | "backup" | "import-mnemonic" | "import-keys";
 
 export default function Onboarding() {
-  const { createWallet, finalizeOnboarding, importMnemonic, importKeys } = useAuth();
+  const {
+    createWallet,
+    finalizeOnboarding,
+    importMnemonic,
+    importKeys,
+    connectExtension,
+    extensionDetected,
+  } = useAuth();
   const { toast } = useToast();
   const [view, setView] = useState<View>("welcome");
   const [busy, setBusy] = useState(false);
@@ -150,6 +158,27 @@ export default function Onboarding() {
                   Create an account in seconds. No sign-up form, no verification —
                   just a key that's yours.
                 </p>
+                {extensionDetected && (
+                  <button
+                    className="btn-soft w-full justify-center gap-2 py-3"
+                    onClick={async () => {
+                      setBusy(true);
+                      try {
+                        await connectExtension();
+                      } catch (e) {
+                        toast(
+                          e instanceof Error ? e.message : "Couldn't connect the extension.",
+                          "error",
+                        );
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                    disabled={busy}
+                  >
+                    <Plug className="h-4 w-4" /> Connect RougeChain extension
+                  </button>
+                )}
                 <button
                   className="btn-primary w-full py-3"
                   onClick={() => setView("create")}
@@ -168,6 +197,12 @@ export default function Onboarding() {
                 >
                   Import with raw keys
                 </button>
+                {extensionDetected && (
+                  <p className="text-center text-xs text-ink-muted">
+                    Extension keeps your key; create/import stores it encrypted in
+                    this browser.
+                  </p>
+                )}
               </div>
             )}
 

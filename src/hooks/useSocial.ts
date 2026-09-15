@@ -9,6 +9,7 @@ import { rc } from "@/lib/rouge";
 import { useAuth } from "@/store/auth";
 import { invalidateProfile } from "@/lib/profile";
 import { decodeBody } from "@/lib/envelope";
+import * as write from "@/lib/write";
 
 export const qk = {
   timeline: ["timeline"] as const,
@@ -84,14 +85,14 @@ export function useArtistStats(pubkey: string | undefined) {
 }
 
 export function useToggleLike(postId: string) {
-  const { wallet, publicKey } = useAuth();
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
   const client = useQueryClient();
   const key = qk.postStats(postId, publicKey);
 
   return useMutation({
     mutationFn: async () => {
       if (!wallet) throw new Error("Locked");
-      const res = await rc().social.toggleLike(wallet, postId);
+      const res = await write.toggleLike({ wallet, publicKey, isExtensionWallet }, postId);
       if (!res.success) throw new Error(res.error || "Like failed");
       return res;
     },
@@ -117,14 +118,14 @@ export function useToggleLike(postId: string) {
 }
 
 export function useToggleRepost(postId: string) {
-  const { wallet, publicKey } = useAuth();
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
   const client = useQueryClient();
   const key = qk.postStats(postId, publicKey);
 
   return useMutation({
     mutationFn: async () => {
       if (!wallet) throw new Error("Locked");
-      const res = await rc().social.toggleRepost(wallet, postId);
+      const res = await write.toggleRepost({ wallet, publicKey, isExtensionWallet }, postId);
       if (!res.success) throw new Error(res.error || "Repost failed");
       return res;
     },
@@ -150,14 +151,14 @@ export function useToggleRepost(postId: string) {
 }
 
 export function useToggleFollow(pubkey: string) {
-  const { wallet, publicKey } = useAuth();
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
   const client = useQueryClient();
   const key = qk.artistStats(pubkey, publicKey);
 
   return useMutation({
     mutationFn: async () => {
       if (!wallet) throw new Error("Locked");
-      const res = await rc().social.toggleFollow(wallet, pubkey);
+      const res = await write.toggleFollow({ wallet, publicKey, isExtensionWallet }, pubkey);
       if (!res.success) throw new Error(res.error || "Follow failed");
       return res;
     },
@@ -184,14 +185,14 @@ export function useToggleFollow(pubkey: string) {
 }
 
 export function useAddComment(postId: string) {
-  const { wallet } = useAuth();
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (text: string) => {
       if (!wallet) throw new Error("Locked");
       const body = text.trim().slice(0, 2000);
       if (!body) throw new Error("Empty comment");
-      const res = await rc().social.createPost(wallet, body, postId);
+      const res = await write.createPost({ wallet, publicKey, isExtensionWallet }, body, postId);
       if (!res.success) throw new Error(res.error || "Comment failed");
       return res;
     },
@@ -203,12 +204,12 @@ export function useAddComment(postId: string) {
 }
 
 export function useDeletePost() {
-  const { wallet, publicKey } = useAuth();
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (postId: string) => {
       if (!wallet) throw new Error("Locked");
-      const res = await rc().social.deletePost(wallet, postId);
+      const res = await write.deletePost({ wallet, publicKey, isExtensionWallet }, postId);
       if (!res.success) throw new Error(res.error || "Delete failed");
       return res;
     },

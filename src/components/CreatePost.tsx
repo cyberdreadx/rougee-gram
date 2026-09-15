@@ -41,8 +41,9 @@ import {
   CAPTION_LIMIT,
   CAROUSEL_MAX,
 } from "@/lib/envelope";
-import { rc, requestFaucet } from "@/lib/rouge";
+import { requestFaucet } from "@/lib/rouge";
 import { invalidateFeeds } from "@/hooks/useSocial";
+import * as write from "@/lib/write";
 import { cn } from "@/lib/utils";
 
 type CreateMode = "post" | "story";
@@ -88,7 +89,7 @@ function CreatePostDialog({
   onClose: () => void;
 }) {
   const isStory = mode === "story";
-  const { wallet, publicKey } = useAuth();
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
   const { toast } = useToast();
   const client = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -348,11 +349,12 @@ function CreatePostDialog({
 
   async function submit(body: string) {
     if (!wallet) return;
-    let res = await rc().social.createPost(wallet, body);
-    if (!res.success && needsFunds(res.error)) {
+    const writer = { wallet, publicKey, isExtensionWallet };
+    let res = await write.createPost(writer, body);
+    if (!res.success && needsFunds(res.error) && !isExtensionWallet) {
       setStage("Funding account via faucet…");
       await requestFaucet(wallet);
-      res = await rc().social.createPost(wallet, body);
+      res = await write.createPost(writer, body);
     }
     if (!res.success) throw new Error(res.error || "Post failed");
     invalidateFeeds(client, publicKey);

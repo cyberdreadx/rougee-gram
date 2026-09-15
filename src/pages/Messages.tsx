@@ -19,6 +19,7 @@ import { shortAddress, timeAgo } from "@/lib/format";
 export default function Messages() {
   useEnsureRegistered();
   const { data, isLoading } = useConversations();
+  const { isExtensionWallet } = useAuth();
   const [composing, setComposing] = useState(false);
 
   return (
@@ -30,12 +31,28 @@ export default function Messages() {
             <ShieldCheck className="h-3 w-3" /> End-to-end encrypted (ML-KEM-768)
           </p>
         </div>
-        <button className="btn-ghost h-10 w-10 p-0" onClick={() => setComposing(true)} aria-label="New message">
-          <Pencil className="h-5 w-5" />
-        </button>
+        {!isExtensionWallet && (
+          <button className="btn-ghost h-10 w-10 p-0" onClick={() => setComposing(true)} aria-label="New message">
+            <Pencil className="h-5 w-5" />
+          </button>
+        )}
       </header>
 
-      {isLoading ? (
+      {isExtensionWallet ? (
+        <div className="flex flex-col items-center gap-3 px-6 py-20 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rouge-600/15 text-rouge-400">
+            <ShieldCheck className="h-8 w-8" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">DMs need an in-app wallet</h3>
+            <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
+              Encrypted messaging derives a key from your wallet's seed, which the
+              browser extension keeps private. Create or import an in-app account to
+              use DMs.
+            </p>
+          </div>
+        </div>
+      ) : isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-5 w-5 animate-spin text-ink-muted" />
         </div>
