@@ -5,6 +5,7 @@ import {
   useConversations,
   useMessages,
   useSendMessage,
+  type DecryptedMessage,
 } from "@/hooks/useMessenger";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/store/auth";
@@ -21,7 +22,9 @@ export default function Chat() {
   const { data: convos } = useConversations();
   const conv = convos?.find((c) => c.id === id);
   const participants = conv?.participants ?? [];
-  const otherId = participants.find((p) => p !== publicKey) ?? "";
+  const others = participants.filter((p) => p !== publicKey);
+  const isGroup = others.length > 1;
+  const otherId = others[0] ?? "";
 
   const { data: profile } = useProfile(otherId || undefined);
   const { data: messages, isLoading } = useMessages(id);
@@ -43,7 +46,11 @@ export default function Chat() {
     });
   }
 
-  const name = profile ? displayName(profile) : shortAddress(otherId, 8, 4);
+  const name = isGroup
+    ? `Group · ${participants.length}`
+    : profile
+      ? displayName(profile)
+      : shortAddress(otherId, 8, 4);
 
   return (
     <div className="flex flex-col pb-[calc(var(--bottom-nav-h)+4.5rem)] md:h-[calc(100dvh-1rem)] md:pb-0">
@@ -66,23 +73,7 @@ export default function Chat() {
             <Loader2 className="h-5 w-5 animate-spin text-ink-muted" />
           </div>
         ) : messages && messages.length > 0 ? (
-          messages.map((m) => (
-            <div key={m.id} className={cn("flex", m.mine ? "justify-end" : "justify-start")}>
-              <div
-                className={cn(
-                  "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm",
-                  m.mine
-                    ? "rounded-br-md bg-rouge-600 text-white"
-                    : "rounded-bl-md bg-ink-card text-white",
-                )}
-              >
-                <p className="whitespace-pre-wrap break-words">{m.text}</p>
-                <div className={cn("mt-0.5 text-[10px]", m.mine ? "text-white/70" : "text-ink-muted")}>
-                  {timeAgo(m.created_at)}
-                </div>
-              </div>
-            </div>
-          ))
+          messages.map((m) => <Bubble key={m.id} m={m} group={isGroup} />)
         ) : (
           <p className="py-10 text-center text-sm text-ink-muted">
             No messages yet. Say hi 👋
@@ -118,6 +109,33 @@ export default function Chat() {
               <Send className="h-4 w-4" />
             )}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Bubble({ m, group }: { m: DecryptedMessage; group: boolean }) {
+  const showSender = group && !m.mine;
+  const { data: profile } = useProfile(showSender ? m.sender_wallet_id : undefined);
+  return (
+    <div className={cn("flex", m.mine ? "justify-end" : "justify-start")}>
+      <div
+        className={cn(
+          "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm",
+          m.mine
+            ? "rounded-br-md bg-rouge-600 text-white"
+            : "rounded-bl-md bg-ink-card text-white",
+        )}
+      >
+        {showSender && (
+          <div className="mb-0.5 text-[11px] font-semibold text-rouge-300">
+            {profile ? displayName(profile) : shortAddress(m.sender_wallet_id, 8, 4)}
+          </div>
+        )}
+        <p className="whitespace-pre-wrap break-words">{m.text}</p>
+        <div className={cn("mt-0.5 text-[10px]", m.mine ? "text-white/70" : "text-ink-muted")}>
+          {timeAgo(m.created_at)}
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Loader2, Pencil, ShieldCheck, MessageCircle } from "lucide-react";
+import { Loader2, Pencil, ShieldCheck, MessageCircle, X } from "lucide-react";
 import type { MessengerConversation } from "@rougechain/sdk";
 import {
   useConversations,
@@ -70,9 +70,15 @@ export default function Messages() {
 
 function ConversationRow({ conversation }: { conversation: MessengerConversation }) {
   const { publicKey } = useAuth();
-  const otherId = conversation.participants?.find((p) => p !== publicKey) ?? publicKey;
+  const others = (conversation.participants ?? []).filter((p) => p !== publicKey);
+  const isGroup = others.length > 1;
+  const otherId = others[0] ?? publicKey;
   const { data: profile } = useProfile(otherId);
-  const name = profile ? displayName(profile) : shortAddress(otherId, 8, 4);
+  const name = isGroup
+    ? `Group · ${others.length + 1}`
+    : profile
+      ? displayName(profile)
+      : shortAddress(otherId, 8, 4);
 
   return (
     <Link
@@ -101,19 +107,37 @@ function ConversationRow({ conversation }: { conversation: MessengerConversation
 function NewMessageDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { publicKey } = useAuth();
   const start = useStartConversation();
   const [input, setInput] = useState("");
+  const [recipients, setRecipients] = useState<{ pubkey: string; label: string }[]>([]);
   const [busy, setBusy] = useState(false);
 
-  async function go() {
+  async function addRecipient(): Promise<string | null> {
     const q = input.trim();
-    if (!q) return;
+    if (!q) return null;
+    const res = await rc().resolveAddress(q);
+    const pubkey = (res as { publicKey?: string }).publicKey;
+    if (!pubkey) throw new Error("Couldn't find that account.");
+    if (pubkey === publicKey) throw new Error("That's you.");
+    if (!recipients.some((r) => r.pubkey === pubkey)) {
+      setRecipients((prev) => [...prev, { pubkey, label: shortAddress(q, 10, 5) }]);
+    }
+    setInput("");
+    return pubkey;
+  }
+
+  async function go() {
     setBusy(true);
     try {
-      const res = await rc().resolveAddress(q);
-      const pubkey = (res as { publicKey?: string }).publicKey;
-      if (!pubkey) throw new Error("Couldn't find that account.");
-      const id = await start.mutateAsync(pubkey);
+      // Fold in any address still in the input box.
+      const list = [...recipients.map((r) => r.pubkey)];
+      if (input.trim()) {
+        const pk = await addRecipient();
+        if (pk && !list.includes(pk)) list.push(pk);
+      }
+      if (!list.length) throw new Error("Add at least one recipient.");
+      const id = await start.mutateAsync(list);
       onClose();
       navigate(`/messages/${id}`);
     } catch (e) {
@@ -126,20 +150,71 @@ function NewMessageDialog({ onClose }: { onClose: () => void }) {
   return (
     <Modal onClose={onClose} title="New message">
       <p className="mb-3 text-sm text-ink-muted">
-        Enter a <span className="font-mono">rouge1…</span> address to start an
-        encrypted chat. The other person must have opened Messages at least once.
+        Add one or more <span className="font-mono">rouge1…</span> addresses. Two or
+        more starts a group. Recipients must have opened Messages at least once.
       </p>
-      <input
-        className="input font-mono text-xs"
-        placeholder="rouge1…"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && go()}
-        autoFocus
-        spellCheck={false}
-      />
-      <button className="btn-primary mt-4 w-full py-3" onClick={go} disabled={busy || !input.trim()}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Start chat"}
+
+      {recipients.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {recipients.map((r) => (
+            <span
+              key={r.pubkey}
+              className="flex items-center gap-1 rounded-full bg-rouge-600/20 px-2.5 py-1 text-xs text-rouge-200"
+            >
+              {r.label}
+              <button
+                onClick={() => setRecipients((prev) => prev.filter((x) => x.pubkey !== r.pubkey))}
+                aria-label="Remove"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <input
+          className="input flex-1 font-mono text-xs"
+          placeholder="rouge1…"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addRecipient().catch((err) =>
+                toast(err instanceof Error ? err.message : "Invalid address", "error"),
+              );
+            }
+          }}
+          autoFocus
+          spellCheck={false}
+        />
+        <button
+          className="btn-soft shrink-0"
+          onClick={() =>
+            addRecipient().catch((err) =>
+              toast(err instanceof Error ? err.message : "Invalid address", "error"),
+            )
+          }
+          disabled={!input.trim()}
+        >
+          Add
+        </button>
+      </div>
+
+      <button
+        className="btn-primary mt-4 w-full py-3"
+        onClick={go}
+        disabled={busy || (recipients.length === 0 && !input.trim())}
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : recipients.length > 1 ? (
+          "Start group"
+        ) : (
+          "Start chat"
+        )}
       </button>
     </Modal>
   );

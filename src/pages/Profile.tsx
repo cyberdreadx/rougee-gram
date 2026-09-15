@@ -165,7 +165,7 @@ function MessageButton({ pubkey }: { pubkey: string }) {
       className="btn-soft flex-1"
       disabled={start.isPending}
       onClick={() =>
-        start.mutate(pubkey, {
+        start.mutate([pubkey], {
           onSuccess: (id) => navigate(`/messages/${id}`),
           onError: (e) => toast(e instanceof Error ? e.message : "Failed", "error"),
         })

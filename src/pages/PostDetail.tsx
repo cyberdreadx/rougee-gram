@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Send } from "lucide-react";
-import { usePost, useReplies, useAddComment } from "@/hooks/useSocial";
+import { ArrowLeft, Loader2, Send, Heart } from "lucide-react";
+import {
+  usePost,
+  useReplies,
+  useAddComment,
+  usePostStats,
+  useToggleLike,
+} from "@/hooks/useSocial";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
@@ -9,7 +15,8 @@ import PostCard from "@/components/PostCard";
 import Avatar from "@/components/Avatar";
 import UserLink from "@/components/UserLink";
 import { useMyProfile } from "@/hooks/useProfile";
-import { timeAgo } from "@/lib/format";
+import { timeAgo, formatCount } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { SocialPost } from "@rougechain/sdk";
 
 export default function PostDetail() {
@@ -73,6 +80,9 @@ export default function PostDetail() {
 
 function CommentRow({ comment }: { comment: SocialPost }) {
   const { data: profile } = useProfile(comment.author_pubkey);
+  const { data: stats } = usePostStats(comment.id);
+  const like = useToggleLike(comment.id);
+  const liked = stats?.liked ?? false;
   return (
     <div className="flex items-start gap-3">
       <Avatar
@@ -89,10 +99,25 @@ function CommentRow({ comment }: { comment: SocialPost }) {
           />
           {comment.body}
         </p>
-        <div className="mt-0.5 text-xs text-ink-muted">
-          {timeAgo(comment.created_at)}
+        <div className="mt-0.5 flex items-center gap-3 text-xs text-ink-muted">
+          <span>{timeAgo(comment.created_at)}</span>
+          {(stats?.likes ?? 0) > 0 && (
+            <span>
+              {formatCount(stats!.likes)} {stats!.likes === 1 ? "like" : "likes"}
+            </span>
+          )}
         </div>
       </div>
+      <button
+        onClick={() => like.mutate()}
+        className={cn(
+          "mt-1 shrink-0 transition-transform active:scale-90",
+          liked ? "text-rouge-500" : "text-ink-muted hover:text-white",
+        )}
+        aria-label="Like comment"
+      >
+        <Heart className={cn("h-4 w-4", liked && "fill-rouge-500")} />
+      </button>
     </div>
   );
 }

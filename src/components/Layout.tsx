@@ -9,6 +9,7 @@ import WhoToFollow from "./WhoToFollow";
 import { cn } from "@/lib/utils";
 import { shortAddress } from "@/lib/format";
 import { useMyProfile } from "@/hooks/useProfile";
+import { useUnreadCount } from "@/hooks/useMessenger";
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
@@ -40,6 +41,7 @@ function DesktopSidebar() {
   const { address } = useAuth();
   const { open } = useCreatePost();
   const profile = useMyProfile();
+  const unread = useUnreadCount();
 
   return (
     <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col gap-1 p-4 md:flex">
@@ -57,7 +59,7 @@ function DesktopSidebar() {
         Create
       </button>
       <SideLink to="/activity" label="Activity" icon={Heart} end={false} />
-      <SideLink to="/messages" label="Messages" icon={Send} end={false} />
+      <SideLink to="/messages" label="Messages" icon={Send} end={false} badge={unread} />
       <SideLink
         to={`/u/${address}`}
         label="Profile"
@@ -82,12 +84,14 @@ function SideLink({
   icon: Icon,
   end,
   renderIcon,
+  badge,
 }: {
   to: string;
   label: string;
   icon?: React.ComponentType<{ className?: string }>;
   end: boolean;
   renderIcon?: () => ReactNode;
+  badge?: number;
 }) {
   return (
     <NavLink
@@ -102,6 +106,11 @@ function SideLink({
     >
       {renderIcon ? renderIcon() : Icon ? <Icon className="h-6 w-6" /> : null}
       {label}
+      {badge ? (
+        <span className="ml-auto min-w-5 rounded-full bg-rouge-600 px-1.5 py-0.5 text-center text-xs font-semibold text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
     </NavLink>
   );
 }
@@ -149,6 +158,7 @@ function RightRail() {
 
 function MobileTopBar() {
   const navigate = useNavigate();
+  const unread = useUnreadCount();
   return (
     <header className="sticky top-0 z-30 flex h-[var(--top-bar-h)] items-center justify-between border-b border-ink-border bg-ink/80 px-4 backdrop-blur md:hidden">
       <Logo size={28} withWordmark />
@@ -162,10 +172,13 @@ function MobileTopBar() {
         </button>
         <button
           onClick={() => navigate("/messages")}
-          className="btn-ghost h-9 w-9 p-0"
+          className="btn-ghost relative h-9 w-9 p-0"
           aria-label="Messages"
         >
           <Send className="h-6 w-6" />
+          {unread > 0 && (
+            <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-rouge-500 ring-2 ring-ink" />
+          )}
         </button>
       </div>
     </header>

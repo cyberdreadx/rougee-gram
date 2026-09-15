@@ -93,6 +93,13 @@ export function useConversations() {
   });
 }
 
+/** Total unread messages across conversations (0 when none / not loaded). */
+export function useUnreadCount(): number {
+  const { data } = useConversations();
+  if (!data) return 0;
+  return data.reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
+}
+
 export interface DecryptedMessage extends MessengerMessage {
   text: string;
   mine: boolean;
@@ -162,17 +169,23 @@ export function useStartConversation() {
   const { wallet, publicKey } = useAuth();
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (recipientPubkey: string): Promise<string> => {
+    // Accepts one or more recipient pubkeys (group chat when >1).
+    mutationFn: async (recipientPubkeys: string[]): Promise<string> => {
       if (!wallet) throw new Error("Locked");
-      const dir = await rc().messenger.getWallets().catch(() => [] as MessengerWallet[]);
-      const rec = dir.map(normWallet).find((w) => w.id === recipientPubkey);
-      if (!rec?.encryptionPublicKey) {
-        throw new Error("That user hasn't enabled messaging yet.");
+      const recips = [...new Set(recipientPubkeys.filter((p) => p && p !== publicKey))];
+      if (!recips.length) throw new Error("Add at least one recipient.");
+      const dir = (await rc().messenger.getWallets().catch(() => [] as MessengerWallet[])).map(
+        normWallet,
+      );
+      for (const p of recips) {
+        if (!dir.find((w) => w.id === p)?.encryptionPublicKey) {
+          throw new Error("A recipient hasn't enabled messaging yet.");
+        }
       }
-      const res = await rc().messenger.createConversation(wallet, [
-        publicKey,
-        recipientPubkey,
-      ]);
+      const participants = [publicKey, ...recips];
+      const res = await rc().messenger.createConversation(wallet, participants, {
+        isGroup: recips.length > 1,
+      });
       if (!res.success) throw new Error(res.error || "Could not start conversation");
       const data = (res.data ?? {}) as {
         conversationId?: string;
@@ -182,7 +195,7 @@ export function useStartConversation() {
       let id = data.conversationId || data.id || data.conversation?.id;
       if (!id) {
         const convos = await rc().messenger.getConversations(wallet);
-        id = convos.find((c) => c.participants?.includes(recipientPubkey))?.id;
+        id = convos.find((c) => recips.every((r) => c.participants?.includes(r)))?.id;
       }
       if (!id) throw new Error("Conversation created, but no id was returned.");
       return id;
