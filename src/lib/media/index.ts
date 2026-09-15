@@ -1,6 +1,7 @@
 import { putIpfs, ipfsRefToUrl, ipfsEnabled } from "./ipfs";
 import { putCloudflare, cloudflareEnabled } from "./cloudflare";
 import { putLocal, localRefToUrl } from "./local";
+import { getConfig } from "../config";
 import type { MediaBackend, PutResult } from "./types";
 
 export { ipfsEnabled, testPinataJwt } from "./ipfs";
@@ -35,7 +36,8 @@ const urlCache = new Map<string, string>();
 
 /**
  * Resolve a media reference to a displayable URL.
- * - http(s)/data URIs (Cloudflare R2, external): passed through
+ * - http(s)/data URIs (Cloudflare Stream, external, legacy R2): passed through
+ * - cf://<key>: joined to the *currently configured* Worker URL (domain-portable)
  * - ipfs://<cid>: gateway URL
  * - local://<hash>: object URL from IndexedDB (null if not on this device)
  */
@@ -43,6 +45,15 @@ export async function resolveMediaUrl(ref: string): Promise<string | null> {
   if (!ref) return null;
   if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("data:")) {
     return ref;
+  }
+  // Domain-agnostic Cloudflare R2 ref: resolve against the active Worker URL so
+  // moving the CDN to a new domain never orphans on-chain media (see cloudflare.ts).
+  if (ref.startsWith("cf:")) {
+    const base = getConfig().cfWorkerUrl.replace(/\/+$/, "");
+    if (!base) return null;
+    const url = `${base}/f/${ref.slice(3)}`;
+    urlCache.set(ref, url);
+    return url;
   }
   if (ref.startsWith("ipfs://")) {
     const url = ipfsRefToUrl(ref);

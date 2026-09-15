@@ -5,8 +5,14 @@ import type { PutResult } from "./types";
 /**
  * Cloudflare media backend. Uploads blobs (images + video) through a small
  * R2-backed Worker (see workers/media). The Worker stores by content hash and
- * serves reads with range support, so the returned ref is a plain https:// URL
- * the app can use directly. R2 = cheap storage + free egress.
+ * serves reads with range support. R2 = cheap storage + free egress.
+ *
+ * The returned ref is domain-agnostic: `cf:<objectKey>` (e.g. `cf:media/<hash>.jpg`),
+ * NOT an absolute URL. Refs are written into on-chain post envelopes forever, so
+ * baking in the Worker's hostname would orphan all media the day the app moves to
+ * a new domain (workers.dev -> rougee.app -> …). Instead resolveMediaUrl() joins
+ * the ref to the *currently configured* Worker URL at read time, so repointing to
+ * a new domain is a one-line config change and every past post follows along.
  */
 
 export function cloudflareEnabled(): boolean {
@@ -48,10 +54,15 @@ export async function putCloudflare(blob: Blob): Promise<PutResult> {
     throw new Error(`Cloudflare upload failed (${res.status}): ${text.slice(0, 160)}`);
   }
 
-  const json = (await res.json()) as { url?: string };
-  if (!json.url) throw new Error("Cloudflare upload returned no URL.");
+  const json = (await res.json()) as { url?: string; key?: string };
+  // Prefer the content-addressed object key; derive it from the URL for older
+  // Workers that only return `url`. Store it domain-agnostically as `cf:<key>`.
+  const objectKey =
+    json.key ||
+    (json.url ? new URL(json.url).pathname.replace(/^\/f\//, "") : "");
+  if (!objectKey) throw new Error("Cloudflare upload returned no key.");
 
-  return { ref: json.url, mime, size: blob.size };
+  return { ref: `cf:${objectKey}`, mime, size: blob.size };
 }
 
 /** Health-check a Worker base URL. */
