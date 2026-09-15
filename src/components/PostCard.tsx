@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Heart,
   MessageCircle,
+  Repeat2,
   Share2,
   MoreHorizontal,
   Trash2,
@@ -11,7 +12,12 @@ import {
 import type { SocialPost } from "@rougechain/sdk";
 import { decodeBody } from "@/lib/envelope";
 import { useProfile } from "@/hooks/useProfile";
-import { usePostStats, useToggleLike, useDeletePost } from "@/hooks/useSocial";
+import {
+  usePostStats,
+  useToggleLike,
+  useToggleRepost,
+  useDeletePost,
+} from "@/hooks/useSocial";
 import { useAuth } from "@/store/auth";
 import { useToast } from "./Toast";
 import { shortAddress, timeAgo, formatCount } from "@/lib/format";
@@ -28,6 +34,7 @@ export default function PostCard({ post }: { post: SocialPost }) {
   const { data: profile } = useProfile(post.author_pubkey);
   const { data: stats } = usePostStats(post.id);
   const like = useToggleLike(post.id);
+  const repost = useToggleRepost(post.id);
   const navigate = useNavigate();
   const [burst, setBurst] = useState(false);
   const lastTap = useRef(0);
@@ -152,14 +159,33 @@ export default function PostCard({ post }: { post: SocialPost }) {
         >
           <MessageCircle className="h-6 w-6" />
         </button>
+        <button
+          onClick={() => repost.mutate()}
+          className={cn(
+            "transition-transform active:scale-90",
+            stats?.reposted ? "text-emerald-500" : "text-white hover:text-ink-muted",
+          )}
+          aria-label="Repost"
+        >
+          <Repeat2 className="h-6 w-6" />
+        </button>
         <ShareButton postId={post.id} />
       </div>
 
       {/* meta */}
       <div className="space-y-1 px-3 pt-2 sm:px-0">
-        {(stats?.likes ?? 0) > 0 && (
-          <div className="text-sm font-semibold">
-            {formatCount(stats!.likes)} {stats!.likes === 1 ? "like" : "likes"}
+        {((stats?.likes ?? 0) > 0 || (stats?.reposts ?? 0) > 0) && (
+          <div className="flex items-center gap-3 text-sm">
+            {(stats?.likes ?? 0) > 0 && (
+              <span className="font-semibold">
+                {formatCount(stats!.likes)} {stats!.likes === 1 ? "like" : "likes"}
+              </span>
+            )}
+            {(stats?.reposts ?? 0) > 0 && (
+              <span className="text-ink-muted">
+                {formatCount(stats!.reposts)} {stats!.reposts === 1 ? "repost" : "reposts"}
+              </span>
+            )}
           </div>
         )}
         {media.cap && (

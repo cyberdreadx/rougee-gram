@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MessageCircle, Volume2, VolumeX, Play, Film } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Volume2, VolumeX, Play, Film } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
-import { useGlobalTimeline, usePostStats, useToggleLike } from "@/hooks/useSocial";
+import {
+  useGlobalTimeline,
+  usePostStats,
+  useToggleLike,
+  useToggleRepost,
+} from "@/hooks/useSocial";
 import { useProfile } from "@/hooks/useProfile";
 import { useCreatePost } from "@/components/CreatePost";
 import { decodeBody, type VideoEnvelope } from "@/lib/envelope";
@@ -65,6 +70,7 @@ function ReelItem({ post }: { post: SocialPost }) {
   const { data: profile } = useProfile(post.author_pubkey);
   const { data: stats } = usePostStats(post.id);
   const like = useToggleLike(post.id);
+  const repost = useToggleRepost(post.id);
   const navigate = useNavigate();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -157,6 +163,16 @@ function ReelItem({ post }: { post: SocialPost }) {
         >
           <MessageCircle className="h-8 w-8 drop-shadow" />
           <span className="text-xs font-semibold">{formatCount(stats?.replies ?? 0)}</span>
+        </button>
+        <button
+          onClick={() => repost.mutate()}
+          className="flex flex-col items-center gap-1"
+          aria-label="Repost"
+        >
+          <Repeat2
+            className={cn("h-8 w-8 drop-shadow", stats?.reposted && "text-emerald-400")}
+          />
+          <span className="text-xs font-semibold">{formatCount(stats?.reposts ?? 0)}</span>
         </button>
       </div>
 

@@ -116,6 +116,39 @@ export function useToggleLike(postId: string) {
   });
 }
 
+export function useToggleRepost(postId: string) {
+  const { wallet, publicKey } = useAuth();
+  const client = useQueryClient();
+  const key = qk.postStats(postId, publicKey);
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!wallet) throw new Error("Locked");
+      const res = await rc().social.toggleRepost(wallet, postId);
+      if (!res.success) throw new Error(res.error || "Repost failed");
+      return res;
+    },
+    onMutate: async () => {
+      await client.cancelQueries({ queryKey: key });
+      const prev = client.getQueryData<PostStats>(key);
+      if (prev) {
+        client.setQueryData<PostStats>(key, {
+          ...prev,
+          reposted: !prev.reposted,
+          reposts: prev.reposts + (prev.reposted ? -1 : 1),
+        });
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) client.setQueryData(key, ctx.prev);
+    },
+    onSettled: () => {
+      client.invalidateQueries({ queryKey: key });
+    },
+  });
+}
+
 export function useToggleFollow(pubkey: string) {
   const { wallet, publicKey } = useAuth();
   const client = useQueryClient();
