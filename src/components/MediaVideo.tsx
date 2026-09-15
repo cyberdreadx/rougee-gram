@@ -82,6 +82,14 @@ export default function MediaVideo({
     };
   }, [videoUrl, isHls]);
 
+  // React does not reliably sync the <video> `muted` DOM *property* when the
+  // prop changes (facebook/react#10389), so an unmute tap flips state but the
+  // element stays muted. Apply it imperatively so the mute toggle actually works.
+  useEffect(() => {
+    const el = elRef.current;
+    if (el) el.muted = !!muted;
+  }, [muted, videoUrl]);
+
   // Seek to the trim start once metadata is available.
   useEffect(() => {
     const el = elRef.current;
