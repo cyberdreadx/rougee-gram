@@ -20,9 +20,9 @@ export default function Logo({
       >
         <defs>
           <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#ff647c" />
-            <stop offset="0.5" stopColor="#ff2d55" />
-            <stop offset="1" stopColor="#8a0e34" />
+            <stop offset="0" stopColor="#13ecda" />
+            <stop offset="0.5" stopColor="#0b84d4" />
+            <stop offset="1" stopColor="#a855f7" />
           </linearGradient>
         </defs>
         <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#lg)" />

@@ -56,7 +56,7 @@ export default function Avatar({
         <div
           className="flex h-full w-full items-center justify-center font-semibold text-white"
           style={{
-            background: `linear-gradient(135deg, ${colorFromString(seed)}, #8a0e34)`,
+            background: `linear-gradient(135deg, ${colorFromString(seed)}, #0b1f3a)`,
             fontSize: size * 0.42,
           }}
         >

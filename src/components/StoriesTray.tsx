@@ -47,7 +47,7 @@ export default function StoriesTray() {
               e.stopPropagation();
               open("story");
             }}
-            className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-rouge-600 text-white ring-2 ring-ink"
+            className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-rouge-600 text-ink ring-2 ring-ink"
           >
             <Plus className="h-3 w-3" />
           </span>

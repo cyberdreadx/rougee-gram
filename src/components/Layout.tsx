@@ -108,7 +108,7 @@ function SideLink({
       {renderIcon ? renderIcon() : Icon ? <Icon className="h-6 w-6" /> : null}
       {label}
       {badge ? (
-        <span className="ml-auto min-w-5 rounded-full bg-rouge-600 px-1.5 py-0.5 text-center text-xs font-semibold text-white">
+        <span className="ml-auto min-w-5 rounded-full bg-rouge-600 px-1.5 py-0.5 text-center text-xs font-semibold text-ink">
           {badge > 99 ? "99+" : badge}
         </span>
       ) : null}

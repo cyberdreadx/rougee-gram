@@ -124,7 +124,7 @@ function Bubble({ m, group }: { m: DecryptedMessage; group: boolean }) {
         className={cn(
           "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm",
           m.mine
-            ? "rounded-br-md bg-rouge-600 text-white"
+            ? "rounded-br-md bg-rouge-600 text-ink"
             : "rounded-bl-md bg-ink-card text-white",
         )}
       >
