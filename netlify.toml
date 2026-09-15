@@ -12,6 +12,14 @@
   # are reproducible and don't break when Netlify changes its default Node.
   NODE_VERSION = "20"
 
+  # Shared Cloudflare R2 media backend (Worker in workers/media). This is the
+  # public Worker URL, not a secret, so it's safe to commit here — every visitor's
+  # uploads go to the same bucket and are visible to everyone. Media refs are
+  # stored domain-agnostically (cf:<key>, see src/lib/media/cloudflare.ts), so to
+  # move the CDN to a custom domain later (e.g. cdn.rougee.xyz) just change this
+  # one value and redeploy — existing on-chain media follows automatically.
+  VITE_CF_WORKER_URL = "https://rougee-gram-media.rougee.workers.dev"
+
 # SPA catch-all. rougee-gram uses react-router BrowserRouter with routes like
 # /p/:postId, /u/:address, /settings and /explore. Without this rule, a direct
 # visit or hard refresh of one of those paths is a request for a file that does
