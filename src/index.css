@@ -20,6 +20,8 @@
   body,
   #root {
     height: 100%;
+    /* No rubber-band bounce or pull-to-refresh — behaves like a native app. */
+    overscroll-behavior: none;
   }
 
   body {
