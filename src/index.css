@@ -26,6 +26,23 @@
     @apply bg-ink text-white antialiased;
     font-feature-settings: "cv11", "ss01";
     -webkit-tap-highlight-color: transparent;
+    /* Native-app feel: kill double-tap-to-zoom and the 300ms tap delay while
+       keeping normal scroll/swipe. JS in main.tsx blocks iOS pinch-zoom too. */
+    touch-action: manipulation;
+    /* Don't let iOS enlarge text when the device is rotated. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* iOS Safari auto-zooms into any focused field whose font-size is < 16px.
+     Force 16px on form controls at mobile widths so focusing never zooms.
+     !important beats Tailwind's text-sm/text-xs utilities on these fields. */
+  @media (max-width: 767.98px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
   }
 
   /* Thin, unobtrusive scrollbars */
