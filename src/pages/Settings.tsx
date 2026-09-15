@@ -32,6 +32,13 @@ import { clearProfileCache } from "@/lib/profile";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/** Operator-only sections (media backend config, network switcher) are hidden
+ *  from consumers. They show in local dev, or in any build with
+ *  VITE_SHOW_ADVANCED="true". The media backend and network are set at deploy
+ *  time (VITE_CF_WORKER_URL / VITE_ROUGE_API), so end users never need them. */
+const SHOW_ADVANCED =
+  import.meta.env.DEV || import.meta.env.VITE_SHOW_ADVANCED === "true";
+
 export default function Settings() {
   const { wallet, address, balance, publicKey, lock, logout, refreshBalance } = useAuth();
   const { toast } = useToast();
@@ -58,9 +65,14 @@ export default function Settings() {
           onRefresh={refreshBalance}
         />
 
-        <MediaSection />
-
-        <NetworkSection />
+        {SHOW_ADVANCED ? (
+          <>
+            <MediaSection />
+            <NetworkSection />
+          </>
+        ) : (
+          <ConsumerNetworkBadge />
+        )}
 
         <DangerSection
           address={address}
@@ -451,6 +463,45 @@ function NetworkSection() {
         Your wallet works on any network — the same key, different chain. Balances
         and posts are per-network. Mainnet has no faucet.
       </p>
+    </Section>
+  );
+}
+
+/** Read-only network indicator for consumers (the switcher is operator-only). */
+function ConsumerNetworkBadge() {
+  const cfg = getConfig();
+  const [health, setHealth] = useState<"online" | "offline" | "checking">("checking");
+  useEffect(() => {
+    let active = true;
+    rc()
+      .getStats()
+      .then(() => active && setHealth("online"))
+      .catch(() => active && setHealth("offline"));
+    return () => {
+      active = false;
+    };
+  }, []);
+  const label = cfg.network
+    ? cfg.network.charAt(0).toUpperCase() + cfg.network.slice(1)
+    : "RougeChain";
+  return (
+    <Section icon={<Globe className="h-4 w-4" />} title="Network">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-ink-muted">Connected to</span>
+        <span className="flex items-center gap-2 font-medium">
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              health === "online"
+                ? "bg-emerald-400"
+                : health === "offline"
+                  ? "bg-rouge-500"
+                  : "bg-ink-muted",
+            )}
+          />
+          {label}
+        </span>
+      </div>
     </Section>
   );
 }
