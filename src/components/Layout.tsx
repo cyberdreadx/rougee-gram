@@ -128,7 +128,7 @@ function RightRail() {
             <div className="truncate text-sm font-semibold">
               {profile?.name || shortAddress(address)}
             </div>
-            <div className="truncate text-xs text-ink-muted">
+            <div className="truncate font-mono text-xs text-ink-muted">
               {shortAddress(address, 10, 6)}
             </div>
           </div>

@@ -126,7 +126,7 @@ export default function PostCard({ post }: { post: SocialPost }) {
             className="block truncate text-sm font-semibold"
           />
           <div className="truncate text-xs text-ink-muted">
-            {shortAddress(profile?.address ?? "", 10, 5)} · {timeAgo(post.created_at)}
+            <span className="font-mono">{shortAddress(profile?.address ?? "", 10, 5)}</span> · {timeAgo(post.created_at)}
           </div>
         </div>
         <PostMenu postId={post.id} authorPubkey={post.author_pubkey} />

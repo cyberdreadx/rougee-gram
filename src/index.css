@@ -25,7 +25,9 @@
   }
 
   body {
-    @apply bg-ink text-white antialiased;
+    @apply bg-ink antialiased;
+    /* RougeChain foreground: a barely-there cyan-tinted white, not pure #fff. */
+    color: #eafffe;
     font-feature-settings: "cv11", "ss01";
     -webkit-tap-highlight-color: transparent;
     /* Native-app feel: kill double-tap-to-zoom and the 300ms tap delay while
@@ -73,6 +75,19 @@
   }
   .btn-primary {
     @apply btn bg-rouge-600 text-ink hover:bg-rouge-500 active:bg-rouge-700;
+    /* Quantum teal glow, echoing RougeChain's neon button treatment. */
+    box-shadow: 0 0 18px -3px rgba(0, 210, 190, 0.5);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 0 24px -2px rgba(0, 210, 190, 0.65);
+  }
+  .btn-primary:disabled {
+    box-shadow: none;
+  }
+
+  /* Reusable teal glow for accent elements (avatars, active states, badges). */
+  .glow-teal {
+    box-shadow: 0 0 20px -4px rgba(0, 210, 190, 0.55);
   }
   .btn-ghost {
     @apply btn bg-transparent text-ink-muted hover:bg-white/5 hover:text-white;

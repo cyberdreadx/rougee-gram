@@ -100,7 +100,7 @@ export default function Profile() {
           <div className="font-semibold">
             {profile ? displayName(profile) : shortAddress(address ?? "")}
           </div>
-          <div className="text-sm text-ink-muted">
+          <div className="font-mono text-sm text-ink-muted">
             {shortAddress(profile?.address ?? address ?? "", 14, 8)}
           </div>
           {profile?.bio && (
