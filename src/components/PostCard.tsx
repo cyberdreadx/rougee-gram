@@ -24,6 +24,7 @@ import { shortAddress, timeAgo, formatCount } from "@/lib/format";
 import Avatar from "./Avatar";
 import MediaImage from "./MediaImage";
 import MediaVideo from "./MediaVideo";
+import Carousel from "./Carousel";
 import UserLink from "./UserLink";
 import Caption from "./Caption";
 import { Film } from "lucide-react";
@@ -39,17 +40,27 @@ export default function PostCard({ post }: { post: SocialPost }) {
   const [burst, setBurst] = useState(false);
   const lastTap = useRef(0);
 
-  // photo / video / story render as media cards; plain text renders as text.
-  if (
-    decoded.kind !== "photo" &&
-    decoded.kind !== "video" &&
-    decoded.kind !== "story"
-  ) {
-    if (decoded.kind === "profile") return null; // profile-metadata posts are hidden
+  // photo / video / story / carousel render as media cards; plain text as text.
+  if (decoded.kind === "profile") return null; // profile-metadata posts are hidden
+  if (decoded.kind === "text") {
     return <TextPostCard post={post} profile={profile} />;
   }
 
-  const media = decoded.data as {
+  const isCarousel = decoded.kind === "carousel";
+  const carouselItems = decoded.kind === "carousel" ? decoded.data.items : null;
+  const first = decoded.kind === "carousel" ? decoded.data.items[0] : null;
+  const media = (
+    decoded.kind === "carousel"
+      ? {
+          cid: first?.cid ?? "",
+          mime: first?.mime ?? "image",
+          w: first?.w,
+          h: first?.h,
+          cap: decoded.data.cap,
+          alt: decoded.data.alt,
+        }
+      : decoded.data
+  ) as {
     cid: string;
     mime?: string;
     w?: number;
@@ -59,7 +70,8 @@ export default function PostCard({ post }: { post: SocialPost }) {
     poster?: string;
     t?: string;
   };
-  const isVideo = (media.mime ?? "").startsWith("video/") || decoded.kind === "video";
+  const isVideo =
+    !isCarousel && ((media.mime ?? "").startsWith("video/") || decoded.kind === "video");
   const isReel = decoded.kind === "video" && media.t === "reel";
   const posterRef = isVideo ? media.poster : undefined;
   const liked = stats?.liked ?? false;
@@ -110,10 +122,12 @@ export default function PostCard({ post }: { post: SocialPost }) {
       <div
         className="relative mt-3 max-h-[85vh] w-full select-none overflow-hidden bg-black sm:rounded-2xl"
         style={{ aspectRatio }}
-        onClick={isVideo ? undefined : onImageTap}
+        onClick={isVideo || isCarousel ? undefined : onImageTap}
         onDoubleClick={() => !liked && triggerLike()}
       >
-        {isVideo ? (
+        {isCarousel ? (
+          <Carousel items={carouselItems!} />
+        ) : isVideo ? (
           <MediaVideo
             refUri={media.cid}
             poster={posterRef}

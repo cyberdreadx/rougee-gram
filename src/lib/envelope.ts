@@ -53,6 +53,23 @@ export interface VideoEnvelope {
   alt?: string;
 }
 
+export interface CarouselItem {
+  cid: string;
+  mime: string;
+  w?: number;
+  h?: number;
+}
+
+export interface CarouselEnvelope {
+  v: 1;
+  t: "carousel";
+  items: CarouselItem[];
+  cap?: string;
+  alt?: string;
+}
+
+export const CAROUSEL_MAX = 10;
+
 export interface StoryEnvelope {
   v: 1;
   t: "story";
@@ -81,6 +98,7 @@ export interface ProfileEnvelope {
 export type Decoded =
   | { kind: "photo"; data: PhotoEnvelope }
   | { kind: "video"; data: VideoEnvelope }
+  | { kind: "carousel"; data: CarouselEnvelope }
   | { kind: "story"; data: StoryEnvelope }
   | { kind: "profile"; data: ProfileEnvelope }
   | { kind: "text"; text: string };
@@ -91,6 +109,19 @@ export const STORY_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function encodePhoto(env: Omit<PhotoEnvelope, "v" | "t">): string {
   const full: PhotoEnvelope = { v: 1, t: "photo", ...env };
+  if (full.cap) full.cap = full.cap.slice(0, CAPTION_LIMIT);
+  const json = JSON.stringify(stripUndefined(full));
+  if (json.length > POST_BODY_LIMIT) {
+    throw new Error("Caption too long for a single on-chain post.");
+  }
+  return json;
+}
+
+export function encodeCarousel(
+  env: Omit<CarouselEnvelope, "v" | "t">,
+): string {
+  const items = env.items.slice(0, CAROUSEL_MAX);
+  const full: CarouselEnvelope = { v: 1, t: "carousel", ...env, items };
   if (full.cap) full.cap = full.cap.slice(0, CAPTION_LIMIT);
   const json = JSON.stringify(stripUndefined(full));
   if (json.length > POST_BODY_LIMIT) {
@@ -144,6 +175,14 @@ export function decodeBody(body: string): Decoded {
       ) {
         return { kind: "video", data: obj as unknown as VideoEnvelope };
       }
+      if (
+        obj &&
+        obj.v === 1 &&
+        obj.t === "carousel" &&
+        Array.isArray((obj as { items?: unknown }).items)
+      ) {
+        return { kind: "carousel", data: obj as unknown as CarouselEnvelope };
+      }
       if (obj && obj.v === 1 && obj.t === "story" && typeof obj.cid === "string") {
         return { kind: "story", data: obj as unknown as StoryEnvelope };
       }
@@ -161,10 +200,10 @@ export function isPhotoBody(body: string): boolean {
   return decodeBody(body).kind === "photo";
 }
 
-/** True for photo OR video/reel posts (anything with a visual grid thumbnail). */
+/** True for photo/video/carousel posts (anything with a visual grid thumbnail). */
 export function isMediaBody(body: string): boolean {
   const k = decodeBody(body).kind;
-  return k === "photo" || k === "video";
+  return k === "photo" || k === "video" || k === "carousel";
 }
 
 function stripUndefined(obj: object): Record<string, unknown> {

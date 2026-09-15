@@ -32,7 +32,14 @@ import {
   type ProcessedVideo,
 } from "@/lib/video";
 import { putImage, activeBackend } from "@/lib/media";
-import { encodePhoto, encodeVideo, encodeStory, CAPTION_LIMIT } from "@/lib/envelope";
+import {
+  encodePhoto,
+  encodeVideo,
+  encodeStory,
+  encodeCarousel,
+  CAPTION_LIMIT,
+  CAROUSEL_MAX,
+} from "@/lib/envelope";
 import { rc, requestFaucet } from "@/lib/rouge";
 import { invalidateFeeds } from "@/hooks/useSocial";
 import { cn } from "@/lib/utils";
@@ -87,6 +94,8 @@ function CreatePostDialog({
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [moreImages, setMoreImages] = useState<File[]>([]);
+  const [moreUrls, setMoreUrls] = useState<string[]>([]);
   const [square, setSquare] = useState(false);
   const [isReel, setIsReel] = useState(false);
   const [vinfo, setVinfo] = useState<ProcessedVideo | null>(null);
@@ -96,33 +105,46 @@ function CreatePostDialog({
   const [stage, setStage] = useState("");
 
   const backend = activeBackend();
-  const kind = file ? (isVideoFile(file) ? "video" : "image") : null;
+  const kind = file
+    ? isVideoFile(file)
+      ? "video"
+      : moreImages.length > 0
+        ? "carousel"
+        : "image"
+    : null;
+  const carouselUrls = [previewUrl, ...moreUrls];
   const reelAllowed =
     !vinfo?.duration || vinfo.duration <= REEL_MAX_SECONDS;
 
-  const pickFile = useCallback(
-    async (f: File | null) => {
-      if (!f) return;
-      const isImg = f.type.startsWith("image/");
-      const isVid = f.type.startsWith("video/");
+  const pickFiles = useCallback(
+    async (list: FileList | File[] | null) => {
+      const files = list ? Array.from(list) : [];
+      if (!files.length) return;
+      const first = files[0];
+      const isImg = first.type.startsWith("image/");
+      const isVid = first.type.startsWith("video/");
       if (!isImg && !isVid) {
         toast("Choose an image or video file.", "error");
         return;
       }
-      const url = URL.createObjectURL(f);
-      setPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return url;
-      });
-      setFile(f);
       setVinfo(null);
       setSquare(false);
       setIsReel(false);
 
       if (isVid) {
+        setFile(first);
+        setMoreImages([]);
+        setMoreUrls((prev) => {
+          prev.forEach((u) => URL.revokeObjectURL(u));
+          return [];
+        });
+        setPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(first);
+        });
         setProcessing(true);
         try {
-          const info = await processVideo(f);
+          const info = await processVideo(first);
           setVinfo(info);
           setIsReel(
             info.isPortrait && (!info.duration || info.duration <= REEL_MAX_SECONDS),
@@ -137,15 +159,35 @@ function CreatePostDialog({
         } finally {
           setProcessing(false);
         }
+        return;
       }
+
+      // Images — up to CAROUSEL_MAX (stories are single).
+      const imgs = files
+        .filter((f) => f.type.startsWith("image/"))
+        .slice(0, isStory ? 1 : CAROUSEL_MAX);
+      const [primary, ...rest] = imgs;
+      setFile(primary);
+      setMoreImages(rest);
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(primary);
+      });
+      setMoreUrls((prev) => {
+        prev.forEach((u) => URL.revokeObjectURL(u));
+        return rest.map((f) => URL.createObjectURL(f));
+      });
     },
-    [toast],
+    [toast, isStory],
   );
 
   function reset() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
+    moreUrls.forEach((u) => URL.revokeObjectURL(u));
     setFile(null);
     setPreviewUrl("");
+    setMoreImages([]);
+    setMoreUrls([]);
     setCaption("");
     setSquare(false);
     setIsReel(false);
@@ -241,6 +283,21 @@ function CreatePostDialog({
     }
   }
 
+  async function shareCarousel() {
+    if (!file || !wallet) return;
+    const all = [file, ...moreImages].slice(0, CAROUSEL_MAX);
+    const items: { cid: string; mime: string; w: number; h: number }[] = [];
+    for (let i = 0; i < all.length; i++) {
+      setStage(`Processing ${i + 1}/${all.length}…`);
+      const img = await processImage(all[i], { maxSize: 1440, quality: 0.82 });
+      setStage(`Uploading ${i + 1}/${all.length}…`);
+      const media = await putImage(img.blob, "photo");
+      items.push({ cid: media.ref, mime: img.mime, w: img.width, h: img.height });
+    }
+    setStage("Signing & posting on-chain…");
+    await submit(encodeCarousel({ items, cap: caption.trim() || undefined }));
+  }
+
   async function submit(body: string) {
     if (!wallet) return;
     let res = await rc().social.createPost(wallet, body);
@@ -269,6 +326,7 @@ function CreatePostDialog({
     try {
       if (isStory) await shareStory();
       else if (kind === "video") await shareVideo();
+      else if (kind === "carousel") await shareCarousel();
       else await shareImage();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Could not post.", "error");
@@ -283,10 +341,34 @@ function CreatePostDialog({
   return (
     <Modal onClose={busy ? () => {} : onClose} title={isStory ? "New story" : "New post"} maxWidth="max-w-lg">
       {!file ? (
-        <DropZone onFile={pickFile} onBrowse={() => fileInput.current?.click()} />
+        <DropZone onFiles={pickFiles} onBrowse={() => fileInput.current?.click()} isStory={isStory} />
       ) : (
         <div className="space-y-4">
-          <div className="relative">
+          {kind === "carousel" ? (
+            <div className="relative">
+              <div className="hide-scrollbar flex gap-2 overflow-x-auto rounded-xl bg-black p-2">
+                {carouselUrls.map((u, i) => (
+                  <img
+                    key={i}
+                    src={u}
+                    alt=""
+                    className="h-28 w-28 shrink-0 rounded-lg object-cover"
+                  />
+                ))}
+              </div>
+              <span className="absolute left-2 top-2 rounded-md bg-black/60 px-2 py-1 text-xs font-medium text-white backdrop-blur">
+                {carouselUrls.length} photos
+              </span>
+              <button
+                onClick={() => reset()}
+                disabled={busy}
+                className="absolute right-2 top-2 rounded-lg bg-black/60 p-2 text-white backdrop-blur hover:bg-black/80"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
             <div
               className={cn(
                 "flex items-center justify-center overflow-hidden rounded-xl bg-black",
@@ -360,7 +442,8 @@ function CreatePostDialog({
                 {formatDur(vinfo.duration)}
               </span>
             ) : null}
-          </div>
+            </div>
+          )}
 
           {tooBig && (
             <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
@@ -429,19 +512,22 @@ function CreatePostDialog({
         ref={fileInput}
         type="file"
         accept="image/*,video/*"
+        multiple={!isStory}
         className="hidden"
-        onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+        onChange={(e) => pickFiles(e.target.files)}
       />
     </Modal>
   );
 }
 
 function DropZone({
-  onFile,
+  onFiles,
   onBrowse,
+  isStory,
 }: {
-  onFile: (f: File) => void;
+  onFiles: (files: FileList | File[]) => void;
   onBrowse: () => void;
+  isStory: boolean;
 }) {
   const [drag, setDrag] = useState(false);
   return (
@@ -455,8 +541,7 @@ function DropZone({
       onDrop={(e) => {
         e.preventDefault();
         setDrag(false);
-        const f = e.dataTransfer.files?.[0];
-        if (f) onFile(f);
+        if (e.dataTransfer.files?.length) onFiles(e.dataTransfer.files);
       }}
       className={cn(
         "flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-16 transition-colors",
@@ -467,8 +552,12 @@ function DropZone({
         <ImagePlus className="h-8 w-8" />
       </div>
       <div className="text-center">
-        <p className="font-medium">Drag a photo or video here</p>
-        <p className="text-sm text-ink-muted">or click to browse · reels supported</p>
+        <p className="font-medium">
+          {isStory ? "Add to your story" : "Drag photos or a video here"}
+        </p>
+        <p className="text-sm text-ink-muted">
+          {isStory ? "photo or video" : "click to browse · up to 10 photos · reels"}
+        </p>
       </div>
     </button>
   );

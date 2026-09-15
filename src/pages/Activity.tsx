@@ -91,7 +91,9 @@ function CommentRow({ item }: { item: ActivityComment }) {
       ? decoded.data.cid
       : decoded.kind === "video"
         ? decoded.data.poster
-        : undefined;
+        : decoded.kind === "carousel"
+          ? decoded.data.items[0]?.cid
+          : undefined;
 
   return (
     <Link

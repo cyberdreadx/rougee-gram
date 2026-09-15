@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Heart, Play, Film } from "lucide-react";
+import { Heart, Play, Film, Copy } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { decodeBody } from "@/lib/envelope";
 import MediaImage from "./MediaImage";
@@ -11,6 +11,7 @@ interface Cell {
   thumbRef: string;
   isVideo: boolean;
   isReel: boolean;
+  isCarousel: boolean;
 }
 
 export function toMediaCells(posts: SocialPost[] | undefined): Cell[] {
@@ -19,13 +20,22 @@ export function toMediaCells(posts: SocialPost[] | undefined): Cell[] {
     if (post.reply_to_id) continue;
     const decoded = decodeBody(post.body);
     if (decoded.kind === "photo") {
-      cells.push({ post, thumbRef: decoded.data.cid, isVideo: false, isReel: false });
+      cells.push({ post, thumbRef: decoded.data.cid, isVideo: false, isReel: false, isCarousel: false });
     } else if (decoded.kind === "video") {
       cells.push({
         post,
         thumbRef: decoded.data.poster ?? "",
         isVideo: true,
         isReel: decoded.data.t === "reel",
+        isCarousel: false,
+      });
+    } else if (decoded.kind === "carousel") {
+      cells.push({
+        post,
+        thumbRef: decoded.data.items[0]?.cid ?? "",
+        isVideo: false,
+        isReel: false,
+        isCarousel: true,
       });
     }
   }
@@ -63,7 +73,7 @@ export default function PhotoGrid({
 
   return (
     <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
-      {cells.map(({ post, thumbRef, isVideo, isReel }) => (
+      {cells.map(({ post, thumbRef, isVideo, isReel, isCarousel }) => (
         <Link
           key={post.id}
           to={`/p/${post.id}`}
@@ -80,9 +90,15 @@ export default function PhotoGrid({
               <Film className="h-6 w-6 text-ink-muted" />
             </div>
           )}
-          {isVideo && (
+          {(isVideo || isCarousel) && (
             <span className="pointer-events-none absolute right-1.5 top-1.5 text-white drop-shadow">
-              {isReel ? <Film className="h-4 w-4" /> : <Play className="h-4 w-4 fill-white" />}
+              {isCarousel ? (
+                <Copy className="h-4 w-4" />
+              ) : isReel ? (
+                <Film className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4 fill-white" />
+              )}
             </span>
           )}
           <div
