@@ -12,6 +12,7 @@ import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import Modal from "@/components/Modal";
 import Avatar from "@/components/Avatar";
+import NotesRow from "@/components/NotesRow";
 import { rc } from "@/lib/rouge";
 import { displayName } from "@/lib/profile";
 import { shortAddress, timeAgo } from "@/lib/format";
@@ -37,6 +38,8 @@ export default function Messages() {
           </button>
         )}
       </header>
+
+      <NotesRow />
 
       {isExtensionWallet ? (
         <div className="flex flex-col items-center gap-3 px-6 py-20 text-center">

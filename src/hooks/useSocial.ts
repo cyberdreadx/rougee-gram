@@ -293,7 +293,7 @@ export function useActivity() {
       const mine = posts.filter((p) => {
         if (p.reply_to_id) return false;
         const k = decodeBody(p.body).kind;
-        return k !== "profile" && k !== "story";
+        return k !== "profile" && k !== "story" && k !== "note";
       });
       const results = await Promise.all(
         mine.map(async (p) => {
