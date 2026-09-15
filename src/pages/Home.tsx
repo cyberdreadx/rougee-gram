@@ -19,7 +19,7 @@ export default function Home() {
   return (
     <div>
       {/* Segmented tabs */}
-      <div className="sticky top-0 z-20 flex border-b border-ink-border bg-ink/80 backdrop-blur md:top-0">
+      <div className="sticky top-[var(--top-bar-h)] z-20 flex border-b border-ink-border bg-ink/80 backdrop-blur md:top-0">
         <TabButton active={tab === "following"} onClick={() => setTab("following")}>
           Following
         </TabButton>

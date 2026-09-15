@@ -38,6 +38,8 @@ export default function PostCard({ post }: { post: SocialPost }) {
 
   const photo = decoded.data;
   const liked = stats?.liked ?? false;
+  // Reserve the image's real aspect ratio so the feed doesn't jump when it loads.
+  const aspectRatio = photo.w && photo.h ? `${photo.w} / ${photo.h}` : "1 / 1";
 
   function triggerLike() {
     if (!liked) {
@@ -70,9 +72,9 @@ export default function PostCard({ post }: { post: SocialPost }) {
         <div className="min-w-0 flex-1 leading-tight">
           <UserLink
             pubkey={post.author_pubkey}
-            className="text-sm font-semibold"
+            className="block truncate text-sm font-semibold"
           />
-          <div className="text-xs text-ink-muted">
+          <div className="truncate text-xs text-ink-muted">
             {shortAddress(profile?.address ?? "", 10, 5)} · {timeAgo(post.created_at)}
           </div>
         </div>
@@ -81,14 +83,15 @@ export default function PostCard({ post }: { post: SocialPost }) {
 
       {/* image */}
       <div
-        className="relative mt-3 select-none overflow-hidden bg-black sm:rounded-2xl"
+        className="relative mt-3 max-h-[85vh] w-full select-none overflow-hidden bg-black sm:rounded-2xl"
+        style={{ aspectRatio }}
         onClick={onImageTap}
         onDoubleClick={() => !liked && triggerLike()}
       >
         <MediaImage
           refUri={photo.cid}
           alt={photo.alt || photo.cap || "photo"}
-          className="max-h-[75vh] w-full object-contain"
+          className="h-full w-full object-cover"
         />
         {burst && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

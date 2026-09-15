@@ -19,8 +19,8 @@ export default function PostDetail() {
   const replies = useReplies(postId);
 
   return (
-    <div className="pb-20 md:pb-0">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-ink-border bg-ink/80 px-3 py-3 backdrop-blur">
+    <div className="pb-[calc(var(--bottom-nav-h)+5.5rem)] md:pb-0">
+      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center gap-3 border-b border-ink-border bg-ink/80 px-3 py-3 backdrop-blur md:top-0">
         <button className="btn-ghost h-9 w-9 p-0" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -115,7 +115,7 @@ function Composer({ postId }: { postId: string }) {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-16 z-20 border-t border-ink-border bg-ink/95 p-3 backdrop-blur md:sticky md:bottom-0 md:mt-2">
+    <div className="fixed inset-x-0 bottom-[var(--bottom-nav-h)] z-20 border-t border-ink-border bg-ink/95 p-3 backdrop-blur md:sticky md:bottom-0 md:mt-2">
       <div className="mx-auto flex max-w-[620px] items-center gap-2">
         <Avatar refUri={profile?.avatarRef} seed={address} name={profile?.name} size={32} />
         <input

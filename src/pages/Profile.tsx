@@ -49,12 +49,12 @@ export default function Profile() {
 
   return (
     <div className="pb-8">
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-ink-border bg-ink/80 px-4 py-3 backdrop-blur">
+      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center justify-between border-b border-ink-border bg-ink/80 px-4 py-3 backdrop-blur md:top-0">
         <h1 className="truncate text-base font-semibold">
           {profile ? displayName(profile) : shortAddress(address ?? "")}
         </h1>
         {isMe && (
-          <button className="btn-ghost h-9 w-9 p-0" onClick={() => navigate("/settings")}>
+          <button className="btn-ghost h-10 w-10 p-0" onClick={() => navigate("/settings")}>
             <Settings className="h-5 w-5" />
           </button>
         )}
@@ -84,7 +84,7 @@ export default function Profile() {
             {shortAddress(profile?.address ?? address ?? "", 14, 8)}
           </div>
           {profile?.bio && (
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
+            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
               {profile.bio}
             </p>
           )}
@@ -171,7 +171,7 @@ function ShareProfileButton({ address }: { address: string }) {
     setTimeout(() => setDone(false), 1500);
   }
   return (
-    <button className="btn-soft w-11 shrink-0 p-0" onClick={share} aria-label="Share profile">
+    <button className="btn-soft h-10 w-11 shrink-0 p-0" onClick={share} aria-label="Share profile">
       {done ? <Check className="h-4 w-4 text-emerald-400" /> : <Share2 className="h-4 w-4" />}
     </button>
   );

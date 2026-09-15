@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -33,6 +34,7 @@ interface AuthState {
 
 interface AuthActions {
   createWallet: (password: string) => Promise<{ mnemonic: string; address: string }>;
+  finalizeOnboarding: () => Promise<void>;
   importMnemonic: (mnemonic: string, password: string) => Promise<string>;
   importKeys: (publicKey: string, privateKey: string, password: string) => Promise<string>;
   unlock: (address: string, password: string) => Promise<void>;
@@ -110,15 +112,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [activate, refreshWallets],
   );
 
+  // Fresh-account creation is a two-step flow: create + persist (but stay on the
+  // onboarding screen so the recovery phrase can be shown), then finalize once
+  // the user confirms they've saved it. Funding runs in the background meanwhile.
+  const pendingRef = useRef<WalletKeys | null>(null);
+
   const createWallet = useCallback(
     async (password: string) => {
       const w = Wallet.generate();
       const mnemonic = w.mnemonic ?? "";
-      const addr = await persistAndActivate(w, password, true);
+      const keys = w.toJSON();
+      const addr = await pubkeyToAddress(keys.publicKey);
+      await saveWallet(addr, keys, password);
+      await refreshWallets();
+      pendingRef.current = keys;
+      // Fund the new account in the background so it can post immediately.
+      getXrgeBalance(keys.publicKey)
+        .then((bal) => (bal <= 0 ? requestFaucet(keys) : false))
+        .catch(() => {});
       return { mnemonic, address: addr };
     },
-    [persistAndActivate],
+    [refreshWallets],
   );
+
+  const finalizeOnboarding = useCallback(async () => {
+    if (!pendingRef.current) return;
+    const keys = pendingRef.current;
+    pendingRef.current = null;
+    await activate(keys);
+  }, [activate]);
 
   const importMnemonic = useCallback(
     async (mnemonic: string, password: string) => {
@@ -181,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       wallets,
       balance,
       createWallet,
+      finalizeOnboarding,
       importMnemonic,
       importKeys,
       unlock,
@@ -196,6 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       wallets,
       balance,
       createWallet,
+      finalizeOnboarding,
       importMnemonic,
       importKeys,
       unlock,

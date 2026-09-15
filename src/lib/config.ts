@@ -13,6 +13,22 @@ export interface RuntimeConfig {
   ipfsGateway: string;
 }
 
+/** Well-known RougeChain networks selectable at runtime in Settings. */
+export const NETWORKS = {
+  testnet: { label: "Testnet", apiUrl: "https://testnet.rougechain.io/api" },
+  mainnet: { label: "Mainnet", apiUrl: "https://api.rougechain.io/api" },
+} as const;
+
+export type NetworkId = keyof typeof NETWORKS | "custom";
+
+/** Given an API URL, return the matching known network id, else "custom". */
+export function networkIdForUrl(apiUrl: string): NetworkId {
+  const match = (Object.keys(NETWORKS) as (keyof typeof NETWORKS)[]).find(
+    (k) => NETWORKS[k].apiUrl === apiUrl,
+  );
+  return match ?? "custom";
+}
+
 const defaults: RuntimeConfig = {
   apiUrl: import.meta.env.VITE_ROUGE_API || "https://testnet.rougechain.io/api",
   network: import.meta.env.VITE_ROUGE_NETWORK || "testnet",

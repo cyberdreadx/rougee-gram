@@ -35,7 +35,7 @@ export default function Modal({
       />
       <div
         className={cn(
-          "relative z-10 w-full animate-fade-in rounded-t-2xl border border-ink-border bg-ink-card p-5 shadow-2xl sm:rounded-2xl",
+          "relative z-10 max-h-[90dvh] w-full animate-fade-in overflow-y-auto overscroll-contain rounded-t-2xl border border-ink-border bg-ink-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-2xl sm:pb-5",
           maxWidth,
         )}
       >
@@ -45,7 +45,7 @@ export default function Modal({
             {!hideClose && (
               <button
                 onClick={onClose}
-                className="rounded-lg p-1 text-ink-muted hover:bg-white/5 hover:text-white"
+                className="-mr-1 flex items-center justify-center rounded-lg p-2 text-ink-muted hover:bg-white/5 hover:text-white"
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />

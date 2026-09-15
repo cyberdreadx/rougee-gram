@@ -6,7 +6,7 @@ export default function Explore() {
 
   return (
     <div>
-      <header className="sticky top-0 z-20 border-b border-ink-border bg-ink/80 px-4 py-3.5 backdrop-blur">
+      <header className="sticky top-[var(--top-bar-h)] z-20 border-b border-ink-border bg-ink/80 px-4 py-3.5 backdrop-blur md:top-0">
         <h1 className="text-base font-semibold">Explore</h1>
         <p className="text-xs text-ink-muted">
           Everything happening across RougeChain

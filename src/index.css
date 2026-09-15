@@ -5,6 +5,13 @@
 @layer base {
   :root {
     color-scheme: dark;
+    /* Height of the mobile bottom nav incl. the iOS home-indicator safe area.
+       Single source of truth shared by the nav, main padding, and the
+       post-detail composer so nothing overlaps or leaves a gap. */
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --bottom-nav-h: calc(3.5rem + var(--safe-bottom));
+    /* Height of the mobile top bar; page sub-headers stick just below it. */
+    --top-bar-h: 3.5rem;
   }
 
   html,

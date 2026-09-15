@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Copy,
   Check,
@@ -16,11 +17,19 @@ import {
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import Modal from "@/components/Modal";
-import { getConfig, updateConfig } from "@/lib/config";
+import {
+  getConfig,
+  updateConfig,
+  NETWORKS,
+  networkIdForUrl,
+  type NetworkId,
+} from "@/lib/config";
 import { testPinataJwt } from "@/lib/media";
 import { requestFaucet } from "@/lib/rouge";
 import { rc } from "@/lib/rouge";
+import { clearProfileCache } from "@/lib/profile";
 import { shortAddress } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export default function Settings() {
   const { wallet, address, balance, publicKey, lock, logout, refreshBalance } = useAuth();
@@ -28,7 +37,7 @@ export default function Settings() {
 
   return (
     <div className="pb-10">
-      <header className="sticky top-0 z-20 border-b border-ink-border bg-ink/80 px-4 py-3.5 backdrop-blur">
+      <header className="sticky top-[var(--top-bar-h)] z-20 border-b border-ink-border bg-ink/80 px-4 py-3.5 backdrop-blur md:top-0">
         <h1 className="text-base font-semibold">Settings</h1>
       </header>
 
@@ -135,7 +144,7 @@ function AccountSection({
     <Section icon={<ShieldCheck className="h-4 w-4" />} title="Account">
       <CopyRow label="Address" value={address} />
 
-      <div className="flex items-center justify-between rounded-xl bg-ink-soft px-3 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-ink-soft px-3 py-2.5">
         <div className="flex items-center gap-2 text-sm">
           <Coins className="h-4 w-4 text-rouge-400" />
           <span className="font-semibold">
@@ -143,11 +152,11 @@ function AccountSection({
           </span>
         </div>
         <div className="flex gap-1.5">
-          <button className="btn-ghost h-8 px-2" onClick={onRefresh} title="Refresh">
+          <button className="btn-ghost h-9 px-2.5" onClick={onRefresh} title="Refresh">
             <RefreshCw className="h-4 w-4" />
           </button>
           <button
-            className="btn-soft h-8 px-3 text-xs"
+            className="btn-soft h-9 px-3 text-xs"
             onClick={async () => {
               setFauceting(true);
               await onFaucet();
@@ -170,7 +179,7 @@ function AccountSection({
             {revealPhrase ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
           {revealPhrase && (
-            <div className="mt-2 grid grid-cols-3 gap-1.5 rounded-xl border border-ink-border bg-ink-soft p-3 text-xs">
+            <div className="mt-2 grid grid-cols-2 gap-1.5 rounded-xl border border-ink-border bg-ink-soft p-3 text-xs min-[380px]:grid-cols-3">
               {mnemonic.split(/\s+/).map((w, i) => (
                 <span key={i} className="font-mono">
                   <span className="text-ink-muted">{i + 1}.</span> {w}
@@ -275,25 +284,105 @@ function MediaSection() {
 }
 
 function NetworkSection() {
+  const { toast } = useToast();
+  const { refreshBalance } = useAuth();
+  const client = useQueryClient();
+
+  const [, bump] = useState(0);
   const cfg = getConfig();
+  const [selected, setSelected] = useState<NetworkId>(networkIdForUrl(cfg.apiUrl));
+  const [apiUrl, setApiUrl] = useState(cfg.apiUrl);
   const [health, setHealth] = useState<string>("checking…");
 
+  // Re-check node health whenever the applied endpoint changes.
   useEffect(() => {
     let active = true;
+    setHealth("checking…");
     rc()
       .getStats()
-      .then((s) => active && setHealth(`online · height ${s.network_height ?? s.height}`))
+      .then(
+        (s) =>
+          active && setHealth(`online · height ${s.network_height ?? s.height}`),
+      )
       .catch(() => active && setHealth("unreachable"));
     return () => {
       active = false;
     };
-  }, []);
+  }, [cfg.apiUrl]);
+
+  function choose(id: NetworkId) {
+    setSelected(id);
+    if (id !== "custom") setApiUrl(NETWORKS[id].apiUrl);
+  }
+
+  const dirty = apiUrl.trim() !== cfg.apiUrl;
+
+  function apply() {
+    const url = apiUrl.trim();
+    if (!/^https?:\/\/.+/.test(url)) {
+      return toast("Enter a valid http(s) API URL.", "error");
+    }
+    const label = selected === "custom" ? "custom" : selected;
+    updateConfig({ apiUrl: url, network: label });
+    // Feeds, balances, profiles and resolved addresses are network-specific.
+    // Clear the profile module cache FIRST, then reset all queries. resetQueries
+    // (unlike clear()) refetches active observers, so the always-mounted profile
+    // in the sidebar/right-rail/bottom-nav reloads from the new node instead of
+    // showing the previous network's identity until an unrelated re-render.
+    clearProfileCache();
+    client.resetQueries();
+    refreshBalance();
+    bump((n) => n + 1); // re-read getConfig() for the applied endpoint
+    toast(`Switched to ${label}.`, "success");
+  }
 
   return (
     <Section icon={<Globe className="h-4 w-4" />} title="Network">
-      <Row label="Network" value={cfg.network} />
-      <Row label="API" value={cfg.apiUrl} mono />
+      <div>
+        <label className="label">Network</label>
+        <div className="grid grid-cols-3 gap-1.5">
+          {(["testnet", "mainnet", "custom"] as NetworkId[]).map((id) => (
+            <button
+              key={id}
+              onClick={() => choose(id)}
+              className={cn(
+                "rounded-xl px-3 py-2 text-sm font-medium capitalize transition-colors",
+                selected === id
+                  ? "bg-rouge-600 text-white"
+                  : "bg-ink-soft text-ink-muted hover:text-white",
+              )}
+            >
+              {id === "custom" ? "Custom" : NETWORKS[id as "testnet" | "mainnet"].label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selected === "custom" && (
+        <div>
+          <label className="label">API URL</label>
+          <input
+            className="input font-mono text-xs"
+            value={apiUrl}
+            placeholder="https://your-node.example/api"
+            onChange={(e) => setApiUrl(e.target.value)}
+            spellCheck={false}
+          />
+        </div>
+      )}
+
+      <Row label="Endpoint" value={cfg.apiUrl} mono />
       <Row label="Status" value={health} />
+
+      {dirty && (
+        <button className="btn-primary w-full" onClick={apply}>
+          Switch network
+        </button>
+      )}
+      <p className="text-xs text-ink-muted">
+        Your wallet works on any network — the same key, different chain. Balances
+        and posts are per-network. Mainnet has no faucet.
+      </p>
     </Section>
   );
 }

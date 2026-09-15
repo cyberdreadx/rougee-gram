@@ -54,6 +54,11 @@ export function invalidateProfile(pubkey: string): void {
   cache.delete(pubkey);
 }
 
+/** Drop all cached profiles — used when switching networks. */
+export function clearProfileCache(): void {
+  cache.clear();
+}
+
 export function displayName(p: Profile): string {
   return p.name || p.handle;
 }

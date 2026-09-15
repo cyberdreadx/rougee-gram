@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 type View = "welcome" | "create" | "backup" | "import-mnemonic" | "import-keys";
 
 export default function Onboarding() {
-  const { createWallet, importMnemonic, importKeys } = useAuth();
+  const { createWallet, finalizeOnboarding, importMnemonic, importKeys } = useAuth();
   const { toast } = useToast();
   const [view, setView] = useState<View>("welcome");
   const [busy, setBusy] = useState(false);
@@ -233,7 +233,10 @@ export default function Onboarding() {
                 <button
                   className="btn-primary w-full py-3"
                   disabled={!savedConfirmed}
-                  onClick={() => toast("Welcome to Rougee-gram!", "success")}
+                  onClick={() => {
+                    finalizeOnboarding();
+                    toast("Welcome to Rougee-gram!", "success");
+                  }}
                 >
                   Enter Rougee-gram
                 </button>

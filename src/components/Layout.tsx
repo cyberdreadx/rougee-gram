@@ -15,7 +15,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <div className="min-h-screen bg-ink">
         <div className="mx-auto flex max-w-6xl">
           <DesktopSidebar />
-          <main className="min-h-screen flex-1 border-x border-ink-border/60 pb-24 md:pb-8">
+          <main className="min-h-screen min-w-0 flex-1 border-x border-ink-border/60 pb-[calc(var(--bottom-nav-h)+1rem)] md:pb-8">
             <MobileTopBar />
             <div className="mx-auto w-full max-w-[620px] px-0 sm:px-4">
               {children}
@@ -145,7 +145,7 @@ function RightRail() {
 function MobileTopBar() {
   const { open } = useCreatePost();
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-ink-border bg-ink/80 px-4 py-3 backdrop-blur md:hidden">
+    <header className="sticky top-0 z-30 flex h-[var(--top-bar-h)] items-center justify-between border-b border-ink-border bg-ink/80 px-4 backdrop-blur md:hidden">
       <Logo size={28} withWordmark />
       <button onClick={open} className="btn-ghost h-9 w-9 p-0" aria-label="Create post">
         <PlusSquare className="h-6 w-6" />
@@ -161,12 +161,12 @@ function MobileBottomNav() {
   const profile = useMyProfile();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-ink-border bg-ink/90 px-2 py-2 backdrop-blur md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-ink-border bg-ink/90 px-2 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden">
       <BottomLink to="/" end icon={Home} label="Home" />
       <BottomLink to="/explore" icon={Compass} label="Explore" />
       <button
         onClick={open}
-        className="flex flex-col items-center gap-0.5 px-3 py-1 text-ink-muted"
+        className="flex min-h-[44px] flex-col items-center justify-center gap-0.5 px-4 py-1 text-ink-muted"
         aria-label="Create"
       >
         <PlusSquare className="h-6 w-6" />
@@ -174,7 +174,7 @@ function MobileBottomNav() {
       <BottomLink to="/settings" icon={Settings} label="Settings" />
       <button
         onClick={() => navigate(`/u/${address}`)}
-        className="flex flex-col items-center gap-0.5 px-3 py-1"
+        className="flex min-h-[44px] flex-col items-center justify-center gap-0.5 px-4 py-1"
         aria-label="Profile"
       >
         <Avatar refUri={profile?.avatarRef} seed={address} name={profile?.name} size={26} />
@@ -200,7 +200,7 @@ function BottomLink({
       end={end}
       className={({ isActive }) =>
         cn(
-          "flex flex-col items-center gap-0.5 px-3 py-1",
+          "flex min-h-[44px] flex-col items-center justify-center gap-0.5 px-4 py-1",
           isActive ? "text-white" : "text-ink-muted",
         )
       }

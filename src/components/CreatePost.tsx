@@ -136,7 +136,7 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
             <div
               className={cn(
                 "overflow-hidden rounded-xl bg-black",
-                square ? "aspect-square" : "max-h-[52vh]",
+                square ? "aspect-square max-h-[52vh]" : "max-h-[52vh]",
               )}
             >
               <img
@@ -163,7 +163,7 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => reset()}
               disabled={busy}
-              className="absolute right-2 top-2 rounded-lg bg-black/60 p-1.5 text-white backdrop-blur hover:bg-black/80"
+              className="absolute right-2 top-2 rounded-lg bg-black/60 p-2 text-white backdrop-blur hover:bg-black/80"
             >
               <X className="h-4 w-4" />
             </button>
@@ -199,11 +199,11 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="flex gap-2">
-            <button className="btn-soft flex-1" onClick={reset} disabled={busy}>
+            <button className="btn-soft flex-1 py-3" onClick={reset} disabled={busy}>
               Change photo
             </button>
             <button
-              className="btn-primary flex-[2]"
+              className="btn-primary flex-[2] py-3"
               onClick={share}
               disabled={busy}
             >
