@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Search, X, ArrowRight } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { useGlobalTimeline } from "@/hooks/useSocial";
-import PhotoGrid from "@/components/PhotoGrid";
+import ExploreGrid from "@/components/ExploreGrid";
 import WhoToFollow from "@/components/WhoToFollow";
 import UserRow from "@/components/UserRow";
 import { resolveAddress, handleFromAddress, shortAddress } from "@/lib/format";
@@ -48,7 +48,7 @@ export default function Explore() {
             <WhoToFollow limit={5} />
           </div>
           <div className="p-0.5 sm:p-1">
-            <PhotoGrid posts={data} isLoading={isLoading} />
+            <ExploreGrid posts={data} isLoading={isLoading} />
           </div>
         </>
       )}
