@@ -11,6 +11,7 @@ import {
   Coins,
   Globe,
   HardDrive,
+  Cloud,
   ShieldCheck,
   RefreshCw,
 } from "lucide-react";
@@ -24,7 +25,7 @@ import {
   networkIdForUrl,
   type NetworkId,
 } from "@/lib/config";
-import { testPinataJwt } from "@/lib/media";
+import { testPinataJwt, testCloudflareWorker, activeBackend } from "@/lib/media";
 import { requestFaucet } from "@/lib/rouge";
 import { rc } from "@/lib/rouge";
 import { clearProfileCache } from "@/lib/profile";
@@ -216,67 +217,118 @@ function AccountSection({
 function MediaSection() {
   const { toast } = useToast();
   const cfg = getConfig();
+  const [cfUrl, setCfUrl] = useState(cfg.cfWorkerUrl);
+  const [cfSecret, setCfSecret] = useState(cfg.cfUploadSecret);
   const [jwt, setJwt] = useState(cfg.pinataJwt);
   const [gateway, setGateway] = useState(cfg.ipfsGateway);
   const [testing, setTesting] = useState(false);
 
-  const usingIpfs = Boolean(cfg.pinataJwt);
+  const backend = activeBackend();
 
-  async function saveJwt() {
+  async function save() {
     setTesting(true);
     try {
+      const url = cfUrl.trim().replace(/\/+$/, "");
+      if (url) {
+        if (!/^https?:\/\/.+/.test(url)) {
+          toast("Enter a valid https Worker URL.", "error");
+          return;
+        }
+        const ok = await testCloudflareWorker(url);
+        if (!ok) {
+          toast("Couldn't reach that Cloudflare Worker.", "error");
+          return;
+        }
+      }
       if (jwt) {
         const ok = await testPinataJwt(jwt);
         if (!ok) {
           toast("That Pinata JWT didn't authenticate.", "error");
-          setTesting(false);
           return;
         }
       }
-      updateConfig({ pinataJwt: jwt, ipfsGateway: gateway });
-      toast(jwt ? "IPFS enabled 🎉" : "Reverted to local storage", "success");
+      updateConfig({
+        cfWorkerUrl: url,
+        cfUploadSecret: cfSecret.trim(),
+        pinataJwt: jwt,
+        ipfsGateway: gateway,
+      });
+      toast(
+        url
+          ? "Cloudflare R2 enabled 🎉"
+          : jwt
+            ? "IPFS enabled 🎉"
+            : "Using local storage",
+        "success",
+      );
     } finally {
       setTesting(false);
     }
   }
 
+  const status =
+    backend === "cloudflare"
+      ? { icon: <Cloud className="h-4 w-4" />, cls: "text-emerald-400", text: "Cloudflare R2 active — images & video stored in your bucket, served fast." }
+      : backend === "ipfs"
+        ? { icon: <Globe className="h-4 w-4" />, cls: "text-emerald-400", text: "IPFS active — media pinned & portable across devices." }
+        : { icon: <HardDrive className="h-4 w-4" />, cls: "text-amber-400", text: "Local mode — media stays in this browser. Add Cloudflare (best for video) or Pinata below." };
+
   return (
-    <Section
-      icon={usingIpfs ? <Globe className="h-4 w-4" /> : <HardDrive className="h-4 w-4" />}
-      title="Photo storage"
-    >
-      <div className="rounded-xl bg-ink-soft px-3 py-2.5 text-xs text-ink-muted">
-        {usingIpfs ? (
-          <span className="text-emerald-400">
-            IPFS active — new photos are pinned and portable across devices.
-          </span>
-        ) : (
-          <span className="text-amber-400">
-            Local mode — photos are stored only in this browser. Add a Pinata JWT
-            to publish to IPFS.
-          </span>
-        )}
+    <Section icon={status.icon} title="Media storage">
+      <div className="rounded-xl bg-ink-soft px-3 py-2.5 text-xs">
+        <span className={status.cls}>{status.text}</span>
       </div>
 
-      <div>
+      <div className="rounded-xl border border-ink-border p-3">
+        <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+          <Cloud className="h-4 w-4 text-rouge-400" /> Cloudflare R2
+          <span className="rounded bg-rouge-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-rouge-400">
+            best for video
+          </span>
+        </div>
+        <label className="label">Worker URL</label>
+        <input
+          className="input font-mono text-xs"
+          placeholder="https://rougee-gram-media.<you>.workers.dev"
+          value={cfUrl}
+          onChange={(e) => setCfUrl(e.target.value)}
+          spellCheck={false}
+        />
+        <label className="label mt-2">Upload secret (optional)</label>
+        <input
+          className="input font-mono text-xs"
+          placeholder="Only if your Worker enforces UPLOAD_SECRET"
+          value={cfSecret}
+          onChange={(e) => setCfSecret(e.target.value)}
+          spellCheck={false}
+        />
+        <p className="mt-2 text-[11px] text-ink-muted">
+          Deploy the Worker in <code>workers/media</code> (see CLOUDFLARE.md), then
+          paste its URL here. Takes priority over IPFS.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-ink-border p-3">
+        <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+          <Globe className="h-4 w-4 text-rouge-400" /> IPFS (Pinata)
+        </div>
         <label className="label">Pinata JWT</label>
         <textarea
-          className="input h-20 resize-none font-mono text-xs"
+          className="input h-16 resize-none font-mono text-xs"
           placeholder="Paste your Pinata JWT to enable IPFS uploads (optional)"
           value={jwt}
           onChange={(e) => setJwt(e.target.value)}
           spellCheck={false}
         />
-      </div>
-      <div>
-        <label className="label">IPFS gateway</label>
+        <label className="label mt-2">IPFS gateway</label>
         <input
           className="input font-mono text-xs"
           value={gateway}
           onChange={(e) => setGateway(e.target.value)}
         />
       </div>
-      <button className="btn-primary w-full" onClick={saveJwt} disabled={testing}>
+
+      <button className="btn-primary w-full" onClick={save} disabled={testing}>
         {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save storage settings"}
       </button>
     </Section>

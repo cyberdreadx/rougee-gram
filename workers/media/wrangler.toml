@@ -1,0 +1,20 @@
+# Cloudflare Worker: R2-backed media upload/serve for rougee-gram.
+# Deploy:  npm run cf:deploy   (after `wrangler login` + creating the bucket)
+name = "rougee-gram-media"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+
+# R2 bucket binding. Create it once with:
+#   npx wrangler r2 bucket create rougee-gram-media
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "rougee-gram-media"
+
+[vars]
+# CORS origin for uploads/reads. "*" is fine for a public app; lock to your
+# site origin (e.g. https://rougee-gram.netlify.app) to reduce abuse.
+ALLOW_ORIGIN = "*"
+
+# Optional anti-spam: require an X-Upload-Secret header on uploads. Set it with:
+#   npx wrangler secret put UPLOAD_SECRET --config workers/media/wrangler.toml
+# then paste the same value into the app's Settings → Media storage.

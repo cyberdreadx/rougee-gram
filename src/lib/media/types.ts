@@ -5,4 +5,4 @@ export interface PutResult {
   size: number;
 }
 
-export type MediaBackend = "ipfs" | "local";
+export type MediaBackend = "cloudflare" | "ipfs" | "local";

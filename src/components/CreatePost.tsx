@@ -16,6 +16,7 @@ import {
   Film,
   HardDrive,
   Globe,
+  Cloud,
   AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
@@ -306,7 +307,12 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="flex items-center gap-2 rounded-lg bg-ink-soft px-3 py-2 text-xs text-ink-muted">
-            {backend === "ipfs" ? (
+            {backend === "cloudflare" ? (
+              <>
+                <Cloud className="h-3.5 w-3.5 text-emerald-400" />
+                Storing on Cloudflare R2 — fast &amp; low-cost.
+              </>
+            ) : backend === "ipfs" ? (
               <>
                 <Globe className="h-3.5 w-3.5 text-emerald-400" />
                 Storing on IPFS — portable &amp; censorship-resistant.
@@ -314,8 +320,8 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
             ) : (
               <>
                 <HardDrive className="h-3.5 w-3.5 text-amber-400" />
-                Local mode — media stays on this device. Add a Pinata key in
-                Settings for IPFS.
+                Local mode — media stays on this device. Add Cloudflare or Pinata
+                in Settings.
               </>
             )}
           </div>

@@ -1,32 +1,42 @@
 import { putIpfs, ipfsRefToUrl, ipfsEnabled } from "./ipfs";
+import { putCloudflare, cloudflareEnabled } from "./cloudflare";
 import { putLocal, localRefToUrl } from "./local";
 import type { MediaBackend, PutResult } from "./types";
 
 export { ipfsEnabled, testPinataJwt } from "./ipfs";
+export { cloudflareEnabled, testCloudflareWorker } from "./cloudflare";
 export type { PutResult, MediaBackend } from "./types";
 
-/** Which backend a fresh upload will use, given current config. */
+/** Which backend a fresh upload will use, given current config.
+ *  Priority: Cloudflare R2 → IPFS (Pinata) → local (IndexedDB dev fallback). */
 export function activeBackend(): MediaBackend {
-  return ipfsEnabled() ? "ipfs" : "local";
+  if (cloudflareEnabled()) return "cloudflare";
+  if (ipfsEnabled()) return "ipfs";
+  return "local";
 }
 
 /**
- * Store an image blob. Uses IPFS when a Pinata JWT is configured, otherwise
- * falls back to the local IndexedDB store.
+ * Store a media blob (image or video). Routes to the active backend.
  */
 export async function putImage(
   blob: Blob,
-  filename = "photo",
+  filename = "media",
 ): Promise<PutResult> {
+  if (cloudflareEnabled()) return putCloudflare(blob);
   if (ipfsEnabled()) return putIpfs(blob, filename);
   return putLocal(blob);
 }
 
+/** Alias — media (image or video) all flow through the same path. */
+export const putMedia = putImage;
+
 const urlCache = new Map<string, string>();
 
 /**
- * Resolve a media reference (ipfs://… or local://…) to a displayable URL.
- * Returns null when a local blob isn't present on this device.
+ * Resolve a media reference to a displayable URL.
+ * - http(s)/data URIs (Cloudflare R2, external): passed through
+ * - ipfs://<cid>: gateway URL
+ * - local://<hash>: object URL from IndexedDB (null if not on this device)
  */
 export async function resolveMediaUrl(ref: string): Promise<string | null> {
   if (!ref) return null;

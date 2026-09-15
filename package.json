@@ -19,7 +19,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "cf:bucket": "wrangler r2 bucket create rougee-gram-media",
+    "cf:dev": "wrangler dev --config workers/media/wrangler.toml",
+    "cf:deploy": "wrangler deploy --config workers/media/wrangler.toml"
   },
   "dependencies": {
     "@rougechain/sdk": "^1.4.0",
@@ -33,6 +36,7 @@
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260915.1",
     "@types/node": "^20.19.43",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
@@ -41,6 +45,7 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
-    "vite": "^5.4.9"
+    "vite": "^5.4.9",
+    "wrangler": "^4.131.2"
   }
 }

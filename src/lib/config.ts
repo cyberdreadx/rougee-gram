@@ -11,6 +11,10 @@ export interface RuntimeConfig {
   network: string;
   pinataJwt: string;
   ipfsGateway: string;
+  /** Cloudflare media Worker base URL (R2-backed uploads). Takes priority over IPFS. */
+  cfWorkerUrl: string;
+  /** Optional shared secret if the Worker enforces UPLOAD_SECRET. */
+  cfUploadSecret: string;
 }
 
 /** Well-known RougeChain networks selectable at runtime in Settings. */
@@ -35,6 +39,8 @@ const defaults: RuntimeConfig = {
   pinataJwt: import.meta.env.VITE_PINATA_JWT || "",
   ipfsGateway:
     import.meta.env.VITE_IPFS_GATEWAY || "https://gateway.pinata.cloud/ipfs/",
+  cfWorkerUrl: import.meta.env.VITE_CF_WORKER_URL || "",
+  cfUploadSecret: import.meta.env.VITE_CF_UPLOAD_SECRET || "",
 };
 
 function load(): RuntimeConfig {
