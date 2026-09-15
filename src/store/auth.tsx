@@ -24,6 +24,42 @@ type Status = "loading" | "onboarding" | "locked" | "ready";
 
 const LAST_ADDR_KEY = "rougee-gram:last-address";
 
+// Keep an unlocked wallet across page refreshes without re-entering the password,
+// but only for the browser *session* — sessionStorage is cleared when the tab or
+// browser closes, so the decrypted key never persists at rest on disk (unlike
+// localStorage). This is the convenience/security balance a web wallet wants.
+const SESSION_KEY = "rougee-gram:session";
+
+function readSession(): { addr: string; keys: WalletKeys } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { addr?: string; keys?: WalletKeys };
+    if (v?.addr && v.keys?.publicKey && typeof v.keys.privateKey === "string") {
+      return { addr: v.addr, keys: v.keys };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSession(addr: string, keys: WalletKeys): void {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ addr, keys }));
+  } catch {
+    /* sessionStorage may be unavailable; unlock just won't persist */
+  }
+}
+
+function clearSession(): void {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 interface AuthState {
   status: Status;
   wallet: WalletKeys | null;
@@ -81,13 +117,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return;
   }, []);
 
-  // Initial boot: decide onboarding vs locked.
+  // Initial boot: restore an unlocked session if one survived the refresh,
+  // otherwise decide onboarding vs locked.
   useEffect(() => {
     (async () => {
       const list = await listWallets();
       setWallets(list);
+      const sess = readSession();
+      if (sess && list.some((w) => w.address === sess.addr)) {
+        await activate(sess.keys);
+        return;
+      }
       setStatus(list.length > 0 ? "locked" : "onboarding");
     })();
+    // activate is stable (useCallback []), so this runs once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activate = useCallback(async (keys: WalletKeys) => {
@@ -101,6 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+    // Persist the unlock for this browser session so a refresh doesn't re-prompt.
+    writeSession(addr, keys);
     // Fetch balance in the background.
     getXrgeBalance(keys.publicKey).then(setBalance).catch(() => {});
     return addr;
@@ -202,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const lock = useCallback(() => {
+    clearSession();
     setWallet(null);
     setAddress("");
     setBalance(0);
@@ -213,6 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(
     async (addr: string) => {
+      clearSession();
       if (addr) await deleteWallet(addr);
       if (wallet) invalidateProfile(wallet.publicKey);
       const list = await listWallets();
