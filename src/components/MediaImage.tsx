@@ -50,25 +50,22 @@ export default function MediaImage({ refUri, alt, className, rounded }: Props) {
     );
   }
 
+  // While the ref is resolving, show a skeleton placeholder.
+  if (!url) {
+    return <div className={cn("skeleton", rounded && "rounded-2xl", className)} />;
+  }
+
+  // Render the <img> VISIBLE (not display:none). A `display:none` +
+  // `loading="lazy"` image never loads in Chrome, so onLoad never fires and it
+  // stays hidden forever — which made every photo render black. The browser
+  // shows the image progressively as it downloads; onError falls back gracefully.
   return (
-    <>
-      {state === "loading" && (
-        <div className={cn("skeleton", rounded && "rounded-2xl", className)} />
-      )}
-      {url && (
-        <img
-          src={url}
-          alt={alt ?? ""}
-          loading="lazy"
-          onLoad={() => setState("ok")}
-          onError={() => setState("error")}
-          className={cn(
-            state === "ok" ? "block" : "hidden",
-            rounded && "rounded-2xl",
-            className,
-          )}
-        />
-      )}
-    </>
+    <img
+      src={url}
+      alt={alt ?? ""}
+      loading="lazy"
+      onError={() => setState("error")}
+      className={cn("block", rounded && "rounded-2xl", className)}
+    />
   );
 }
