@@ -15,6 +15,7 @@ import { formatCount } from "@/lib/format";
 import Avatar from "@/components/Avatar";
 import MediaVideo from "@/components/MediaVideo";
 import UserLink from "@/components/UserLink";
+import SaveButton from "@/components/SaveButton";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -179,6 +180,7 @@ function ReelItem({ post }: { post: SocialPost }) {
           />
           <span className="text-xs font-semibold">{formatCount(stats?.reposts ?? 0)}</span>
         </button>
+        <SaveButton postId={post.id} iconClassName="h-8 w-8 drop-shadow" />
       </div>
 
       {/* author + caption */}
