@@ -69,7 +69,7 @@ export default function Settings() {
         />
 
         <p className="pt-2 text-center text-xs text-ink-muted">
-          Rougee-gram · built on RougeChain · your keys, your photos
+          RouGee · built on RougeChain · your keys, your photos
         </p>
       </div>
     </div>

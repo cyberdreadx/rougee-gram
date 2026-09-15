@@ -122,7 +122,7 @@ export default function Onboarding() {
               <span className="brand-text">take away</span> from you.
             </h1>
             <p className="max-w-sm text-ink-muted">
-              Rougee-gram is a photo network on RougeChain — a post-quantum
+              RouGee is a photo network on RougeChain — a post-quantum
               blockchain. Your account is a cryptographic key you hold, not a row
               in someone's database. No shadowbans. No disabled accounts. No
               gatekeeper.
@@ -270,10 +270,10 @@ export default function Onboarding() {
                   disabled={!savedConfirmed}
                   onClick={() => {
                     finalizeOnboarding();
-                    toast("Welcome to Rougee-gram!", "success");
+                    toast("Welcome to RouGee!", "success");
                   }}
                 >
-                  Enter Rougee-gram
+                  Enter RouGee
                 </button>
               </div>
             )}

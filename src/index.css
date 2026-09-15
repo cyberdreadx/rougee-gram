@@ -9,6 +9,8 @@
        Single source of truth shared by the nav, main padding, and the
        post-detail composer so nothing overlaps or leaves a gap. */
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+    /* Flat, full-width mobile tab bar (Instagram-style): bar height plus the
+       iOS home-indicator safe area. */
     --bottom-nav-h: calc(3.5rem + var(--safe-bottom));
     /* Height of the mobile top bar; page sub-headers stick just below it. */
     --top-bar-h: 3.5rem;

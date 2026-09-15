@@ -1,6 +1,6 @@
 <div align="center">
 
-# Rougee-gram
+# RouGee
 
 **A decentralized, un-deplatformable photo network — Instagram, but nobody can shadowban or delete you.**
 
@@ -13,7 +13,7 @@ Built on [RougeChain](https://rougechain.io), a post-quantum Layer 1 blockchain.
 ## Why this exists
 
 Centralized platforms own your account. They can shadowban you, disable your
-business, or delete years of posts with no appeal. Rougee-gram removes the
+business, or delete years of posts with no appeal. RouGee removes the
 gatekeeper:
 
 - **Your identity is a key you hold**, not a row in a company database. No email,
@@ -29,7 +29,7 @@ If a platform can't identify a central "you" to ban, it can't deplatform you.
 
 RougeChain ships a native social layer (posts, timeline, likes, follows,
 comments) via [`@rougechain/sdk`](https://www.npmjs.com/package/@rougechain/sdk).
-A post's on-chain `body` is plain text (max 4000 chars), so Rougee-gram turns it
+A post's on-chain `body` is plain text (max 4000 chars), so RouGee turns it
 into a photo post by storing a compact JSON **envelope** in the body:
 
 ```json

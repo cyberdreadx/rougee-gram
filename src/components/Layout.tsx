@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Home, Compass, PlusSquare, Settings, LogOut, Film, Heart, Send } from "lucide-react";
+import { Home, Compass, Search, PlusSquare, Settings, LogOut, Film, Heart, Send } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { CreatePostProvider, useCreatePost } from "./CreatePost";
 import Logo from "./Logo";
@@ -149,7 +150,7 @@ function RightRail() {
       </div>
       <WhoToFollow limit={5} />
       <p className="px-2 text-xs leading-relaxed text-ink-muted">
-        Rougee-gram runs on RougeChain. Your posts are signed with your key and
+        RouGee runs on RougeChain. Your posts are signed with your key and
         stored on-chain — no company can shadowban or delete your account.
       </p>
     </aside>
@@ -188,28 +189,32 @@ function MobileTopBar() {
 function MobileBottomNav() {
   const { address } = useAuth();
   const { open } = useCreatePost();
-  const navigate = useNavigate();
   const profile = useMyProfile();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-ink-border bg-ink/90 px-2 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden">
-      <BottomLink to="/" end icon={Home} label="Home" />
-      <BottomLink to="/explore" icon={Compass} label="Explore" />
+    <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-ink-border bg-ink/95 px-2 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden">
+      {/* Home fills solid when active — Instagram's signature tab behavior. */}
+      <BottomLink to="/" end icon={Home} label="Home" fillOnActive />
+      <BottomLink to="/explore" icon={Search} label="Explore" />
       <button
         onClick={() => open()}
-        className="flex min-h-[44px] flex-col items-center justify-center gap-0.5 px-4 py-1 text-ink-muted"
+        className="flex min-h-[44px] items-center justify-center px-4 py-1 text-white"
         aria-label="Create"
       >
-        <PlusSquare className="h-6 w-6" />
+        <PlusSquare className="h-7 w-7" strokeWidth={1.75} />
       </button>
       <BottomLink to="/reels" icon={Film} label="Reels" />
-      <button
-        onClick={() => navigate(`/u/${address}`)}
-        className="flex min-h-[44px] flex-col items-center justify-center gap-0.5 px-4 py-1"
+      <NavLink
+        to={`/u/${address}`}
+        className="flex min-h-[44px] items-center justify-center px-4 py-1"
         aria-label="Profile"
       >
-        <Avatar refUri={profile?.avatarRef} seed={address} name={profile?.name} size={26} />
-      </button>
+        {({ isActive }) => (
+          <span className={cn("rounded-full", isActive && "ring-2 ring-white")}>
+            <Avatar refUri={profile?.avatarRef} seed={address} name={profile?.name} size={26} />
+          </span>
+        )}
+      </NavLink>
     </nav>
   );
 }
@@ -219,25 +224,28 @@ function BottomLink({
   end,
   icon: Icon,
   label,
+  fillOnActive,
 }: {
   to: string;
   end?: boolean;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   label: string;
+  fillOnActive?: boolean;
 }) {
   return (
     <NavLink
       to={to}
       end={end}
-      className={({ isActive }) =>
-        cn(
-          "flex min-h-[44px] flex-col items-center justify-center gap-0.5 px-4 py-1",
-          isActive ? "text-white" : "text-ink-muted",
-        )
-      }
+      className="flex min-h-[44px] items-center justify-center px-4 py-1"
       aria-label={label}
     >
-      <Icon className="h-6 w-6" />
+      {({ isActive }) => (
+        <Icon
+          className={cn("h-7 w-7", isActive ? "text-white" : "text-ink-muted")}
+          strokeWidth={isActive ? 2.25 : 1.75}
+          fill={fillOnActive && isActive ? "currentColor" : "none"}
+        />
+      )}
     </NavLink>
   );
 }

@@ -65,7 +65,7 @@ export default function Home() {
               <div>
                 <h3 className="text-lg font-semibold">No photos yet</h3>
                 <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
-                  Be the first to post on Rougee-gram. Your photo will live
+                  Be the first to post on RouGee. Your photo will live
                   on-chain, signed by you.
                 </p>
               </div>

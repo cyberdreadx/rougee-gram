@@ -31,7 +31,7 @@ export default function Logo({
       </svg>
       {withWordmark && (
         <span className="text-xl font-bold tracking-tight">
-          Rougee<span className="brand-text">-gram</span>
+          Rou<span className="brand-text">Gee</span>
         </span>
       )}
     </div>
