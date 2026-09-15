@@ -42,7 +42,7 @@ export default function FeedList({
   const visible = (posts ?? []).filter((p) => {
     if (!isRenderablePost(p)) return false;
     const kind = decodeBody(p.body).kind;
-    if (kind === "profile") return false;
+    if (kind === "profile" || kind === "story") return false;
     if (photosOnly && kind !== "photo") return false;
     return true;
   });

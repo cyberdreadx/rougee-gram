@@ -43,7 +43,7 @@ export default function Reels() {
             Post a vertical video and toggle “Reel” to start the feed.
           </p>
         </div>
-        <button className="btn-primary" onClick={open}>
+        <button className="btn-primary" onClick={() => open()}>
           Create a reel
         </button>
       </div>

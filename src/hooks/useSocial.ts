@@ -256,9 +256,11 @@ export function useActivity() {
     staleTime: 60_000,
     queryFn: async (): Promise<ActivityData> => {
       const { posts } = await rc().social.getUserPosts(publicKey, 15, 0);
-      const mine = posts.filter(
-        (p) => !p.reply_to_id && decodeBody(p.body).kind !== "profile",
-      );
+      const mine = posts.filter((p) => {
+        if (p.reply_to_id) return false;
+        const k = decodeBody(p.body).kind;
+        return k !== "profile" && k !== "story";
+      });
       const results = await Promise.all(
         mine.map(async (p) => {
           const [replies, stats] = await Promise.all([

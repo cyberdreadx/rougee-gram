@@ -32,16 +32,29 @@ export default function PostCard({ post }: { post: SocialPost }) {
   const [burst, setBurst] = useState(false);
   const lastTap = useRef(0);
 
-  // Only photo/video posts render as media cards; plain text renders as text.
-  if (decoded.kind !== "photo" && decoded.kind !== "video") {
+  // photo / video / story render as media cards; plain text renders as text.
+  if (
+    decoded.kind !== "photo" &&
+    decoded.kind !== "video" &&
+    decoded.kind !== "story"
+  ) {
     if (decoded.kind === "profile") return null; // profile-metadata posts are hidden
     return <TextPostCard post={post} profile={profile} />;
   }
 
-  const isVideo = decoded.kind === "video";
-  const media = decoded.data; // photo or video envelope (shared: cid, w, h, cap, alt)
-  const isReel = isVideo && (media as { t?: string }).t === "reel";
-  const posterRef = isVideo ? (media as { poster?: string }).poster : undefined;
+  const media = decoded.data as {
+    cid: string;
+    mime?: string;
+    w?: number;
+    h?: number;
+    cap?: string;
+    alt?: string;
+    poster?: string;
+    t?: string;
+  };
+  const isVideo = (media.mime ?? "").startsWith("video/") || decoded.kind === "video";
+  const isReel = decoded.kind === "video" && media.t === "reel";
+  const posterRef = isVideo ? media.poster : undefined;
   const liked = stats?.liked ?? false;
   // Reserve the media's real aspect ratio so the feed doesn't jump when it loads.
   const aspectRatio = media.w && media.h ? `${media.w} / ${media.h}` : "1 / 1";

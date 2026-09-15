@@ -13,6 +13,8 @@ interface Props {
   autoPlay?: boolean;
   playsInline?: boolean;
   onRef?: (el: HTMLVideoElement | null) => void;
+  onEnded?: () => void;
+  onTimeUpdate?: (currentTime: number, duration: number) => void;
 }
 
 /** Resolves a video media reference (ipfs://… / local://…) plus optional poster
@@ -27,6 +29,8 @@ export default function MediaVideo({
   autoPlay,
   playsInline = true,
   onRef,
+  onEnded,
+  onTimeUpdate,
 }: Props) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
@@ -53,6 +57,12 @@ export default function MediaVideo({
       autoPlay={autoPlay}
       playsInline={playsInline}
       preload="metadata"
+      onEnded={onEnded}
+      onTimeUpdate={
+        onTimeUpdate
+          ? (e) => onTimeUpdate(e.currentTarget.currentTime, e.currentTarget.duration)
+          : undefined
+      }
     />
   );
 }

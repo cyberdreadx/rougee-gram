@@ -32,13 +32,15 @@ import {
   type ProcessedVideo,
 } from "@/lib/video";
 import { putImage, activeBackend } from "@/lib/media";
-import { encodePhoto, encodeVideo, CAPTION_LIMIT } from "@/lib/envelope";
+import { encodePhoto, encodeVideo, encodeStory, CAPTION_LIMIT } from "@/lib/envelope";
 import { rc, requestFaucet } from "@/lib/rouge";
 import { invalidateFeeds } from "@/hooks/useSocial";
 import { cn } from "@/lib/utils";
 
+type CreateMode = "post" | "story";
+
 interface CreatePostCtx {
-  open: () => void;
+  open: (mode?: CreateMode) => void;
 }
 const Ctx = createContext<CreatePostCtx | null>(null);
 
@@ -49,17 +51,35 @@ export function useCreatePost() {
 }
 
 export function CreatePostProvider({ children }: { children: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const value = useMemo(() => ({ open: () => setIsOpen(true) }), []);
+  const [state, setState] = useState<{ open: boolean; mode: CreateMode }>({
+    open: false,
+    mode: "post",
+  });
+  const value = useMemo(
+    () => ({ open: (mode: CreateMode = "post") => setState({ open: true, mode }) }),
+    [],
+  );
   return (
     <Ctx.Provider value={value}>
       {children}
-      {isOpen && <CreatePostDialog onClose={() => setIsOpen(false)} />}
+      {state.open && (
+        <CreatePostDialog
+          mode={state.mode}
+          onClose={() => setState((s) => ({ ...s, open: false }))}
+        />
+      )}
     </Ctx.Provider>
   );
 }
 
-function CreatePostDialog({ onClose }: { onClose: () => void }) {
+function CreatePostDialog({
+  mode,
+  onClose,
+}: {
+  mode: CreateMode;
+  onClose: () => void;
+}) {
+  const isStory = mode === "story";
   const { wallet, publicKey } = useAuth();
   const { toast } = useToast();
   const client = useQueryClient();
@@ -132,11 +152,19 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
     setVinfo(null);
   }
 
+  function uploadStage() {
+    return backend === "cloudflare"
+      ? "Uploading to Cloudflare…"
+      : backend === "ipfs"
+        ? "Uploading to IPFS…"
+        : "Saving locally…";
+  }
+
   async function shareImage() {
     if (!file || !wallet) return;
     setStage("Processing image…");
     const img = await processImage(file, { square, maxSize: 1440, quality: 0.82 });
-    setStage(backend === "ipfs" ? "Uploading to IPFS…" : "Saving locally…");
+    setStage(uploadStage());
     const media = await putImage(img.blob, "photo");
     setStage("Signing & posting on-chain…");
     const body = encodePhoto({
@@ -156,7 +184,7 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
       setStage("Uploading thumbnail…");
       posterRef = (await putImage(vinfo.poster, "poster")).ref;
     }
-    setStage(backend === "ipfs" ? "Uploading video to IPFS…" : "Saving video locally…");
+    setStage(uploadStage());
     const media = await putImage(vinfo.blob, "video");
     setStage("Signing & posting on-chain…");
     const body = encodeVideo({
@@ -172,6 +200,47 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
     await submit(body);
   }
 
+  async function shareStory() {
+    if (!wallet || !file) return;
+    if (kind === "video") {
+      if (!vinfo) return;
+      let posterRef: string | undefined;
+      if (vinfo.poster) {
+        setStage("Uploading thumbnail…");
+        posterRef = (await putImage(vinfo.poster, "poster")).ref;
+      }
+      setStage(uploadStage());
+      const media = await putImage(vinfo.blob, "story");
+      setStage("Signing & posting on-chain…");
+      await submit(
+        encodeStory({
+          cid: media.ref,
+          mime: vinfo.mime,
+          w: vinfo.width || undefined,
+          h: vinfo.height || undefined,
+          dur: vinfo.duration ? Math.round(vinfo.duration) : undefined,
+          poster: posterRef,
+          cap: caption.trim() || undefined,
+        }),
+      );
+    } else {
+      setStage("Processing image…");
+      const img = await processImage(file, { maxSize: 1440, quality: 0.85 });
+      setStage(uploadStage());
+      const media = await putImage(img.blob, "story");
+      setStage("Signing & posting on-chain…");
+      await submit(
+        encodeStory({
+          cid: media.ref,
+          mime: img.mime,
+          w: img.width,
+          h: img.height,
+          cap: caption.trim() || undefined,
+        }),
+      );
+    }
+  }
+
   async function submit(body: string) {
     if (!wallet) return;
     let res = await rc().social.createPost(wallet, body);
@@ -182,7 +251,14 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
     }
     if (!res.success) throw new Error(res.error || "Post failed");
     invalidateFeeds(client, publicKey);
-    toast(isReel && kind === "video" ? "Reel posted! 🎬" : "Posted! 🎉", "success");
+    toast(
+      isStory
+        ? "Story posted ✨"
+        : isReel && kind === "video"
+          ? "Reel posted! 🎬"
+          : "Posted! 🎉",
+      "success",
+    );
     reset();
     onClose();
   }
@@ -191,7 +267,8 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
     if (!file || !wallet || processing) return;
     setBusy(true);
     try {
-      if (kind === "video") await shareVideo();
+      if (isStory) await shareStory();
+      else if (kind === "video") await shareVideo();
       else await shareImage();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Could not post.", "error");
@@ -204,7 +281,7 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
   const tooBig = kind === "video" && file ? file.size > VIDEO_WARN_BYTES : false;
 
   return (
-    <Modal onClose={busy ? () => {} : onClose} title="New post" maxWidth="max-w-lg">
+    <Modal onClose={busy ? () => {} : onClose} title={isStory ? "New story" : "New post"} maxWidth="max-w-lg">
       {!file ? (
         <DropZone onFile={pickFile} onBrowse={() => fileInput.current?.click()} />
       ) : (
@@ -241,8 +318,8 @@ function CreatePostDialog({ onClose }: { onClose: () => void }) {
               )}
             </div>
 
-            {/* aspect / reel toggle */}
-            <div className="absolute left-2 top-2 flex gap-2">
+            {/* aspect / reel toggle (not for stories) */}
+            <div className={cn("absolute left-2 top-2 flex gap-2", isStory && "hidden")}>
               {kind === "image" ? (
                 <button
                   onClick={() => setSquare((s) => !s)}

@@ -4,6 +4,7 @@ import { Compass, Camera } from "lucide-react";
 import { useFollowingFeed, useGlobalTimeline } from "@/hooks/useSocial";
 import { useCreatePost } from "@/components/CreatePost";
 import FeedList from "@/components/FeedList";
+import StoriesTray from "@/components/StoriesTray";
 import { cn } from "@/lib/utils";
 
 type Tab = "following" | "discover";
@@ -18,6 +19,8 @@ export default function Home() {
 
   return (
     <div>
+      <StoriesTray />
+
       {/* Segmented tabs */}
       <div className="sticky top-[var(--top-bar-h)] z-20 flex border-b border-ink-border bg-ink/80 backdrop-blur md:top-0">
         <TabButton active={tab === "following"} onClick={() => setTab("following")}>
@@ -66,7 +69,7 @@ export default function Home() {
                   on-chain, signed by you.
                 </p>
               </div>
-              <button className="btn-primary" onClick={open}>
+              <button className="btn-primary" onClick={() => open()}>
                 Share the first photo
               </button>
             </div>

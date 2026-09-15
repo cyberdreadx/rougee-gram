@@ -53,6 +53,22 @@ export interface VideoEnvelope {
   alt?: string;
 }
 
+export interface StoryEnvelope {
+  v: 1;
+  t: "story";
+  /** Media reference URI (image or video): ipfs://… / local://… / https://… */
+  cid: string;
+  mime: string;
+  w?: number;
+  h?: number;
+  /** Duration in seconds (video stories) */
+  dur?: number;
+  /** Poster/thumbnail media reference (video stories) */
+  poster?: string;
+  /** Optional caption / text overlay */
+  cap?: string;
+}
+
 export interface ProfileEnvelope {
   v: 1;
   t: "profile";
@@ -65,8 +81,13 @@ export interface ProfileEnvelope {
 export type Decoded =
   | { kind: "photo"; data: PhotoEnvelope }
   | { kind: "video"; data: VideoEnvelope }
+  | { kind: "story"; data: StoryEnvelope }
   | { kind: "profile"; data: ProfileEnvelope }
   | { kind: "text"; text: string };
+
+/** Stories are ephemeral by convention: shown only within this window. The
+ *  chain is immutable, so "expired" just means the client stops showing it. */
+export const STORY_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function encodePhoto(env: Omit<PhotoEnvelope, "v" | "t">): string {
   const full: PhotoEnvelope = { v: 1, t: "photo", ...env };
@@ -82,6 +103,16 @@ export function encodeVideo(
   env: Omit<VideoEnvelope, "v"> & { t: "video" | "reel" },
 ): string {
   const full: VideoEnvelope = { v: 1, ...env };
+  if (full.cap) full.cap = full.cap.slice(0, CAPTION_LIMIT);
+  const json = JSON.stringify(stripUndefined(full));
+  if (json.length > POST_BODY_LIMIT) {
+    throw new Error("Caption too long for a single on-chain post.");
+  }
+  return json;
+}
+
+export function encodeStory(env: Omit<StoryEnvelope, "v" | "t">): string {
+  const full: StoryEnvelope = { v: 1, t: "story", ...env };
   if (full.cap) full.cap = full.cap.slice(0, CAPTION_LIMIT);
   const json = JSON.stringify(stripUndefined(full));
   if (json.length > POST_BODY_LIMIT) {
@@ -112,6 +143,9 @@ export function decodeBody(body: string): Decoded {
         typeof obj.cid === "string"
       ) {
         return { kind: "video", data: obj as unknown as VideoEnvelope };
+      }
+      if (obj && obj.v === 1 && obj.t === "story" && typeof obj.cid === "string") {
+        return { kind: "story", data: obj as unknown as StoryEnvelope };
       }
       if (obj && obj.v === 1 && obj.t === "profile") {
         return { kind: "profile", data: obj as unknown as ProfileEnvelope };

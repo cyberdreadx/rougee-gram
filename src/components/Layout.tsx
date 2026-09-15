@@ -50,7 +50,7 @@ function DesktopSidebar() {
         <SideLink key={item.to} {...item} />
       ))}
       <button
-        onClick={open}
+        onClick={() => open()}
         className="mt-1 flex items-center gap-4 rounded-xl px-3 py-2.5 text-[15px] font-medium text-white transition-colors hover:bg-white/5"
       >
         <PlusSquare className="h-6 w-6" />
@@ -173,7 +173,7 @@ function MobileBottomNav() {
       <BottomLink to="/" end icon={Home} label="Home" />
       <BottomLink to="/explore" icon={Compass} label="Explore" />
       <button
-        onClick={open}
+        onClick={() => open()}
         className="flex min-h-[44px] flex-col items-center justify-center gap-0.5 px-4 py-1 text-ink-muted"
         aria-label="Create"
       >
