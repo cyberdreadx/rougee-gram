@@ -1,10 +1,22 @@
 import { useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { Loader2, Settings, Share2, Check, Send } from "lucide-react";
+import {
+  Loader2,
+  Settings,
+  Share2,
+  Check,
+  Send,
+  Grid3x3,
+  Clapperboard,
+  UserSquare,
+  Bookmark,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useResolvePubkey } from "@/hooks/useResolve";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserPosts, useArtistStats, useToggleFollow } from "@/hooks/useSocial";
 import { useStartConversation } from "@/hooks/useMessenger";
+import { useSavedPosts } from "@/hooks/useSaved";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import Avatar from "@/components/Avatar";
@@ -13,6 +25,8 @@ import EditProfile from "@/components/EditProfile";
 import { displayName } from "@/lib/profile";
 import { shortAddress, formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+type ProfileTab = "posts" | "reels" | "tagged" | "saved";
 
 export default function Profile() {
   const { address } = useParams<{ address: string }>();
@@ -27,6 +41,7 @@ export default function Profile() {
   const { data: profile } = useProfile(pubkey || undefined);
   const stats = useArtistStats(pubkey || undefined);
   const posts = useUserPosts(pubkey || undefined);
+  const [tab, setTab] = useState<ProfileTab>("posts");
 
   const isMe = Boolean(pubkey) && pubkey === myPubkey;
 
@@ -108,9 +123,87 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="border-t border-ink-border p-0.5 sm:p-1">
-        <PhotoGrid posts={posts.data?.posts} isLoading={posts.isLoading} />
+      {/* Tabs */}
+      <div className="flex border-t border-ink-border">
+        <TabButton active={tab === "posts"} onClick={() => setTab("posts")} icon={Grid3x3} label="Posts" />
+        <TabButton active={tab === "reels"} onClick={() => setTab("reels")} icon={Clapperboard} label="Reels" />
+        <TabButton active={tab === "tagged"} onClick={() => setTab("tagged")} icon={UserSquare} label="Tagged" />
+        {isMe && (
+          <TabButton active={tab === "saved"} onClick={() => setTab("saved")} icon={Bookmark} label="Saved" />
+        )}
+      </div>
+
+      {/* Tab content */}
+      <div className="p-0.5 sm:p-1">
+        {tab === "posts" && (
+          <PhotoGrid posts={posts.data?.posts} isLoading={posts.isLoading} />
+        )}
+        {tab === "reels" && (
+          <PhotoGrid
+            posts={posts.data?.posts}
+            isLoading={posts.isLoading}
+            only="reels"
+            emptyLabel="No reels yet."
+          />
+        )}
+        {tab === "tagged" && <TaggedEmpty />}
+        {tab === "saved" && isMe && <SavedGrid />}
+      </div>
+    </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: LucideIcon;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex flex-1 items-center justify-center border-t-2 py-3 transition-colors",
+        active
+          ? "border-white text-white"
+          : "border-transparent text-ink-muted hover:text-white",
+      )}
+      aria-label={label}
+      aria-selected={active}
+      role="tab"
+    >
+      <Icon className="h-5 w-5" strokeWidth={active ? 2.25 : 2} />
+    </button>
+  );
+}
+
+function SavedGrid() {
+  const saved = useSavedPosts();
+  return (
+    <PhotoGrid
+      posts={saved.data}
+      isLoading={saved.isLoading}
+      emptyLabel="Save posts to find them here later."
+    />
+  );
+}
+
+function TaggedEmpty() {
+  return (
+    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-ink-border text-ink-muted">
+        <UserSquare className="h-7 w-7" />
+      </div>
+      <div>
+        <h3 className="font-semibold">No tagged posts</h3>
+        <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
+          When people tag this account in a post, it&apos;ll show up here.
+        </p>
       </div>
     </div>
   );

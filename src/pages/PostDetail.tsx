@@ -16,6 +16,7 @@ import Avatar from "@/components/Avatar";
 import UserLink from "@/components/UserLink";
 import { useMyProfile } from "@/hooks/useProfile";
 import { timeAgo, formatCount } from "@/lib/format";
+import { decodeBody, postOptions } from "@/lib/envelope";
 import { cn } from "@/lib/utils";
 import type { SocialPost } from "@rougechain/sdk";
 
@@ -24,6 +25,9 @@ export default function PostDetail() {
   const navigate = useNavigate();
   const { data, isLoading, isError } = usePost(postId);
   const replies = useReplies(postId);
+  const noComments = data?.post
+    ? postOptions(decodeBody(data.post.body)).noComments
+    : false;
 
   return (
     <div className="pb-[calc(var(--bottom-nav-h)+5.5rem)] md:pb-0">
@@ -50,30 +54,39 @@ export default function PostDetail() {
         <>
           <PostCard post={data.post} />
 
-          <section className="px-3 pt-4 sm:px-0">
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Comments
-            </h2>
-            {replies.isLoading ? (
-              <div className="py-8 text-center">
-                <Loader2 className="mx-auto h-4 w-4 animate-spin text-ink-muted" />
-              </div>
-            ) : replies.data && replies.data.length > 0 ? (
-              <div className="space-y-4 py-2">
-                {replies.data.map((c) => (
-                  <CommentRow key={c.id} comment={c} />
-                ))}
-              </div>
-            ) : (
-              <p className="py-8 text-center text-sm text-ink-muted">
-                No comments yet. Be the first.
+          {noComments ? (
+            <section className="px-3 py-10 text-center sm:px-0">
+              <p className="text-sm font-medium">Comments are turned off</p>
+              <p className="mt-1 text-sm text-ink-muted">
+                The author turned off commenting for this post.
               </p>
-            )}
-          </section>
+            </section>
+          ) : (
+            <section className="px-3 pt-4 sm:px-0">
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                Comments
+              </h2>
+              {replies.isLoading ? (
+                <div className="py-8 text-center">
+                  <Loader2 className="mx-auto h-4 w-4 animate-spin text-ink-muted" />
+                </div>
+              ) : replies.data && replies.data.length > 0 ? (
+                <div className="space-y-4 py-2">
+                  {replies.data.map((c) => (
+                    <CommentRow key={c.id} comment={c} />
+                  ))}
+                </div>
+              ) : (
+                <p className="py-8 text-center text-sm text-ink-muted">
+                  No comments yet. Be the first.
+                </p>
+              )}
+            </section>
+          )}
         </>
       )}
 
-      {postId && data?.post && <Composer postId={postId} />}
+      {postId && data?.post && !noComments && <Composer postId={postId} />}
     </div>
   );
 }

@@ -10,7 +10,7 @@ import {
   Check,
 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
-import { decodeBody } from "@/lib/envelope";
+import { decodeBody, postOptions } from "@/lib/envelope";
 import { useProfile } from "@/hooks/useProfile";
 import {
   usePostStats,
@@ -26,6 +26,7 @@ import MediaImage from "./MediaImage";
 import MediaVideo from "./MediaVideo";
 import Carousel from "./Carousel";
 import UserLink from "./UserLink";
+import SaveButton from "./SaveButton";
 import Caption from "./Caption";
 import { Film } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,11 +41,16 @@ export default function PostCard({ post }: { post: SocialPost }) {
   const [burst, setBurst] = useState(false);
   const lastTap = useRef(0);
 
-  // photo / video / story / carousel render as media cards; plain text as text.
-  if (decoded.kind === "profile") return null; // profile-metadata posts are hidden
+  // photo / video / carousel render as media cards; plain text as text.
+  // profile-metadata, story, and note posts are never shown as feed cards.
+  if (decoded.kind === "profile" || decoded.kind === "story" || decoded.kind === "note") {
+    return null;
+  }
   if (decoded.kind === "text") {
     return <TextPostCard post={post} profile={profile} />;
   }
+
+  const { hideLikes, noComments } = postOptions(decoded);
 
   const isCarousel = decoded.kind === "carousel";
   const carouselItems = decoded.kind === "carousel" ? decoded.data.items : null;
@@ -176,13 +182,15 @@ export default function PostCard({ post }: { post: SocialPost }) {
         >
           <Heart className={cn("h-6 w-6", liked && "fill-rouge-500")} />
         </button>
-        <button
-          onClick={() => navigate(`/p/${post.id}`)}
-          className="text-white hover:text-ink-muted"
-          aria-label="Comments"
-        >
-          <MessageCircle className="h-6 w-6" />
-        </button>
+        {!noComments && (
+          <button
+            onClick={() => navigate(`/p/${post.id}`)}
+            className="text-white hover:text-ink-muted"
+            aria-label="Comments"
+          >
+            <MessageCircle className="h-6 w-6" />
+          </button>
+        )}
         <button
           onClick={() => repost.mutate()}
           className={cn(
@@ -194,13 +202,14 @@ export default function PostCard({ post }: { post: SocialPost }) {
           <Repeat2 className="h-6 w-6" />
         </button>
         <ShareButton postId={post.id} />
+        <SaveButton postId={post.id} className="ml-auto" />
       </div>
 
       {/* meta */}
       <div className="space-y-1 px-3 pt-2 sm:px-0">
-        {((stats?.likes ?? 0) > 0 || (stats?.reposts ?? 0) > 0) && (
+        {(((stats?.likes ?? 0) > 0 && !hideLikes) || (stats?.reposts ?? 0) > 0) && (
           <div className="flex items-center gap-3 text-sm">
-            {(stats?.likes ?? 0) > 0 && (
+            {(stats?.likes ?? 0) > 0 && !hideLikes && (
               <span className="font-semibold">
                 {formatCount(stats!.likes)} {stats!.likes === 1 ? "like" : "likes"}
               </span>
@@ -218,13 +227,17 @@ export default function PostCard({ post }: { post: SocialPost }) {
             text={media.cap}
           />
         )}
-        {(stats?.replies ?? 0) > 0 && (
-          <button
-            onClick={() => navigate(`/p/${post.id}`)}
-            className="text-sm text-ink-muted hover:underline"
-          >
-            View {stats!.replies === 1 ? "1 comment" : `all ${formatCount(stats!.replies)} comments`}
-          </button>
+        {noComments ? (
+          <div className="text-sm text-ink-muted">Comments are turned off.</div>
+        ) : (
+          (stats?.replies ?? 0) > 0 && (
+            <button
+              onClick={() => navigate(`/p/${post.id}`)}
+              className="text-sm text-ink-muted hover:underline"
+            >
+              View {stats!.replies === 1 ? "1 comment" : `all ${formatCount(stats!.replies)} comments`}
+            </button>
+          )
         )}
         <div className="pt-0.5 text-[11px] uppercase tracking-wide text-ink-muted">
           {timeAgo(post.created_at)}
@@ -268,7 +281,7 @@ function ShareButton({ postId }: { postId: string }) {
   function share() {
     const url = `${location.origin}/p/${postId}`;
     if (navigator.share) {
-      navigator.share({ url, title: "Rougee-gram" }).catch(() => {});
+      navigator.share({ url, title: "RouGee" }).catch(() => {});
     } else {
       navigator.clipboard.writeText(url);
       toast("Link copied", "success");
@@ -279,7 +292,7 @@ function ShareButton({ postId }: { postId: string }) {
   return (
     <button
       onClick={share}
-      className="ml-auto text-white hover:text-ink-muted"
+      className="text-white hover:text-ink-muted"
       aria-label="Share"
     >
       {done ? <Check className="h-6 w-6 text-emerald-400" /> : <Share2 className="h-6 w-6" />}
