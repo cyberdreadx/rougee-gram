@@ -7,6 +7,8 @@ import Home from "./pages/Home";
 import Explore from "./pages/Explore";
 import Reels from "./pages/Reels";
 import Activity from "./pages/Activity";
+import Messages from "./pages/Messages";
+import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import PostDetail from "./pages/PostDetail";
 import Settings from "./pages/Settings";
@@ -26,6 +28,8 @@ export default function App() {
         <Route path="/explore" element={<Explore />} />
         <Route path="/reels" element={<Reels />} />
         <Route path="/activity" element={<Activity />} />
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/messages/:id" element={<Chat />} />
         <Route path="/p/:postId" element={<PostDetail />} />
         <Route path="/u/:address" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { Loader2, Settings, Share2, Check } from "lucide-react";
+import { Loader2, Settings, Share2, Check, Send } from "lucide-react";
 import { useResolvePubkey } from "@/hooks/useResolve";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserPosts, useArtistStats, useToggleFollow } from "@/hooks/useSocial";
+import { useStartConversation } from "@/hooks/useMessenger";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import Avatar from "@/components/Avatar";
@@ -98,7 +99,10 @@ export default function Profile() {
           {isMe ? (
             <EditProfileButton profile={profile} />
           ) : (
-            <FollowButton pubkey={pubkey} isFollowing={stats.data?.isFollowing} />
+            <>
+              <FollowButton pubkey={pubkey} isFollowing={stats.data?.isFollowing} />
+              <MessageButton pubkey={pubkey} />
+            </>
           )}
           <ShareProfileButton address={profile?.address ?? address ?? ""} />
         </div>
@@ -147,6 +151,32 @@ function FollowButton({
         "Following"
       ) : (
         "Follow"
+      )}
+    </button>
+  );
+}
+
+function MessageButton({ pubkey }: { pubkey: string }) {
+  const start = useStartConversation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  return (
+    <button
+      className="btn-soft flex-1"
+      disabled={start.isPending}
+      onClick={() =>
+        start.mutate(pubkey, {
+          onSuccess: (id) => navigate(`/messages/${id}`),
+          onError: (e) => toast(e instanceof Error ? e.message : "Failed", "error"),
+        })
+      }
+    >
+      {start.isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <>
+          <Send className="h-4 w-4" /> Message
+        </>
       )}
     </button>
   );

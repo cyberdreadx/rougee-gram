@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Home, Compass, PlusSquare, Settings, LogOut, Film, Heart } from "lucide-react";
+import { Home, Compass, PlusSquare, Settings, LogOut, Film, Heart, Send } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { CreatePostProvider, useCreatePost } from "./CreatePost";
 import Logo from "./Logo";
@@ -57,6 +57,7 @@ function DesktopSidebar() {
         Create
       </button>
       <SideLink to="/activity" label="Activity" icon={Heart} end={false} />
+      <SideLink to="/messages" label="Messages" icon={Send} end={false} />
       <SideLink
         to={`/u/${address}`}
         label="Profile"
@@ -151,13 +152,22 @@ function MobileTopBar() {
   return (
     <header className="sticky top-0 z-30 flex h-[var(--top-bar-h)] items-center justify-between border-b border-ink-border bg-ink/80 px-4 backdrop-blur md:hidden">
       <Logo size={28} withWordmark />
-      <button
-        onClick={() => navigate("/activity")}
-        className="btn-ghost h-9 w-9 p-0"
-        aria-label="Activity"
-      >
-        <Heart className="h-6 w-6" />
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => navigate("/activity")}
+          className="btn-ghost h-9 w-9 p-0"
+          aria-label="Activity"
+        >
+          <Heart className="h-6 w-6" />
+        </button>
+        <button
+          onClick={() => navigate("/messages")}
+          className="btn-ghost h-9 w-9 p-0"
+          aria-label="Messages"
+        >
+          <Send className="h-6 w-6" />
+        </button>
+      </div>
     </header>
   );
 }
