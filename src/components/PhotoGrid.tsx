@@ -48,9 +48,14 @@ export const toPhotoCells = toMediaCells;
 export default function PhotoGrid({
   posts,
   isLoading,
+  only,
+  emptyLabel = "Nothing here yet.",
 }: {
   posts: SocialPost[] | undefined;
   isLoading?: boolean;
+  /** Restrict the grid to a single media kind (e.g. the profile Reels tab). */
+  only?: "reels";
+  emptyLabel?: string;
 }) {
   if (isLoading) {
     return (
@@ -62,11 +67,12 @@ export default function PhotoGrid({
     );
   }
 
-  const cells = toMediaCells(posts);
+  let cells = toMediaCells(posts);
+  if (only === "reels") cells = cells.filter((c) => c.isReel);
   if (cells.length === 0) {
     return (
       <div className="px-4 py-16 text-center text-sm text-ink-muted">
-        Nothing here yet.
+        {emptyLabel}
       </div>
     );
   }

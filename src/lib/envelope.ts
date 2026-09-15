@@ -2,7 +2,7 @@
  * Post-body envelope.
  *
  * RougeChain's social layer stores a post as a plain-text `body` (max 4000 chars)
- * with no media field. Rougee-gram encodes a compact JSON envelope into that body
+ * with no media field. RouGee encodes a compact JSON envelope into that body
  * so a photo post is just a normal on-chain post that also happens to point at a
  * content-addressed image.
  *
@@ -10,7 +10,7 @@
  *   - `ipfs://<cid>`   — pinned on IPFS (portable, censorship-resistant)
  *   - `local://<hash>` — stored in this browser's IndexedDB (dev fallback)
  *
- * Bodies that are not valid Rougee-gram envelopes (e.g. plain-text posts already
+ * Bodies that are not valid RouGee envelopes (e.g. plain-text posts already
  * on-chain from other apps) are surfaced as `{ kind: "text" }` so the feed still
  * renders them gracefully.
  */
@@ -20,7 +20,20 @@ export const CAPTION_LIMIT = 2200;
 export const BIO_LIMIT = 300;
 export const NAME_LIMIT = 40;
 
-export interface PhotoEnvelope {
+/**
+ * Per-post publishing options that travel with the post so every client honors
+ * them (there's no server to enforce settings). Compact keys keep the envelope
+ * small. Only meaningful, decentralization-appropriate settings are included —
+ * things like "schedule" or "hide download" don't apply to public on-chain posts.
+ */
+export interface PostOptions {
+  /** Hide the like count from viewers (the post is still likeable). */
+  hl?: boolean;
+  /** Turn off commenting. */
+  nc?: boolean;
+}
+
+export interface PhotoEnvelope extends PostOptions {
   v: 1;
   t: "photo";
   /** Media reference URI: ipfs://… or local://… */
@@ -34,7 +47,7 @@ export interface PhotoEnvelope {
   alt?: string;
 }
 
-export interface VideoEnvelope {
+export interface VideoEnvelope extends PostOptions {
   v: 1;
   /** "video" = regular clip, "reel" = vertical short shown in the reels feed */
   t: "video" | "reel";
@@ -65,7 +78,7 @@ export interface CarouselItem {
   h?: number;
 }
 
-export interface CarouselEnvelope {
+export interface CarouselEnvelope extends PostOptions {
   v: 1;
   t: "carousel";
   items: CarouselItem[];
@@ -100,13 +113,35 @@ export interface ProfileEnvelope {
   avatar?: string;
 }
 
+/** A "note" — a short, ephemeral text status shown in the DM inbox (à la IG). */
+export interface NoteEnvelope {
+  v: 1;
+  t: "note";
+  /** Short note text */
+  txt: string;
+}
+
+export const NOTE_LIMIT = 60;
+/** Notes are ephemeral by convention — clients only show them within 24h. */
+export const NOTE_TTL_MS = 24 * 60 * 60 * 1000;
+
 export type Decoded =
   | { kind: "photo"; data: PhotoEnvelope }
   | { kind: "video"; data: VideoEnvelope }
   | { kind: "carousel"; data: CarouselEnvelope }
   | { kind: "story"; data: StoryEnvelope }
+  | { kind: "note"; data: NoteEnvelope }
   | { kind: "profile"; data: ProfileEnvelope }
   | { kind: "text"; text: string };
+
+/** Publishing options for any media post (photo/video/carousel). */
+export function postOptions(d: Decoded): { hideLikes: boolean; noComments: boolean } {
+  if (d.kind === "photo" || d.kind === "video" || d.kind === "carousel") {
+    const data = d.data as PostOptions;
+    return { hideLikes: !!data.hl, noComments: !!data.nc };
+  }
+  return { hideLikes: false, noComments: false };
+}
 
 /** Stories are ephemeral by convention: shown only within this window. The
  *  chain is immutable, so "expired" just means the client stops showing it. */
@@ -157,6 +192,11 @@ export function encodeStory(env: Omit<StoryEnvelope, "v" | "t">): string {
   return json;
 }
 
+export function encodeNote(txt: string): string {
+  const full: NoteEnvelope = { v: 1, t: "note", txt: txt.slice(0, NOTE_LIMIT) };
+  return JSON.stringify(full);
+}
+
 export function encodeProfile(env: Omit<ProfileEnvelope, "v" | "t">): string {
   const full: ProfileEnvelope = { v: 1, t: "profile", ...env };
   if (full.name) full.name = full.name.slice(0, NAME_LIMIT);
@@ -190,6 +230,9 @@ export function decodeBody(body: string): Decoded {
       }
       if (obj && obj.v === 1 && obj.t === "story" && typeof obj.cid === "string") {
         return { kind: "story", data: obj as unknown as StoryEnvelope };
+      }
+      if (obj && obj.v === 1 && obj.t === "note" && typeof obj.txt === "string") {
+        return { kind: "note", data: obj as unknown as NoteEnvelope };
       }
       if (obj && obj.v === 1 && obj.t === "profile") {
         return { kind: "profile", data: obj as unknown as ProfileEnvelope };
