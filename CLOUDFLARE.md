@@ -63,10 +63,27 @@ New uploads now go to R2. The status line in Settings will read
 (if JWT set) → **local IndexedDB** (dev fallback). So configuring Cloudflare
 automatically takes over new uploads; existing IPFS/local posts keep resolving.
 
-## Scaling to adaptive streaming
+## Adaptive video with Cloudflare Stream (optional)
 
-R2 serves progressive MP4 with range requests — perfect for short reels/clips.
-For long-form or HD at scale, **Cloudflare Stream** adds transcoding + HLS/DASH
-adaptive bitrate + auto thumbnails. That's a future backend (`stream.ts`) behind
-the same `MediaStore` interface; it returns an HLS playback URL and would pair
-with an HLS player (native in Safari; `hls.js` elsewhere).
+R2 serves progressive MP4 with range requests — great for short reels/clips. For
+long-form / HD at scale, **Cloudflare Stream** adds transcoding + HLS adaptive
+bitrate + auto thumbnails. It's built in (`src/lib/media/stream.ts` +
+`workers/media` `/stream` route + hls.js playback in `MediaVideo`).
+
+> **Stream is a paid product** (per-minute stored + delivered). Enable it on your
+> Cloudflare account first.
+
+**Setup:**
+
+```bash
+# Give the Worker your account id + a Stream-scoped API token, then redeploy.
+npx wrangler secret put CF_ACCOUNT_ID   --config workers/media/wrangler.toml
+npx wrangler secret put CF_STREAM_TOKEN --config workers/media/wrangler.toml   # token with Stream:Edit
+npm run cf:deploy
+```
+
+Then turn it on in **Settings → Media storage → “Use Cloudflare Stream for
+video”** (or build-time `VITE_CF_STREAM=true`). Video/reels now upload to Stream;
+the post stores the HLS playback URL + Stream's auto thumbnail, and the player
+uses **hls.js** (native HLS on Safari). Images still go to R2. Progressive-MP4
+via R2 remains the default when Stream is off.

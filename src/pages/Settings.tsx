@@ -219,6 +219,7 @@ function MediaSection() {
   const cfg = getConfig();
   const [cfUrl, setCfUrl] = useState(cfg.cfWorkerUrl);
   const [cfSecret, setCfSecret] = useState(cfg.cfUploadSecret);
+  const [cfStreamOn, setCfStreamOn] = useState(cfg.cfStream);
   const [jwt, setJwt] = useState(cfg.pinataJwt);
   const [gateway, setGateway] = useState(cfg.ipfsGateway);
   const [testing, setTesting] = useState(false);
@@ -250,6 +251,7 @@ function MediaSection() {
       updateConfig({
         cfWorkerUrl: url,
         cfUploadSecret: cfSecret.trim(),
+        cfStream: cfStreamOn,
         pinataJwt: jwt,
         ipfsGateway: gateway,
       });
@@ -302,6 +304,20 @@ function MediaSection() {
           onChange={(e) => setCfSecret(e.target.value)}
           spellCheck={false}
         />
+        <label className="mt-3 flex items-center gap-2.5 text-sm">
+          <input
+            type="checkbox"
+            checked={cfStreamOn}
+            onChange={(e) => setCfStreamOn(e.target.checked)}
+            className="h-4 w-4 accent-rouge-600"
+          />
+          <span>
+            Use Cloudflare <b>Stream</b> for video
+            <span className="block text-[11px] text-ink-muted">
+              Adaptive HLS + auto thumbnails. Needs Stream secrets on the Worker.
+            </span>
+          </span>
+        </label>
         <p className="mt-2 text-[11px] text-ink-muted">
           Deploy the Worker in <code>workers/media</code> (see CLOUDFLARE.md), then
           paste its URL here. Takes priority over IPFS.

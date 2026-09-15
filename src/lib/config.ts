@@ -15,6 +15,9 @@ export interface RuntimeConfig {
   cfWorkerUrl: string;
   /** Optional shared secret if the Worker enforces UPLOAD_SECRET. */
   cfUploadSecret: string;
+  /** Route video through Cloudflare Stream (adaptive HLS). Requires the Worker
+   *  to be configured with Stream secrets. */
+  cfStream: boolean;
 }
 
 /** Well-known RougeChain networks selectable at runtime in Settings. */
@@ -41,6 +44,7 @@ const defaults: RuntimeConfig = {
     import.meta.env.VITE_IPFS_GATEWAY || "https://gateway.pinata.cloud/ipfs/",
   cfWorkerUrl: import.meta.env.VITE_CF_WORKER_URL || "",
   cfUploadSecret: import.meta.env.VITE_CF_UPLOAD_SECRET || "",
+  cfStream: (import.meta.env.VITE_CF_STREAM || "") === "true",
 };
 
 function load(): RuntimeConfig {

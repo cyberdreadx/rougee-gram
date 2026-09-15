@@ -5,6 +5,7 @@ import type { MediaBackend, PutResult } from "./types";
 
 export { ipfsEnabled, testPinataJwt } from "./ipfs";
 export { cloudflareEnabled, testCloudflareWorker } from "./cloudflare";
+export { streamEnabled, putStream } from "./stream";
 export type { PutResult, MediaBackend } from "./types";
 
 /** Which backend a fresh upload will use, given current config.

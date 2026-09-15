@@ -32,7 +32,7 @@ import {
   formatBytes,
   type ProcessedVideo,
 } from "@/lib/video";
-import { putImage, activeBackend } from "@/lib/media";
+import { putImage, activeBackend, streamEnabled, putStream } from "@/lib/media";
 import {
   encodePhoto,
   encodeVideo,
@@ -231,6 +231,38 @@ function CreatePostDialog({
 
   async function shareVideo() {
     if (!vinfo || !wallet) return;
+
+    // Cloudflare Stream path — adaptive HLS + auto thumbnail.
+    if (streamEnabled()) {
+      setStage("Uploading to Cloudflare Stream…");
+      const s = await putStream(vinfo.blob);
+      let poster = s.thumbnail;
+      if (!poster && vinfo.poster) {
+        setStage("Uploading thumbnail…");
+        poster = (await putImage(vinfo.poster, "poster")).ref;
+      }
+      setStage("Signing & posting on-chain…");
+      await submit(
+        encodeVideo({
+          t: isReel && reelAllowed ? "reel" : "video",
+          cid: s.hls,
+          mime: "application/x-mpegURL",
+          w: vinfo.width || undefined,
+          h: vinfo.height || undefined,
+          dur: vinfo.duration ? Math.round(vinfo.duration) : undefined,
+          poster,
+          start: trimStart > 0.05 ? Math.round(trimStart * 10) / 10 : undefined,
+          end:
+            vinfo.duration && trimEnd < vinfo.duration - 0.05
+              ? Math.round(trimEnd * 10) / 10
+              : undefined,
+          crop: crop916 ? "9:16" : undefined,
+          cap: caption.trim() || undefined,
+        }),
+      );
+      return;
+    }
+
     let posterRef: string | undefined;
     if (vinfo.poster) {
       setStage("Uploading thumbnail…");

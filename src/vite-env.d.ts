@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_IPFS_GATEWAY?: string;
   readonly VITE_CF_WORKER_URL?: string;
   readonly VITE_CF_UPLOAD_SECRET?: string;
+  readonly VITE_CF_STREAM?: string;
 }
 
 interface ImportMeta {

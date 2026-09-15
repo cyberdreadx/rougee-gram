@@ -14,6 +14,9 @@ export interface Env {
   BUCKET: R2Bucket;
   ALLOW_ORIGIN?: string;
   UPLOAD_SECRET?: string;
+  /** For Cloudflare Stream (adaptive HLS video) — set via wrangler secret. */
+  CF_ACCOUNT_ID?: string;
+  CF_STREAM_TOKEN?: string;
 }
 
 const MAX_BYTES = 100 * 1024 * 1024; // keep in sync with the app's VIDEO_MAX_BYTES
@@ -83,6 +86,40 @@ export default {
         });
       }
       return json({ url: `${url.origin}/f/${objectKey}`, key: objectKey }, 200, env);
+    }
+
+    // ── Cloudflare Stream upload (adaptive HLS) ───────────────
+    if (request.method === "POST" && url.pathname === "/stream") {
+      if (env.UPLOAD_SECRET && request.headers.get("X-Upload-Secret") !== env.UPLOAD_SECRET) {
+        return json({ error: "unauthorized" }, 401, env);
+      }
+      if (!env.CF_ACCOUNT_ID || !env.CF_STREAM_TOKEN) {
+        return json({ error: "stream not configured" }, 501, env);
+      }
+      const contentType = request.headers.get("Content-Type") || "video/mp4";
+      if (!contentType.startsWith("video/")) {
+        return json({ error: "video only" }, 415, env);
+      }
+      const buf = await request.arrayBuffer();
+      const form = new FormData();
+      form.append("file", new Blob([buf], { type: contentType }), "video");
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/stream`,
+        { method: "POST", headers: { Authorization: `Bearer ${env.CF_STREAM_TOKEN}` }, body: form },
+      );
+      const data = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        result?: { uid?: string; playback?: { hls?: string }; thumbnail?: string };
+        errors?: unknown;
+      };
+      if (!res.ok || !data.success || !data.result) {
+        return json({ error: JSON.stringify(data.errors ?? data).slice(0, 200) }, 502, env);
+      }
+      return json(
+        { uid: data.result.uid, hls: data.result.playback?.hls, thumbnail: data.result.thumbnail },
+        200,
+        env,
+      );
     }
 
     // ── Serve ─────────────────────────────────────────────────

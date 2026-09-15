@@ -51,6 +51,37 @@ export default function MediaVideo({
     };
   }, [refUri, poster]);
 
+  const isHls = !!videoUrl && /\.m3u8($|\?)/i.test(videoUrl);
+
+  // HLS playback (Cloudflare Stream etc.): native on Safari, else hls.js.
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el || !videoUrl || !isHls) return;
+    if (el.canPlayType("application/vnd.apple.mpegurl")) {
+      el.src = videoUrl;
+      return;
+    }
+    let cancelled = false;
+    let hls: { destroy: () => void } | null = null;
+    import("hls.js")
+      .then(({ default: Hls }) => {
+        if (cancelled || !elRef.current) return;
+        if (Hls.isSupported()) {
+          const inst = new Hls({ enableWorker: true });
+          inst.loadSource(videoUrl);
+          inst.attachMedia(elRef.current);
+          hls = inst;
+        } else {
+          elRef.current.src = videoUrl;
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (hls) hls.destroy();
+    };
+  }, [videoUrl, isHls]);
+
   // Seek to the trim start once metadata is available.
   useEffect(() => {
     const el = elRef.current;
@@ -75,7 +106,7 @@ export default function MediaVideo({
   return (
     <video
       ref={setRef}
-      src={videoUrl ?? undefined}
+      src={videoUrl && !isHls ? videoUrl : undefined}
       poster={posterUrl ?? undefined}
       className={cn(className)}
       loop={loop}

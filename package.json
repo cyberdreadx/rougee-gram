@@ -29,6 +29,7 @@
     "@rougechain/sdk": "^1.4.0",
     "@tanstack/react-query": "^5.59.0",
     "clsx": "^2.1.1",
+    "hls.js": "^1.7.3",
     "idb": "^8.0.0",
     "lucide-react": "^0.454.0",
     "react": "^18.3.1",
