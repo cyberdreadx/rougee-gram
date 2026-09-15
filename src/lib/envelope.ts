@@ -47,6 +47,11 @@ export interface VideoEnvelope {
   dur?: number;
   /** Poster/thumbnail media reference URI (an image) */
   poster?: string;
+  /** Non-destructive trim: playback is limited to [start, end] seconds. */
+  start?: number;
+  end?: number;
+  /** Non-destructive display crop, e.g. "9:16" (players use object-cover). */
+  crop?: string;
   /** Caption */
   cap?: string;
   /** Alt text for accessibility */

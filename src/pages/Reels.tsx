@@ -121,11 +121,16 @@ function ReelItem({ post }: { post: SocialPost }) {
         onRef={(el) => (videoRef.current = el)}
         refUri={reel.cid}
         poster={reel.poster}
-        className="h-full w-full object-contain"
+        className={cn(
+          "h-full w-full",
+          reel.crop === "9:16" ? "object-cover" : "object-contain",
+        )}
         loop
         muted={muted}
         controls={false}
         playsInline
+        clipStart={reel.start}
+        clipEnd={reel.end}
       />
 
       {/* tap layer */}

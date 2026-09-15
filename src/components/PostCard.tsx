@@ -69,14 +69,22 @@ export default function PostCard({ post }: { post: SocialPost }) {
     alt?: string;
     poster?: string;
     t?: string;
+    start?: number;
+    end?: number;
+    crop?: string;
   };
   const isVideo =
     !isCarousel && ((media.mime ?? "").startsWith("video/") || decoded.kind === "video");
   const isReel = decoded.kind === "video" && media.t === "reel";
   const posterRef = isVideo ? media.poster : undefined;
+  const cropped = media.crop === "9:16";
   const liked = stats?.liked ?? false;
   // Reserve the media's real aspect ratio so the feed doesn't jump when it loads.
-  const aspectRatio = media.w && media.h ? `${media.w} / ${media.h}` : "1 / 1";
+  const aspectRatio = cropped
+    ? "9 / 16"
+    : media.w && media.h
+      ? `${media.w} / ${media.h}`
+      : "1 / 1";
 
   function triggerLike() {
     if (!liked) {
@@ -131,9 +139,11 @@ export default function PostCard({ post }: { post: SocialPost }) {
           <MediaVideo
             refUri={media.cid}
             poster={posterRef}
-            className="h-full w-full bg-black object-contain"
+            className={cn("h-full w-full bg-black", cropped ? "object-cover" : "object-contain")}
             loop={isReel}
             controls
+            clipStart={media.start}
+            clipEnd={media.end}
           />
         ) : (
           <MediaImage

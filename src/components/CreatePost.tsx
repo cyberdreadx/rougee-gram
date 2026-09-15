@@ -14,6 +14,7 @@ import {
   X,
   Crop,
   Film,
+  Scissors,
   HardDrive,
   Globe,
   Cloud,
@@ -98,6 +99,9 @@ function CreatePostDialog({
   const [moreUrls, setMoreUrls] = useState<string[]>([]);
   const [square, setSquare] = useState(false);
   const [isReel, setIsReel] = useState(false);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [crop916, setCrop916] = useState(false);
   const [vinfo, setVinfo] = useState<ProcessedVideo | null>(null);
   const [processing, setProcessing] = useState(false);
   const [caption, setCaption] = useState("");
@@ -149,6 +153,9 @@ function CreatePostDialog({
           setIsReel(
             info.isPortrait && (!info.duration || info.duration <= REEL_MAX_SECONDS),
           );
+          setTrimStart(0);
+          setTrimEnd(info.duration || 0);
+          setCrop916(false);
         } catch (e) {
           toast(e instanceof Error ? e.message : "Could not read video.", "error");
           setFile(null);
@@ -191,6 +198,9 @@ function CreatePostDialog({
     setCaption("");
     setSquare(false);
     setIsReel(false);
+    setTrimStart(0);
+    setTrimEnd(0);
+    setCrop916(false);
     setVinfo(null);
   }
 
@@ -237,6 +247,12 @@ function CreatePostDialog({
       h: vinfo.height || undefined,
       dur: vinfo.duration ? Math.round(vinfo.duration) : undefined,
       poster: posterRef,
+      start: trimStart > 0.05 ? Math.round(trimStart * 10) / 10 : undefined,
+      end:
+        vinfo.duration && trimEnd < vinfo.duration - 0.05
+          ? Math.round(trimEnd * 10) / 10
+          : undefined,
+      crop: crop916 ? "9:16" : undefined,
       cap: caption.trim() || undefined,
     });
     await submit(body);
@@ -372,9 +388,11 @@ function CreatePostDialog({
             <div
               className={cn(
                 "flex items-center justify-center overflow-hidden rounded-xl bg-black",
-                (kind === "image" && square) || (kind === "video" && isReel)
-                  ? "aspect-[4/5] max-h-[52vh]"
-                  : "max-h-[52vh]",
+                kind === "video" && (isReel || crop916)
+                  ? "aspect-[9/16] max-h-[60vh]"
+                  : kind === "image" && square
+                    ? "aspect-[4/5] max-h-[52vh]"
+                    : "max-h-[52vh]",
               )}
             >
               {kind === "image" ? (
@@ -386,11 +404,18 @@ function CreatePostDialog({
               ) : (
                 <video
                   src={previewUrl}
-                  className={cn("h-full w-full", isReel ? "object-cover" : "object-contain")}
+                  className={cn(
+                    "h-full w-full",
+                    isReel || crop916 ? "object-cover" : "object-contain",
+                  )}
                   controls
                   muted
                   loop
                   playsInline
+                  onTimeUpdate={(e) => {
+                    const el = e.currentTarget;
+                    if (trimEnd && el.currentTime >= trimEnd) el.currentTime = trimStart;
+                  }}
                 />
               )}
               {processing && (
@@ -451,6 +476,48 @@ function CreatePostDialog({
               Large file ({formatBytes(file.size)}) — upload may be slow.
             </div>
           )}
+
+          {kind === "video" && vinfo?.duration ? (
+            <div className="space-y-2 rounded-lg bg-ink-soft p-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Scissors className="h-3.5 w-3.5" /> Trim
+                </span>
+                <span className="text-ink-muted">
+                  {formatDur(trimStart)} – {formatDur(trimEnd)}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={vinfo.duration}
+                step={0.1}
+                value={trimStart}
+                onChange={(e) => setTrimStart(Math.min(Number(e.target.value), trimEnd - 0.5))}
+                className="w-full accent-rouge-500"
+                aria-label="Trim start"
+              />
+              <input
+                type="range"
+                min={0}
+                max={vinfo.duration}
+                step={0.1}
+                value={trimEnd}
+                onChange={(e) => setTrimEnd(Math.max(Number(e.target.value), trimStart + 0.5))}
+                className="w-full accent-rouge-500"
+                aria-label="Trim end"
+              />
+              <button
+                onClick={() => setCrop916((c) => !c)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                  crop916 ? "bg-rouge-600 text-white" : "bg-white/5 text-white hover:bg-white/10",
+                )}
+              >
+                <Crop className="h-3.5 w-3.5" /> {crop916 ? "9:16 crop on" : "Crop to 9:16"}
+              </button>
+            </div>
+          ) : null}
 
           <div>
             <textarea
