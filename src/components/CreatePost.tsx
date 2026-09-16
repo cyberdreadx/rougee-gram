@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Music2,
   Wand2,
+  MapPin,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useToast } from "./Toast";
@@ -116,6 +117,8 @@ function CreatePostDialog({
   const [caption, setCaption] = useState("");
   const [hideLikes, setHideLikes] = useState(false);
   const [noComments, setNoComments] = useState(false);
+  const [noMediaComments, setNoMediaComments] = useState(false);
+  const [location, setLocation] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [sound, setSound] = useState<Sound | null>(null);
   const [showSounds, setShowSounds] = useState(false);
@@ -222,6 +225,8 @@ function CreatePostDialog({
     setCaption("");
     setHideLikes(false);
     setNoComments(false);
+    setNoMediaComments(false);
+    setLocation("");
     setShowAdvanced(false);
     setSound(null);
     setShowSounds(false);
@@ -271,6 +276,8 @@ function CreatePostDialog({
       cap: caption.trim() || undefined,
       hl: hideLikes || undefined,
       nc: noComments || undefined,
+      nmc: noMediaComments || undefined,
+      loc: location.trim() || undefined,
     });
     await submit(body);
   }
@@ -306,6 +313,8 @@ function CreatePostDialog({
           cap: caption.trim() || undefined,
           hl: hideLikes || undefined,
           nc: noComments || undefined,
+          nmc: noMediaComments || undefined,
+          loc: location.trim() || undefined,
           audio: audioEnv,
         }),
       );
@@ -337,6 +346,8 @@ function CreatePostDialog({
       cap: caption.trim() || undefined,
       hl: hideLikes || undefined,
       nc: noComments || undefined,
+      nmc: noMediaComments || undefined,
+      loc: location.trim() || undefined,
       audio: audioEnv,
     });
     await submit(body);
@@ -401,6 +412,8 @@ function CreatePostDialog({
         cap: caption.trim() || undefined,
         hl: hideLikes || undefined,
         nc: noComments || undefined,
+        nmc: noMediaComments || undefined,
+        loc: location.trim() || undefined,
       }),
     );
   }
@@ -653,6 +666,20 @@ function CreatePostDialog({
             </div>
           </div>
 
+          {!isStory && (
+            <div className="flex items-center gap-2 rounded-lg bg-ink-soft px-3">
+              <MapPin className="h-4 w-4 shrink-0 text-ink-muted" />
+              <input
+                className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-ink-muted"
+                placeholder="Add location"
+                value={location}
+                maxLength={80}
+                onChange={(e) => setLocation(e.target.value)}
+                disabled={busy}
+              />
+            </div>
+          )}
+
           {kind === "video" && !isStory && (
             <button
               type="button"
@@ -702,6 +729,13 @@ function CreatePostDialog({
                     checked={noComments}
                     onChange={setNoComments}
                     disabled={busy}
+                  />
+                  <OptionToggle
+                    label="Turn off photo & GIF comments"
+                    desc="People can still leave text comments — just no images or GIFs."
+                    checked={noMediaComments}
+                    onChange={setNoMediaComments}
+                    disabled={busy || noComments}
                   />
                 </div>
               )}

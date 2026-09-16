@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Send, Heart } from "lucide-react";
+import { ArrowLeft, Loader2, Send, Heart, ImagePlus, X } from "lucide-react";
 import {
   usePost,
   useReplies,
@@ -15,8 +15,12 @@ import PostCard from "@/components/PostCard";
 import Avatar from "@/components/Avatar";
 import UserLink from "@/components/UserLink";
 import { useMyProfile } from "@/hooks/useProfile";
+import MediaImage from "@/components/MediaImage";
+import GifPicker from "@/components/GifPicker";
 import { timeAgo, formatCount } from "@/lib/format";
-import { decodeBody, postOptions } from "@/lib/envelope";
+import { decodeBody, postOptions, encodeComment, decodeComment } from "@/lib/envelope";
+import { processImage } from "@/lib/image";
+import { putImage } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import type { SocialPost } from "@rougechain/sdk";
 
@@ -25,9 +29,9 @@ export default function PostDetail() {
   const navigate = useNavigate();
   const { data, isLoading, isError } = usePost(postId);
   const replies = useReplies(postId);
-  const noComments = data?.post
-    ? postOptions(decodeBody(data.post.body)).noComments
-    : false;
+  const opts = data?.post ? postOptions(decodeBody(data.post.body)) : null;
+  const noComments = opts?.noComments ?? false;
+  const noMediaComments = opts?.noMediaComments ?? false;
 
   return (
     <div className="pb-[calc(var(--bottom-nav-h)+5.5rem)] md:pb-0">
@@ -86,7 +90,9 @@ export default function PostDetail() {
         </>
       )}
 
-      {postId && data?.post && !noComments && <Composer postId={postId} />}
+      {postId && data?.post && !noComments && (
+        <Composer postId={postId} allowMedia={!noMediaComments} />
+      )}
     </div>
   );
 }
@@ -96,6 +102,7 @@ function CommentRow({ comment }: { comment: SocialPost }) {
   const { data: stats } = usePostStats(comment.id);
   const like = useToggleLike(comment.id);
   const liked = stats?.liked ?? false;
+  const content = decodeComment(comment.body);
   return (
     <div className="flex items-start gap-3">
       <Avatar
@@ -110,8 +117,24 @@ function CommentRow({ comment }: { comment: SocialPost }) {
             pubkey={comment.author_pubkey}
             className="mr-1.5 font-semibold"
           />
-          {comment.body}
+          {content.text}
         </p>
+        {content.img && (
+          <MediaImage
+            refUri={content.img}
+            alt=""
+            rounded
+            className="mt-1.5 max-h-52 max-w-[75%] rounded-xl object-cover"
+          />
+        )}
+        {content.gif && (
+          <img
+            src={content.gif}
+            alt="GIF"
+            loading="lazy"
+            className="mt-1.5 max-h-52 max-w-[75%] rounded-xl"
+          />
+        )}
         <div className="mt-0.5 flex items-center gap-3 text-xs text-ink-muted">
           <span>{timeAgo(comment.created_at)}</span>
           {(stats?.likes ?? 0) > 0 && (
@@ -135,54 +158,149 @@ function CommentRow({ comment }: { comment: SocialPost }) {
   );
 }
 
-function Composer({ postId }: { postId: string }) {
+function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean }) {
   const { address } = useAuth();
   const profile = useMyProfile();
   const { toast } = useToast();
   const add = useAddComment(postId);
   const [text, setText] = useState("");
+  const [img, setImg] = useState<{ ref: string; url: string } | null>(null);
+  const [gif, setGif] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [showGif, setShowGif] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const hasMedia = Boolean(img || gif);
+  const canSend = (text.trim() || hasMedia) && !add.isPending && !uploading;
+
+  async function pickImage(file: File) {
+    if (!file.type.startsWith("image/")) return;
+    setUploading(true);
+    try {
+      // Compress small — comment images are shown thumbnail-size.
+      const p = await processImage(file, { maxSize: 900, quality: 0.7 });
+      const media = await putImage(p.blob, "comment");
+      setGif(null);
+      setImg({ ref: media.ref, url: URL.createObjectURL(p.blob) });
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Couldn't attach image", "error");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function submit() {
-    const body = text.trim();
-    if (!body) return;
+    const body = encodeComment({ text, img: img?.ref, gif: gif ?? undefined });
+    if (!body.trim()) return;
     add.mutate(body, {
-      onSuccess: () => setText(""),
-      onError: (e) =>
-        toast(e instanceof Error ? e.message : "Comment failed", "error"),
+      onSuccess: () => {
+        setText("");
+        setImg(null);
+        setGif(null);
+      },
+      onError: (e) => toast(e instanceof Error ? e.message : "Comment failed", "error"),
     });
   }
 
   return (
     <div className="fixed inset-x-0 bottom-[var(--bottom-nav-h)] z-20 border-t border-ink-border bg-ink/95 p-3 backdrop-blur md:sticky md:bottom-0 md:mt-2">
-      <div className="mx-auto flex max-w-[620px] items-center gap-2">
-        <Avatar refUri={profile?.avatarRef} seed={address} name={profile?.name} size={32} />
-        <input
-          className="input flex-1"
-          placeholder="Add a comment…"
-          value={text}
-          maxLength={2000}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          disabled={add.isPending}
-        />
-        <button
-          className="btn-primary h-10 w-10 shrink-0 p-0"
-          onClick={submit}
-          disabled={add.isPending || !text.trim()}
-          aria-label="Post comment"
-        >
-          {add.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
+      <div className="mx-auto max-w-[620px]">
+        {/* attachment preview */}
+        {(img || gif) && (
+          <div className="relative mb-2 inline-block">
+            <img
+              src={img?.url || gif || ""}
+              alt=""
+              className="max-h-28 rounded-lg"
+            />
+            <button
+              onClick={() => {
+                setImg(null);
+                setGif(null);
+              }}
+              className="absolute -right-2 -top-2 rounded-full bg-black/70 p-1 text-white"
+              aria-label="Remove attachment"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <Avatar refUri={profile?.avatarRef} seed={address} name={profile?.name} size={32} />
+          {allowMedia && (
+            <>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading || add.isPending}
+                className="shrink-0 text-ink-muted hover:text-white disabled:opacity-50"
+                aria-label="Add photo"
+              >
+                {uploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-5 w-5" />
+                )}
+              </button>
+              <button
+                onClick={() => setShowGif(true)}
+                disabled={add.isPending}
+                className="shrink-0 rounded px-1.5 text-xs font-bold text-ink-muted hover:text-white disabled:opacity-50"
+                aria-label="Add GIF"
+              >
+                GIF
+              </button>
+            </>
           )}
-        </button>
+          <input
+            className="input flex-1"
+            placeholder="Add a comment…"
+            value={text}
+            maxLength={2000}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            disabled={add.isPending}
+          />
+          <button
+            className="btn-primary h-10 w-10 shrink-0 p-0"
+            onClick={submit}
+            disabled={!canSend}
+            aria-label="Post comment"
+          >
+            {add.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </button>
+        </div>
       </div>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) pickImage(f);
+          e.target.value = "";
+        }}
+      />
+      {showGif && (
+        <GifPicker
+          onSelect={(url) => {
+            setImg(null);
+            setGif(url);
+          }}
+          onClose={() => setShowGif(false)}
+        />
+      )}
     </div>
   );
 }

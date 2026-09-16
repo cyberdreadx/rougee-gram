@@ -31,6 +31,10 @@ export interface PostOptions {
   hl?: boolean;
   /** Turn off commenting. */
   nc?: boolean;
+  /** Turn off photo & GIF comments (text comments still allowed). */
+  nmc?: boolean;
+  /** Free-text location label shown on the post (e.g. "Miami, FL"). */
+  loc?: string;
 }
 
 export interface PhotoEnvelope extends PostOptions {
@@ -153,13 +157,23 @@ export type Decoded =
   | { kind: "profile"; data: ProfileEnvelope }
   | { kind: "text"; text: string };
 
-/** Publishing options for any media post (photo/video/carousel). */
-export function postOptions(d: Decoded): { hideLikes: boolean; noComments: boolean } {
+/** Publishing options + metadata for any media post (photo/video/carousel). */
+export function postOptions(d: Decoded): {
+  hideLikes: boolean;
+  noComments: boolean;
+  noMediaComments: boolean;
+  location?: string;
+} {
   if (d.kind === "photo" || d.kind === "video" || d.kind === "carousel") {
     const data = d.data as PostOptions;
-    return { hideLikes: !!data.hl, noComments: !!data.nc };
+    return {
+      hideLikes: !!data.hl,
+      noComments: !!data.nc,
+      noMediaComments: !!data.nmc,
+      location: data.loc || undefined,
+    };
   }
-  return { hideLikes: false, noComments: false };
+  return { hideLikes: false, noComments: false, noMediaComments: false };
 }
 
 /** Stories are ephemeral by convention: shown only within this window. The
@@ -209,6 +223,46 @@ export function encodeStory(env: Omit<StoryEnvelope, "v" | "t">): string {
     throw new Error("Caption too long for a single on-chain post.");
   }
   return json;
+}
+
+/** A comment's decoded content: text plus optional attached image (cf/ipfs/local
+ *  ref) and/or a GIF url. Plain-text comments have just `text`. */
+export interface CommentContent {
+  text: string;
+  img?: string;
+  gif?: string;
+}
+
+/**
+ * Encode a comment. Plain-text comments stay plain text (readable by any client,
+ * e.g. Qwalla); only wrap in a compact envelope when media is attached.
+ */
+export function encodeComment(c: { text?: string; img?: string; gif?: string }): string {
+  const text = (c.text || "").trim();
+  if (!c.img && !c.gif) return text;
+  return JSON.stringify(
+    stripUndefined({ v: 1, t: "c", txt: text || undefined, img: c.img, gif: c.gif }),
+  );
+}
+
+/** Decode a comment body (plain text or a `{v:1,t:"c",…}` media envelope). */
+export function decodeComment(body: string): CommentContent {
+  const s = (body || "").trim();
+  if (s.startsWith("{")) {
+    try {
+      const obj = JSON.parse(s) as { v?: number; t?: string; txt?: string; img?: string; gif?: string };
+      if (obj && obj.v === 1 && obj.t === "c") {
+        return {
+          text: typeof obj.txt === "string" ? obj.txt : "",
+          img: typeof obj.img === "string" ? obj.img : undefined,
+          gif: typeof obj.gif === "string" ? obj.gif : undefined,
+        };
+      }
+    } catch {
+      /* not a comment envelope — fall through to plain text */
+    }
+  }
+  return { text: body };
 }
 
 export function encodeNote(txt: string): string {

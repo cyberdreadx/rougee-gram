@@ -29,7 +29,7 @@ import UserLink from "./UserLink";
 import SaveButton from "./SaveButton";
 import TipButton from "./TipButton";
 import Caption from "./Caption";
-import { Film } from "lucide-react";
+import { Film, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function PostCard({ post }: { post: SocialPost }) {
@@ -51,7 +51,7 @@ export default function PostCard({ post }: { post: SocialPost }) {
     return <TextPostCard post={post} profile={profile} />;
   }
 
-  const { hideLikes, noComments } = postOptions(decoded);
+  const { hideLikes, noComments, location } = postOptions(decoded);
 
   const isCarousel = decoded.kind === "carousel";
   const carouselItems = decoded.kind === "carousel" ? decoded.data.items : null;
@@ -126,6 +126,12 @@ export default function PostCard({ post }: { post: SocialPost }) {
             pubkey={post.author_pubkey}
             className="block truncate text-sm font-semibold"
           />
+          {location ? (
+            <div className="flex items-center gap-1 truncate text-xs text-white/90">
+              <MapPin className="h-3 w-3 shrink-0 text-rouge-400" />
+              <span className="truncate">{location}</span>
+            </div>
+          ) : null}
           <div className="truncate text-xs text-ink-muted">
             <span className="font-mono">{shortAddress(profile?.address ?? "", 10, 5)}</span> · {timeAgo(post.created_at)}
           </div>
