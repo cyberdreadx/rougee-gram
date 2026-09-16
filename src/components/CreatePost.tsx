@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   ChevronDown,
   Music2,
+  Wand2,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useToast } from "./Toast";
@@ -48,6 +49,7 @@ import { invalidateFeeds } from "@/hooks/useSocial";
 import type { Sound } from "@/hooks/useSounds";
 import * as write from "@/lib/write";
 import SoundPicker from "./SoundPicker";
+import PhotoEditor from "./PhotoEditor";
 import { cn } from "@/lib/utils";
 
 type CreateMode = "post" | "story" | "reel";
@@ -117,6 +119,7 @@ function CreatePostDialog({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [sound, setSound] = useState<Sound | null>(null);
   const [showSounds, setShowSounds] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
 
@@ -228,6 +231,15 @@ function CreatePostDialog({
     setTrimEnd(0);
     setCrop916(false);
     setVinfo(null);
+  }
+
+  function handleEdited(blob: Blob) {
+    setFile(new File([blob], "edited.webp", { type: "image/webp" }));
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(blob);
+    });
+    setEditing(false);
   }
 
   function switchMode(m: CreateMode) {
@@ -524,6 +536,15 @@ function CreatePostDialog({
               )}
             </div>
 
+            {kind === "image" && (
+              <button
+                onClick={() => setEditing(true)}
+                className="absolute right-2 top-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2.5 py-2 text-xs font-medium text-white backdrop-blur"
+              >
+                <Wand2 className="h-3.5 w-3.5" /> Edit
+              </button>
+            )}
+
             {/* aspect / reel toggle (not for stories or reel mode) */}
             <div className={cn("absolute left-2 top-2 flex gap-2", (isStory || isReelMode) && "hidden")}>
               {kind === "image" ? (
@@ -744,6 +765,10 @@ function CreatePostDialog({
           onSelect={setSound}
           onClose={() => setShowSounds(false)}
         />
+      )}
+
+      {editing && previewUrl && (
+        <PhotoEditor src={previewUrl} onSave={handleEdited} onClose={() => setEditing(false)} />
       )}
     </Modal>
   );
