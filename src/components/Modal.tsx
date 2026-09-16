@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +28,10 @@ export default function Modal({
     };
   }, [onClose]);
 
-  return (
+  // Portal to <body> so a Modal opened from inside another modal/overlay (whose
+  // backdrop-blur/transform would otherwise trap `position: fixed`) still covers
+  // the full viewport instead of being confined to the parent's box.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
@@ -55,6 +59,7 @@ export default function Modal({
         )}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

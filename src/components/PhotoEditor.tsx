@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Type, Trash2, Loader2, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -154,8 +155,8 @@ export default function PhotoEditor({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black">
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex flex-col bg-black pt-[env(safe-area-inset-top)]">
       {/* top bar */}
       <div className="flex items-center justify-between px-4 py-3">
         <button onClick={onClose} className="rounded-full p-1 text-white" aria-label="Cancel">
@@ -270,7 +271,8 @@ export default function PhotoEditor({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
