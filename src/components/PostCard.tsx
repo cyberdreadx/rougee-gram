@@ -28,10 +28,10 @@ import Carousel from "./Carousel";
 import UserLink from "./UserLink";
 import SaveButton from "./SaveButton";
 import Caption from "./Caption";
-import { Film, VolumeX } from "lucide-react";
+import { Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function PostCard({ post, preview }: { post: SocialPost; preview?: boolean }) {
+export default function PostCard({ post }: { post: SocialPost }) {
   const decoded = decodeBody(post.body);
   const { data: profile } = useProfile(post.author_pubkey);
   const { data: stats } = usePostStats(post.id);
@@ -136,37 +136,21 @@ export default function PostCard({ post, preview }: { post: SocialPost; preview?
       <div
         className="relative mt-3 max-h-[85vh] w-full select-none overflow-hidden bg-black sm:rounded-2xl"
         style={{ aspectRatio }}
-        onClick={
-          isCarousel
-            ? undefined
-            : isVideo
-              ? preview
-                ? () => navigate(`/p/${post.id}`)
-                : undefined
-              : onImageTap
-        }
+        onClick={isVideo || isCarousel ? undefined : onImageTap}
         onDoubleClick={() => !liked && triggerLike()}
       >
         {isCarousel ? (
           <Carousel items={carouselItems!} />
         ) : isVideo ? (
-          <>
-            <MediaVideo
-              refUri={media.cid}
-              poster={posterRef}
-              className={cn("h-full w-full bg-black", cropped ? "object-cover" : "object-contain")}
-              loop={isReel}
-              controls={!preview}
-              autoPreview={preview}
-              clipStart={media.start}
-              clipEnd={media.end}
-            />
-            {preview && (
-              <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/55 p-1.5 text-white backdrop-blur">
-                <VolumeX className="h-4 w-4" />
-              </span>
-            )}
-          </>
+          <MediaVideo
+            refUri={media.cid}
+            poster={posterRef}
+            className={cn("h-full w-full bg-black", cropped ? "object-cover" : "object-contain")}
+            loop={isReel}
+            controls
+            clipStart={media.start}
+            clipEnd={media.end}
+          />
         ) : (
           <MediaImage
             refUri={media.cid}

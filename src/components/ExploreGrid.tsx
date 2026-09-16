@@ -3,6 +3,7 @@ import { Play, Film, Copy } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { toMediaCells } from "./PhotoGrid";
 import MediaImage from "./MediaImage";
+import MediaVideo from "./MediaVideo";
 import { cn } from "@/lib/utils";
 
 /**
@@ -46,7 +47,7 @@ export default function ExploreGrid({
 
   return (
     <div className="grid grid-cols-3 gap-0.5 sm:gap-1" style={{ gridAutoFlow: "dense" }}>
-      {cells.map(({ post, thumbRef, isVideo, isReel, isCarousel }, i) => {
+      {cells.map(({ post, thumbRef, videoRef, isVideo, isReel, isCarousel }, i) => {
         const featured = isFeatured(i);
         return (
           <Link
@@ -57,7 +58,16 @@ export default function ExploreGrid({
               featured ? "row-span-2" : "aspect-square",
             )}
           >
-            {thumbRef ? (
+            {isVideo && videoRef ? (
+              // Loop a muted preview (plays only while on screen) so the tile
+              // shows what the clip is, not a frozen frame.
+              <MediaVideo
+                refUri={videoRef}
+                poster={thumbRef || undefined}
+                autoPreview
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            ) : thumbRef ? (
               <MediaImage
                 refUri={thumbRef}
                 alt=""

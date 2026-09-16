@@ -32,11 +32,42 @@ export function useGlobalTimeline() {
 }
 
 export function useFollowingFeed() {
-  const { wallet, publicKey } = useAuth();
+  const { publicKey } = useAuth();
   return useQuery({
     queryKey: qk.feed(publicKey),
-    enabled: Boolean(wallet),
-    queryFn: () => rc().social.getFollowingFeed(wallet!, PAGE, 0),
+    enabled: Boolean(publicKey),
+    // Build the feed CLIENT-SIDE from the follow graph rather than the server
+    // `getFollowingFeed` endpoint: that endpoint lags behind new follows and
+    // omits followees' older posts, so a freshly-followed user's posts never
+    // appear. The on-chain follow list is the source of truth — fan out to each
+    // followee's posts and merge. Also works for extension wallets (no privkey).
+    queryFn: async (): Promise<SocialPost[]> => {
+      const following = await rc().social.getUserFollowing(publicKey);
+      const pubkeys = (Array.isArray(following) ? following : []).filter(
+        (x): x is string => typeof x === "string" && x.length > 0,
+      );
+      if (pubkeys.length === 0) return [];
+      const perUser = await Promise.all(
+        pubkeys.slice(0, 100).map((pk) =>
+          rc()
+            .social.getUserPosts(pk, 20, 0)
+            .then((r) => ((r?.posts ?? []) as SocialPost[]))
+            .catch(() => [] as SocialPost[]),
+        ),
+      );
+      const seen = new Set<string>();
+      const merged: SocialPost[] = [];
+      for (const p of perUser.flat()) {
+        if (!p || p.reply_to_id || seen.has(p.id)) continue;
+        seen.add(p.id);
+        merged.push(p);
+      }
+      merged.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      return merged.slice(0, PAGE);
+    },
   });
 }
 

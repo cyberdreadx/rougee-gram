@@ -9,6 +9,8 @@ interface Cell {
   post: SocialPost;
   /** Thumbnail media ref (photo cid or video poster); may be "" for a posterless video. */
   thumbRef: string;
+  /** For video cells: the video media ref, so grids can loop a muted preview. */
+  videoRef?: string;
   isVideo: boolean;
   isReel: boolean;
   isCarousel: boolean;
@@ -25,6 +27,7 @@ export function toMediaCells(posts: SocialPost[] | undefined): Cell[] {
       cells.push({
         post,
         thumbRef: decoded.data.poster ?? "",
+        videoRef: decoded.data.cid,
         isVideo: true,
         isReel: decoded.data.t === "reel",
         isCarousel: false,
