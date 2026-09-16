@@ -27,6 +27,7 @@ import MediaVideo from "./MediaVideo";
 import Carousel from "./Carousel";
 import UserLink from "./UserLink";
 import SaveButton from "./SaveButton";
+import TipButton from "./TipButton";
 import Caption from "./Caption";
 import { Film } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -201,6 +202,7 @@ export default function PostCard({ post }: { post: SocialPost }) {
         >
           <Repeat2 className="h-6 w-6" />
         </button>
+        <TipButton toAddress={profile?.address} toName={profile?.name} />
         <ShareButton postId={post.id} />
         <SaveButton postId={post.id} className="ml-auto" />
       </div>

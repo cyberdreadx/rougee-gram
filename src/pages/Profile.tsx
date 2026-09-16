@@ -17,6 +17,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useUserPosts, useArtistStats, useToggleFollow } from "@/hooks/useSocial";
 import { useStartConversation } from "@/hooks/useMessenger";
 import { useSavedPosts } from "@/hooks/useSaved";
+import TipButton from "@/components/TipButton";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import Avatar from "@/components/Avatar";
@@ -119,6 +120,12 @@ export default function Profile() {
               <MessageButton pubkey={pubkey} />
             </>
           )}
+          <TipButton
+            toAddress={profile?.address ?? address}
+            toName={profile?.name}
+            className="btn-soft flex h-10 w-11 shrink-0 items-center justify-center p-0"
+            iconClassName="h-4 w-4"
+          />
           <ShareProfileButton address={profile?.address ?? address ?? ""} />
         </div>
       </div>

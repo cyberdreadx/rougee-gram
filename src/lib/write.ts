@@ -41,3 +41,10 @@ export function deletePost(w: Writer, postId: string): Promise<ApiResponse> {
     ? ext.socialDeletePost(w.publicKey, postId)
     : rc().social.deletePost(w.wallet!, postId);
 }
+
+/** Tip XRGE to another account (on-chain value transfer). `to` is a rouge address. */
+export function tip(w: Writer, to: string, amount: number): Promise<ApiResponse> {
+  return w.isExtensionWallet
+    ? ext.transfer(w.publicKey, to, amount)
+    : rc().transfer(w.wallet!, { to, amount, fee: 1 });
+}

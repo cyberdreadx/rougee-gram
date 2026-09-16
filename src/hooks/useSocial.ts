@@ -215,6 +215,21 @@ export function useToggleFollow(pubkey: string) {
   });
 }
 
+/** Tip XRGE to a rouge address (on-chain transfer). */
+export function useTip() {
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  return useMutation({
+    mutationFn: async ({ to, amount }: { to: string; amount: number }) => {
+      if (!wallet) throw new Error("Locked");
+      if (!to) throw new Error("No recipient address");
+      if (!(amount > 0)) throw new Error("Enter an amount");
+      const res = await write.tip({ wallet, publicKey, isExtensionWallet }, to, amount);
+      if (!res.success) throw new Error(res.error || "Tip failed");
+      return res;
+    },
+  });
+}
+
 export function useAddComment(postId: string) {
   const { wallet, publicKey, isExtensionWallet } = useAuth();
   const client = useQueryClient();
