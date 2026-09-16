@@ -82,11 +82,12 @@ export default function PhotoGrid({
 
   return (
     <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
-      {cells.map(({ post, thumbRef, isVideo, isReel, isCarousel }) => (
+      {cells.map(({ post, thumbRef, isVideo, isReel, isCarousel }, i) => (
         <Link
           key={post.id}
           to={`/p/${post.id}`}
-          className="group relative aspect-square overflow-hidden bg-ink-soft"
+          style={{ animationDelay: `${Math.min(i, 11) * 28}ms` }}
+          className="group relative aspect-square animate-fade-in-up overflow-hidden bg-ink-soft"
         >
           {thumbRef ? (
             <MediaImage

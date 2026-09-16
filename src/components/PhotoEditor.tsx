@@ -96,7 +96,7 @@ export default function PhotoEditor({
   function addText() {
     const o: Overlay = {
       id: nextId.current++,
-      text: "Tap to edit",
+      text: "",
       x: 50,
       y: 50,
       size: 8,
@@ -212,13 +212,14 @@ export default function PhotoEditor({
                   fontFamily: f.family,
                   fontWeight: f.weight,
                   color: o.color,
+                  opacity: o.text ? 1 : 0.5,
                   fontSize: `${(o.size / 100) * stageH}px`,
                   textShadow: f.glow
                     ? `0 0 .35em ${o.color}, 0 0 .7em ${o.color}`
                     : "0 1px 3px rgba(0,0,0,.4)",
                 }}
               >
-                {o.text || " "}
+                {o.text || "Type…"}
               </div>
             );
           })}

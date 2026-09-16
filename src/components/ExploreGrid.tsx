@@ -53,8 +53,9 @@ export default function ExploreGrid({
           <Link
             key={post.id}
             to={`/p/${post.id}`}
+            style={{ animationDelay: `${Math.min(i, 11) * 28}ms` }}
             className={cn(
-              "group relative overflow-hidden bg-ink-soft",
+              "group relative animate-fade-in-up overflow-hidden bg-ink-soft",
               featured ? "row-span-2" : "aspect-square",
             )}
           >

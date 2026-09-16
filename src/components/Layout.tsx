@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Home, Compass, Search, PlusSquare, Settings, LogOut, Film, Heart, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/store/auth";
@@ -13,6 +13,7 @@ import { useMyProfile } from "@/hooks/useProfile";
 import { useUnreadCount } from "@/hooks/useMessenger";
 
 export default function Layout({ children }: { children: ReactNode }) {
+  const location = useLocation();
   return (
     <CreatePostProvider>
       <div className="min-h-screen bg-ink">
@@ -20,7 +21,11 @@ export default function Layout({ children }: { children: ReactNode }) {
           <DesktopSidebar />
           <main className="min-h-screen min-w-0 flex-1 border-x border-ink-border/60 pb-[calc(var(--bottom-nav-h)+1rem)] md:pb-8">
             <MobileTopBar />
-            <div className="mx-auto w-full max-w-[620px] px-0 sm:px-4">
+            {/* Keyed by route so each page fades in on navigation. */}
+            <div
+              key={location.pathname}
+              className="mx-auto w-full max-w-[620px] animate-fade-in px-0 sm:px-4"
+            >
               {children}
             </div>
           </main>
