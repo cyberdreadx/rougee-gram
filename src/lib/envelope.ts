@@ -47,10 +47,29 @@ export interface PhotoEnvelope extends PostOptions {
   alt?: string;
 }
 
+/**
+ * A "sound" attached to a reel — a music track from qRougee (music.rougee.app),
+ * mixed over the muted video. We store the playable URL + attribution inline so
+ * playback needs no re-fetch, plus the track id for deep-linking to qRougee.
+ */
+export interface SoundRef {
+  /** qRougee track id (`<collectionId>_<tokenId>`) — for attribution/deep-link. */
+  id?: string;
+  /** Directly-playable audio URL (the track NFT's attributes.audioUrl). */
+  url: string;
+  /** Title + artist for on-reel attribution (avoids a re-fetch). */
+  title?: string;
+  artist?: string;
+  /** Start offset in seconds. */
+  start?: number;
+}
+
 export interface VideoEnvelope extends PostOptions {
   v: 1;
   /** "video" = regular clip, "reel" = vertical short shown in the reels feed */
   t: "video" | "reel";
+  /** Attached music track (qRougee) mixed over the muted video. */
+  audio?: SoundRef;
   /** Video media reference URI: ipfs://… or local://… */
   cid: string;
   mime: string;

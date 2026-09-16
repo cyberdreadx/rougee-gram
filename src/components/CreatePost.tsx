@@ -20,6 +20,7 @@ import {
   Cloud,
   AlertTriangle,
   ChevronDown,
+  Music2,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useToast } from "./Toast";
@@ -44,7 +45,9 @@ import {
 } from "@/lib/envelope";
 import { requestFaucet } from "@/lib/rouge";
 import { invalidateFeeds } from "@/hooks/useSocial";
+import type { Sound } from "@/hooks/useSounds";
 import * as write from "@/lib/write";
+import SoundPicker from "./SoundPicker";
 import { cn } from "@/lib/utils";
 
 type CreateMode = "post" | "story" | "reel";
@@ -112,8 +115,14 @@ function CreatePostDialog({
   const [hideLikes, setHideLikes] = useState(false);
   const [noComments, setNoComments] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [sound, setSound] = useState<Sound | null>(null);
+  const [showSounds, setShowSounds] = useState(false);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
+
+  const audioEnv = sound
+    ? { id: sound.id, url: sound.audioUrl, title: sound.title, artist: sound.artist }
+    : undefined;
 
   const backend = activeBackend();
   const kind = file
@@ -211,6 +220,8 @@ function CreatePostDialog({
     setHideLikes(false);
     setNoComments(false);
     setShowAdvanced(false);
+    setSound(null);
+    setShowSounds(false);
     setSquare(false);
     setIsReel(false);
     setTrimStart(0);
@@ -283,6 +294,7 @@ function CreatePostDialog({
           cap: caption.trim() || undefined,
           hl: hideLikes || undefined,
           nc: noComments || undefined,
+          audio: audioEnv,
         }),
       );
       return;
@@ -313,6 +325,7 @@ function CreatePostDialog({
       cap: caption.trim() || undefined,
       hl: hideLikes || undefined,
       nc: noComments || undefined,
+      audio: audioEnv,
     });
     await submit(body);
   }
@@ -619,6 +632,28 @@ function CreatePostDialog({
             </div>
           </div>
 
+          {kind === "video" && !isStory && (
+            <button
+              type="button"
+              onClick={() => setShowSounds(true)}
+              disabled={busy}
+              className="flex w-full items-center gap-3 rounded-lg bg-ink-soft px-3 py-2.5 text-left text-sm disabled:opacity-50"
+            >
+              <Music2 className="h-4 w-4 shrink-0 text-rouge-400" />
+              {sound ? (
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-medium">{sound.title}</span>
+                  <span className="text-ink-muted"> · {sound.artist || "Unknown"}</span>
+                </span>
+              ) : (
+                <span className="flex-1">Add a sound</span>
+              )}
+              <span className="shrink-0 text-xs font-medium text-rouge-400">
+                {sound ? "Change" : "Browse"}
+              </span>
+            </button>
+          )}
+
           {!isStory && (
             <div className="overflow-hidden rounded-lg bg-ink-soft">
               <button
@@ -702,6 +737,14 @@ function CreatePostDialog({
         className="hidden"
         onChange={(e) => pickFiles(e.target.files)}
       />
+
+      {showSounds && (
+        <SoundPicker
+          selectedId={sound?.id}
+          onSelect={setSound}
+          onClose={() => setShowSounds(false)}
+        />
+      )}
     </Modal>
   );
 }

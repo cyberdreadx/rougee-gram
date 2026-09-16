@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MessageCircle, Repeat2, Volume2, VolumeX, Play, Film } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Volume2, VolumeX, Play, Film, Music2 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import {
   useGlobalTimeline,
@@ -79,6 +79,27 @@ function ReelItem({ post }: { post: SocialPost }) {
   const [muted, setMuted] = useState(true);
   const [playing, setPlaying] = useState(true);
 
+  // Attached qRougee sound (mixed over the muted video). See envelope SoundRef.
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const sound = reel?.audio?.url ? reel.audio : null;
+  const soundStart = sound?.start ?? 0;
+
+  function startSound() {
+    const a = audioElRef.current;
+    if (!a) return;
+    if (a.currentTime < soundStart) a.currentTime = soundStart;
+    a.play().catch(() => {});
+  }
+  function stopSound() {
+    audioElRef.current?.pause();
+  }
+
+  // The mute toggle drives the track audio when a sound is attached.
+  useEffect(() => {
+    const a = audioElRef.current;
+    if (a) a.muted = muted;
+  }, [muted]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -88,14 +109,17 @@ function ReelItem({ post }: { post: SocialPost }) {
         if (!vid) return;
         if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
           vid.play().then(() => setPlaying(true)).catch(() => {});
+          startSound();
         } else {
           vid.pause();
+          stopSound();
         }
       },
       { threshold: [0, 0.6, 1] },
     );
     io.observe(el);
     return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function togglePlay() {
@@ -103,8 +127,10 @@ function ReelItem({ post }: { post: SocialPost }) {
     if (!vid) return;
     if (vid.paused) {
       vid.play().then(() => setPlaying(true)).catch(() => {});
+      startSound();
     } else {
       vid.pause();
+      stopSound();
       setPlaying(false);
     }
   }
@@ -127,12 +153,28 @@ function ReelItem({ post }: { post: SocialPost }) {
           reel.crop === "9:16" ? "object-cover" : "object-contain",
         )}
         loop
-        muted={muted}
+        muted={sound ? true : muted}
         controls={false}
         playsInline
         clipStart={reel.start}
         clipEnd={reel.end}
       />
+
+      {/* Attached track — mixed over the muted video, looped from its start. */}
+      {sound && (
+        <audio
+          ref={audioElRef}
+          src={sound.url}
+          preload="auto"
+          onEnded={() => {
+            const a = audioElRef.current;
+            if (a) {
+              a.currentTime = soundStart;
+              a.play().catch(() => {});
+            }
+          }}
+        />
+      )}
 
       {/* tap layer */}
       <button className="absolute inset-0" onClick={togglePlay} aria-label="Play/pause">
@@ -191,6 +233,20 @@ function ReelItem({ post }: { post: SocialPost }) {
         </div>
         {reel.cap && (
           <p className="mt-2 line-clamp-2 text-sm text-white/90">{reel.cap}</p>
+        )}
+        {sound && (
+          <a
+            href="https://music.rougee.app"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex max-w-full items-center gap-1.5 text-xs text-white/90"
+          >
+            <Music2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">
+              {sound.title || "Original sound"}
+              {sound.artist ? ` · ${sound.artist}` : ""}
+            </span>
+          </a>
         )}
       </div>
     </div>
