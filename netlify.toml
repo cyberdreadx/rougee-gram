@@ -20,6 +20,12 @@
   # one value and redeploy — existing on-chain media follows automatically.
   VITE_CF_WORKER_URL = "https://rougee-gram-media.rougee.workers.dev"
 
+  # Route video/reels through Cloudflare Stream (adaptive HLS) instead of raw R2
+  # MP4. Stream transcodes any upload — incl. iOS HEVC/H.265/.mov — to H.264 HLS
+  # that plays cross-browser. Requires CF_ACCOUNT_ID + CF_STREAM_TOKEN worker
+  # secrets (set) and Stream enabled on the account.
+  VITE_CF_STREAM = "true"
+
 # Never cache the HTML entry, so a new deploy is picked up on the next load
 # instead of a stale index.html pointing at an old (or purged) JS bundle — the
 # classic cause of a post-deploy white screen. Fingerprinted assets (Vite puts a
