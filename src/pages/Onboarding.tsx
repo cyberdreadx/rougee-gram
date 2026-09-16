@@ -10,6 +10,7 @@ import {
   EyeOff,
   Sparkles,
   Plug,
+  Info,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
@@ -197,6 +198,14 @@ export default function Onboarding() {
                 >
                   Import with raw keys
                 </button>
+                <div className="flex items-start gap-2 rounded-xl bg-ink-soft px-3 py-2.5 text-xs text-ink-muted">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rouge-400" />
+                  <span>
+                    Made an account before? It may have been cleared from this
+                    browser. Import your recovery phrase once — it'll remember you
+                    and only ask for your password next time.
+                  </span>
+                </div>
                 {extensionDetected && (
                   <p className="text-center text-xs text-ink-muted">
                     Extension keeps your key; create/import stores it encrypted in
