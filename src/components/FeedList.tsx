@@ -54,7 +54,7 @@ export default function FeedList({
   return (
     <div>
       {visible.map((post) => (
-        <PostCard key={post.id} post={post} />
+        <PostCard key={post.id} post={post} preview />
       ))}
     </div>
   );

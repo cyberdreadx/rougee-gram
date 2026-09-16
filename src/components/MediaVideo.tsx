@@ -15,6 +15,9 @@ interface Props {
   /** Non-destructive trim: play only [clipStart, clipEnd] seconds. */
   clipStart?: number;
   clipEnd?: number;
+  /** Feed preview: muted, looping, no controls, auto-plays only while on screen
+   *  (like Instagram's in-feed video). Forces muted/loop/playsInline. */
+  autoPreview?: boolean;
   onRef?: (el: HTMLVideoElement | null) => void;
   onEnded?: () => void;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
@@ -33,6 +36,7 @@ export default function MediaVideo({
   playsInline = true,
   clipStart,
   clipEnd,
+  autoPreview,
   onRef,
   onEnded,
   onTimeUpdate,
@@ -87,8 +91,28 @@ export default function MediaVideo({
   // element stays muted. Apply it imperatively so the mute toggle actually works.
   useEffect(() => {
     const el = elRef.current;
-    if (el) el.muted = !!muted;
-  }, [muted, videoUrl]);
+    if (el) el.muted = autoPreview ? true : !!muted;
+  }, [muted, autoPreview, videoUrl]);
+
+  // Feed preview: play a muted loop only while the video is on screen, and pause
+  // it when scrolled away, so several feed videos never play (or buffer) at once.
+  useEffect(() => {
+    if (!autoPreview) return;
+    const el = elRef.current;
+    if (!el || !videoUrl) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+          el.play().catch(() => {});
+        } else {
+          el.pause();
+        }
+      },
+      { threshold: [0, 0.5, 1] },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [autoPreview, videoUrl]);
 
   // Seek to the trim start once metadata is available.
   useEffect(() => {
@@ -117,11 +141,11 @@ export default function MediaVideo({
       src={videoUrl && !isHls ? videoUrl : undefined}
       poster={posterUrl ?? undefined}
       className={cn(className)}
-      loop={loop}
-      muted={muted}
-      controls={controls}
-      autoPlay={autoPlay}
-      playsInline={playsInline}
+      loop={autoPreview ? true : loop}
+      muted={autoPreview ? true : muted}
+      controls={autoPreview ? false : controls}
+      autoPlay={autoPreview ? false : autoPlay}
+      playsInline={autoPreview ? true : playsInline}
       preload="metadata"
       onEnded={onEnded}
       onTimeUpdate={(e) => {
