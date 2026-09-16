@@ -14,6 +14,7 @@ import {
   unlockWallet,
   listWallets,
   deleteWallet,
+  requestPersistentStorage,
   type StoredWalletMeta,
 } from "@/lib/keystore";
 import { requestFaucet, getXrgeBalance } from "@/lib/rouge";
@@ -123,6 +124,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       const list = await listWallets();
       setWallets(list);
+      // If a wallet is already stored, ask the browser to keep it (avoid the
+      // "onboarding again" problem from storage eviction on mobile).
+      if (list.length > 0) void requestPersistentStorage();
       const sess = readSession();
       if (sess && list.some((w) => w.address === sess.addr)) {
         await activate(sess.keys);
