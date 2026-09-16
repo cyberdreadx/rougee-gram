@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useArtistStats, useToggleFollow } from "@/hooks/useSocial";
 import { useAuth } from "@/store/auth";
+import { useToast } from "./Toast";
 import { displayName } from "@/lib/profile";
 import { shortAddress } from "@/lib/format";
 import Avatar from "./Avatar";
@@ -18,6 +19,7 @@ export default function UserRow({
   showFollow?: boolean;
 }) {
   const { publicKey } = useAuth();
+  const { toast } = useToast();
   const { data: profile } = useProfile(pubkey);
   const stats = useArtistStats(showFollow ? pubkey : undefined);
   const follow = useToggleFollow(pubkey);
@@ -42,10 +44,17 @@ export default function UserRow({
             "shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors",
             stats.data?.isFollowing
               ? "bg-white/5 text-white hover:bg-white/10"
-              : "bg-rouge-600 text-white hover:bg-rouge-500",
+              : "bg-rouge-600 text-ink hover:bg-rouge-500",
           )}
           disabled={follow.isPending}
-          onClick={() => follow.mutate()}
+          onClick={() =>
+            follow.mutate(undefined, {
+              onError: (e) =>
+                toast(e instanceof Error ? e.message : "Follow failed", "error"),
+              onSuccess: () =>
+                toast(stats.data?.isFollowing ? "Unfollowed" : "Followed", "success"),
+            })
+          }
         >
           {follow.isPending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
