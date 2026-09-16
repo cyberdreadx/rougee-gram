@@ -20,6 +20,20 @@
   # one value and redeploy — existing on-chain media follows automatically.
   VITE_CF_WORKER_URL = "https://rougee-gram-media.rougee.workers.dev"
 
+# Never cache the HTML entry, so a new deploy is picked up on the next load
+# instead of a stale index.html pointing at an old (or purged) JS bundle — the
+# classic cause of a post-deploy white screen. Fingerprinted assets (Vite puts a
+# content hash in each filename) are immutable and cache forever.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 # SPA catch-all. rougee-gram uses react-router BrowserRouter with routes like
 # /p/:postId, /u/:address, /settings and /explore. Without this rule, a direct
 # visit or hard refresh of one of those paths is a request for a file that does
