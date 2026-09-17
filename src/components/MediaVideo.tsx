@@ -132,6 +132,15 @@ export default function MediaVideo({
 
   const setRef = (el: HTMLVideoElement | null) => {
     elRef.current = el;
+    if (el) {
+      // iOS: force inline playback so the OS never hijacks into its native
+      // fullscreen player (Instagram/reels-style). React's `playsInline` prop is
+      // not reliably honored in standalone PWAs / older iOS, so also set the raw
+      // `playsinline` + legacy `webkit-playsinline` attributes and the property.
+      el.setAttribute("playsinline", "");
+      el.setAttribute("webkit-playsinline", "true");
+      el.playsInline = true;
+    }
     onRef?.(el);
   };
 

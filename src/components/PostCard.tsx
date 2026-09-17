@@ -23,14 +23,13 @@ import { useToast } from "./Toast";
 import { shortAddress, timeAgo, formatCount } from "@/lib/format";
 import Avatar from "./Avatar";
 import MediaImage from "./MediaImage";
-import MediaVideo from "./MediaVideo";
 import Carousel from "./Carousel";
 import UserLink from "./UserLink";
 import SaveButton from "./SaveButton";
 import TipButton from "./TipButton";
 import Caption from "./Caption";
-import FullscreenVideo from "./FullscreenVideo";
-import { Film, MapPin, Play } from "lucide-react";
+import FeedVideo from "./FeedVideo";
+import { Film, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function PostCard({ post }: { post: SocialPost }) {
@@ -41,7 +40,6 @@ export default function PostCard({ post }: { post: SocialPost }) {
   const repost = useToggleRepost(post.id);
   const navigate = useNavigate();
   const [burst, setBurst] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
   const lastTap = useRef(0);
 
   // photo / video / carousel render as media cards; plain text as text.
@@ -151,26 +149,15 @@ export default function PostCard({ post }: { post: SocialPost }) {
         {isCarousel ? (
           <Carousel items={carouselItems!} />
         ) : isVideo ? (
-          <>
-            {/* Muted, on-screen preview; tap opens the fullscreen player. */}
-            <MediaVideo
-              refUri={media.cid}
-              poster={posterRef}
-              className={cn("h-full w-full bg-black", cropped ? "object-cover" : "object-contain")}
-              autoPreview
-              clipStart={media.start}
-              clipEnd={media.end}
-            />
-            <button
-              onClick={() => setFullscreen(true)}
-              className="absolute inset-0 flex items-center justify-center"
-              aria-label="Play video fullscreen"
-            >
-              <span className="rounded-full bg-black/45 p-4 backdrop-blur transition-transform active:scale-90">
-                <Play className="h-8 w-8 fill-white text-white" />
-              </span>
-            </button>
-          </>
+          <FeedVideo
+            refUri={media.cid}
+            poster={posterRef}
+            cropped={cropped}
+            clipStart={media.start}
+            clipEnd={media.end}
+            liked={liked}
+            onLike={() => like.mutate()}
+          />
         ) : (
           <MediaImage
             refUri={media.cid}
@@ -264,10 +251,6 @@ export default function PostCard({ post }: { post: SocialPost }) {
           {timeAgo(post.created_at)}
         </div>
       </div>
-
-      {fullscreen && isVideo && (
-        <FullscreenVideo post={post} onClose={() => setFullscreen(false)} />
-      )}
     </article>
   );
 }
