@@ -35,6 +35,8 @@ export default function StoryViewer({
   const { data: profile } = useProfile(group?.pubkey);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const downAt = useRef(0);
+  const downPos = useRef({ x: 0, y: 0 });
+  const moved = useRef(false);
 
   const next = useCallback(() => {
     setProgress(0);
@@ -111,14 +113,25 @@ export default function StoryViewer({
     else v.play().catch(() => {});
   }, [paused, isVideo, story]);
 
-  function onPointerDown() {
+  // Press-and-hold pauses the story (image timer or video); releasing resumes.
+  // A quick tap navigates (left third = previous, else next); a drag does
+  // neither. Movement is tracked so a swipe doesn't register as a tap.
+  function onPointerDown(e: React.PointerEvent) {
     downAt.current = performance.now();
+    downPos.current = { x: e.clientX, y: e.clientY };
+    moved.current = false;
     setPaused(true);
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    if (moved.current) return;
+    const dx = e.clientX - downPos.current.x;
+    const dy = e.clientY - downPos.current.y;
+    if (Math.hypot(dx, dy) > 12) moved.current = true;
   }
   function onPointerUp(e: React.PointerEvent) {
     const held = performance.now() - downAt.current;
     setPaused(false);
-    if (held < 250) {
+    if (held < 250 && !moved.current) {
       const rect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rect.left;
       if (x < rect.width * 0.33) prev();
@@ -171,9 +184,12 @@ export default function StoryViewer({
 
         {/* media + tap zones */}
         <div
-          className="absolute inset-0 flex items-center justify-center"
+          className="absolute inset-0 flex select-none items-center justify-center"
+          style={{ touchAction: "none", WebkitTouchCallout: "none" }}
           onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={() => setPaused(false)}
           onPointerLeave={() => setPaused(false)}
         >
           {isVideo ? (

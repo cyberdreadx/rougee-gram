@@ -10,8 +10,10 @@ import {
   Clapperboard,
   UserSquare,
   Bookmark,
+  AlignLeft,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { SocialPost } from "@rougechain/sdk";
 import { useResolvePubkey } from "@/hooks/useResolve";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserPosts, useArtistStats, useToggleFollow } from "@/hooks/useSocial";
@@ -22,12 +24,14 @@ import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import Avatar from "@/components/Avatar";
 import PhotoGrid, { toPhotoCells } from "@/components/PhotoGrid";
+import { TextPostCard } from "@/components/PostCard";
 import EditProfile from "@/components/EditProfile";
-import { displayName } from "@/lib/profile";
+import { decodeBody } from "@/lib/envelope";
+import { displayName, type Profile as ProfileData } from "@/lib/profile";
 import { shortAddress, formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-type ProfileTab = "posts" | "reels" | "tagged" | "saved";
+type ProfileTab = "posts" | "text" | "reels" | "tagged" | "saved";
 
 export default function Profile() {
   const { address } = useParams<{ address: string }>();
@@ -133,6 +137,7 @@ export default function Profile() {
       {/* Tabs */}
       <div className="flex border-t border-ink-border">
         <TabButton active={tab === "posts"} onClick={() => setTab("posts")} icon={Grid3x3} label="Posts" />
+        <TabButton active={tab === "text"} onClick={() => setTab("text")} icon={AlignLeft} label="Text posts" />
         <TabButton active={tab === "reels"} onClick={() => setTab("reels")} icon={Clapperboard} label="Reels" />
         <TabButton active={tab === "tagged"} onClick={() => setTab("tagged")} icon={UserSquare} label="Tagged" />
         {isMe && (
@@ -144,6 +149,13 @@ export default function Profile() {
       <div className="p-0.5 sm:p-1">
         {tab === "posts" && (
           <PhotoGrid posts={posts.data?.posts} isLoading={posts.isLoading} />
+        )}
+        {tab === "text" && (
+          <TextPostList
+            posts={posts.data?.posts}
+            isLoading={posts.isLoading}
+            profile={profile}
+          />
         )}
         {tab === "reels" && (
           <PhotoGrid
@@ -186,6 +198,53 @@ function TabButton({
     >
       <Icon className="h-5 w-5" strokeWidth={active ? 2.25 : 2} />
     </button>
+  );
+}
+
+/** Top-level plain-text posts (thread roots and standalone text posts) as a
+ *  scrolling list — the media grid can't represent them. Continuation parts and
+ *  comments (which carry `reply_to_id`) are excluded; a thread shows as its root
+ *  and expands on the detail page. */
+function TextPostList({
+  posts,
+  isLoading,
+  profile,
+}: {
+  posts?: SocialPost[];
+  isLoading: boolean;
+  profile?: ProfileData;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-ink-muted" />
+      </div>
+    );
+  }
+  const texts = (posts ?? []).filter(
+    (p) => !p.reply_to_id && decodeBody(p.body).kind === "text",
+  );
+  if (texts.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-ink-border text-ink-muted">
+          <AlignLeft className="h-7 w-7" />
+        </div>
+        <div>
+          <h3 className="font-semibold">No text posts yet</h3>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
+            Text posts and threads will show up here.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mx-auto max-w-[620px] px-3 sm:px-0">
+      {texts.map((p) => (
+        <TextPostCard key={p.id} post={p} profile={profile} />
+      ))}
+    </div>
   );
 }
 

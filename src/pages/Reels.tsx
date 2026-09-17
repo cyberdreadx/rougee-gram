@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MessageCircle, Repeat2, Volume2, VolumeX, Play, Film, Music2 } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Volume2, VolumeX, Pause, Film, Music2 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import {
   useGlobalTimeline,
@@ -9,6 +9,7 @@ import {
   useToggleRepost,
 } from "@/hooks/useSocial";
 import { useProfile } from "@/hooks/useProfile";
+import { useTapGestures } from "@/hooks/useTapGestures";
 import { useCreatePost } from "@/components/CreatePost";
 import { decodeBody, type VideoEnvelope } from "@/lib/envelope";
 import { formatCount } from "@/lib/format";
@@ -77,7 +78,10 @@ function ReelItem({ post }: { post: SocialPost }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [muted, setMuted] = useState(true);
-  const [playing, setPlaying] = useState(true);
+  const [holding, setHolding] = useState(false);
+  const [burst, setBurst] = useState(false);
+  const [muteHint, setMuteHint] = useState(false);
+  const liked = stats?.liked ?? false;
 
   // Attached qRougee sound (mixed over the muted video). See envelope SoundRef.
   const audioElRef = useRef<HTMLAudioElement | null>(null);
@@ -108,7 +112,7 @@ function ReelItem({ post }: { post: SocialPost }) {
         const vid = videoRef.current;
         if (!vid) return;
         if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-          vid.play().then(() => setPlaying(true)).catch(() => {});
+          vid.play().catch(() => {});
           startSound();
         } else {
           vid.pause();
@@ -122,20 +126,32 @@ function ReelItem({ post }: { post: SocialPost }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function togglePlay() {
-    const vid = videoRef.current;
-    if (!vid) return;
-    if (vid.paused) {
-      vid.play().then(() => setPlaying(true)).catch(() => {});
-      startSound();
-    } else {
-      vid.pause();
+  // Gestures (Instagram/X-style): single tap = mute, double tap = like,
+  // press-and-hold = pause in place, release = resume.
+  const gestures = useTapGestures({
+    onSingleTap: () => {
+      setMuted((m) => !m);
+      setMuteHint(true);
+      window.setTimeout(() => setMuteHint(false), 650);
+    },
+    onDoubleTap: () => {
+      if (!liked) {
+        setBurst(true);
+        window.setTimeout(() => setBurst(false), 700);
+        like.mutate();
+      }
+    },
+    onHoldStart: () => {
+      videoRef.current?.pause();
       stopSound();
-      setPlaying(false);
-    }
-  }
-
-  const liked = stats?.liked ?? false;
+      setHolding(true);
+    },
+    onHoldEnd: () => {
+      videoRef.current?.play().catch(() => {});
+      startSound();
+      setHolding(false);
+    },
+  });
 
   if (!reel) return null;
 
@@ -176,19 +192,39 @@ function ReelItem({ post }: { post: SocialPost }) {
         />
       )}
 
-      {/* tap layer */}
-      <button className="absolute inset-0" onClick={togglePlay} aria-label="Play/pause">
-        {!playing && (
-          <span className="absolute inset-0 flex items-center justify-center">
-            <Play className="h-16 w-16 fill-white/90 text-white/90 drop-shadow-lg" />
+      {/* gesture layer — tap: mute · double-tap: like · hold: pause */}
+      <div
+        className="absolute inset-0 touch-pan-y select-none"
+        style={{ WebkitTouchCallout: "none" }}
+        {...gestures}
+      >
+        {burst && (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <Heart className="h-24 w-24 animate-pop fill-white text-white drop-shadow-lg" />
           </span>
         )}
-      </button>
+        {holding && (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <Pause className="h-14 w-14 fill-white/80 text-white/80 drop-shadow-lg" />
+          </span>
+        )}
+        {muteHint && !holding && !burst && (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <span className="animate-pop rounded-full bg-black/50 p-4 backdrop-blur">
+              {muted ? (
+                <VolumeX className="h-8 w-8 text-white" />
+              ) : (
+                <Volume2 className="h-8 w-8 text-white" />
+              )}
+            </span>
+          </span>
+        )}
+      </div>
 
       {/* mute toggle */}
       <button
         onClick={() => setMuted((m) => !m)}
-        className="absolute right-3 top-3 rounded-full bg-black/50 p-2 text-white backdrop-blur"
+        className="absolute right-3 top-3 z-10 rounded-full bg-black/50 p-2 text-white backdrop-blur"
         aria-label={muted ? "Unmute" : "Mute"}
       >
         {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}

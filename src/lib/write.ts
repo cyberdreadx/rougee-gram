@@ -1,4 +1,4 @@
-import type { WalletKeys, ApiResponse } from "@rougechain/sdk";
+import type { WalletKeys, ApiResponse, SocialPost } from "@rougechain/sdk";
 import { rc } from "./rouge";
 import * as ext from "./extensionSigner";
 
@@ -12,10 +12,29 @@ export interface Writer {
   isExtensionWallet: boolean;
 }
 
-export function createPost(w: Writer, body: string, replyToId?: string): Promise<ApiResponse> {
+/**
+ * Create a post (or a reply, when `replyToId` is set). The created post — and
+ * crucially its `id` — comes back nested under `data.post` (the node nests write
+ * results under `data`; use `newPostId` to read it). Chaining that id into the
+ * next `createPost` as `replyToId` is how X-style threads are stitched together.
+ */
+export function createPost(
+  w: Writer,
+  body: string,
+  replyToId?: string,
+): Promise<ApiResponse<{ post?: SocialPost }>> {
   return w.isExtensionWallet
-    ? ext.socialCreatePost(w.publicKey, body, replyToId)
-    : rc().social.createPost(w.wallet!, body, replyToId);
+    ? (ext.socialCreatePost(w.publicKey, body, replyToId) as Promise<
+        ApiResponse<{ post?: SocialPost }>
+      >)
+    : (rc().social.createPost(w.wallet!, body, replyToId) as Promise<
+        ApiResponse<{ post?: SocialPost }>
+      >);
+}
+
+/** Extract the new post's id from a createPost response (nested under `data`). */
+export function newPostId(res: ApiResponse<{ post?: SocialPost }>): string | undefined {
+  return res.data?.post?.id;
 }
 
 export function toggleLike(w: Writer, postId: string): Promise<ApiResponse> {

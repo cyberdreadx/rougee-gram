@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Send, Heart, ImagePlus, X } from "lucide-react";
 import {
   usePost,
@@ -8,6 +9,7 @@ import {
   usePostStats,
   useToggleLike,
 } from "@/hooks/useSocial";
+import { rc } from "@/lib/rouge";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
@@ -18,20 +20,72 @@ import { useMyProfile } from "@/hooks/useProfile";
 import MediaImage from "@/components/MediaImage";
 import GifPicker from "@/components/GifPicker";
 import { timeAgo, formatCount } from "@/lib/format";
-import { decodeBody, postOptions, encodeComment, decodeComment } from "@/lib/envelope";
+import {
+  decodeBody,
+  postOptions,
+  encodeComment,
+  decodeComment,
+  isCommentEnvelope,
+} from "@/lib/envelope";
 import { processImage } from "@/lib/image";
 import { putImage } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import type { SocialPost } from "@rougechain/sdk";
+
+/**
+ * Walk up the reply chain (`reply_to_id` → parent → …) so a post opened in the
+ * middle of a thread shows the posts above it for context. Bounded to avoid a
+ * runaway loop on malformed data.
+ */
+function useAncestors(post?: SocialPost) {
+  const { publicKey } = useAuth();
+  const startId = post?.reply_to_id || undefined;
+  return useQuery({
+    queryKey: ["ancestors", post?.id, startId],
+    enabled: Boolean(startId),
+    queryFn: async (): Promise<SocialPost[]> => {
+      const chain: SocialPost[] = [];
+      let cur: string | undefined = startId;
+      let guard = 0;
+      while (cur && guard < 20) {
+        const r = await rc().social.getPost(cur, publicKey);
+        if (!r?.post) break;
+        chain.unshift(r.post);
+        cur = r.post.reply_to_id || undefined;
+        guard += 1;
+      }
+      return chain;
+    },
+  });
+}
 
 export default function PostDetail() {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
   const { data, isLoading, isError } = usePost(postId);
   const replies = useReplies(postId);
+  const ancestors = useAncestors(data?.post);
   const opts = data?.post ? postOptions(decodeBody(data.post.body)) : null;
   const noComments = opts?.noComments ?? false;
   const noMediaComments = opts?.noMediaComments ?? false;
+
+  // Split replies: the author's own replies are thread continuation (rendered as
+  // connected posts under the root); everyone else's are comments.
+  const rootAuthor = data?.post?.author_pubkey;
+  const { thread, comments } = useMemo(() => {
+    const all = replies.data ?? [];
+    const asc = (a: SocialPost, b: SocialPost) =>
+      Date.parse(a.created_at) - Date.parse(b.created_at);
+    // A thread part is one of the author's own replies that is a normal post
+    // body — NOT a `{t:"c"}` media-comment envelope (those must render via
+    // CommentRow, or PostCard would print their raw JSON).
+    const isThreadPart = (r: SocialPost) =>
+      r.author_pubkey === rootAuthor && !isCommentEnvelope(r.body);
+    return {
+      thread: all.filter(isThreadPart).sort(asc),
+      comments: all.filter((r) => !isThreadPart(r)),
+    };
+  }, [replies.data, rootAuthor]);
 
   return (
     <div className="pb-[calc(var(--bottom-nav-h)+5.5rem)] md:pb-0">
@@ -56,7 +110,25 @@ export default function PostDetail() {
 
       {data?.post && (
         <>
+          {/* Thread context: posts above this one (when opened mid-thread). */}
+          {ancestors.data && ancestors.data.length > 0 && (
+            <div>
+              {ancestors.data.map((a) => (
+                <PostCard key={a.id} post={a} />
+              ))}
+            </div>
+          )}
+
           <PostCard post={data.post} />
+
+          {/* Thread continuation — the author's own follow-up posts. */}
+          {thread.length > 0 && (
+            <section>
+              {thread.map((t) => (
+                <PostCard key={t.id} post={t} />
+              ))}
+            </section>
+          )}
 
           {noComments ? (
             <section className="px-3 py-10 text-center sm:px-0">
@@ -74,9 +146,9 @@ export default function PostDetail() {
                 <div className="py-8 text-center">
                   <Loader2 className="mx-auto h-4 w-4 animate-spin text-ink-muted" />
                 </div>
-              ) : replies.data && replies.data.length > 0 ? (
+              ) : comments.length > 0 ? (
                 <div className="space-y-4 py-2">
-                  {replies.data.map((c) => (
+                  {comments.map((c) => (
                     <CommentRow key={c.id} comment={c} />
                   ))}
                 </div>

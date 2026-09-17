@@ -245,6 +245,18 @@ export function encodeComment(c: { text?: string; img?: string; gif?: string }):
   );
 }
 
+/** True when a body is a `{v:1,t:"c",…}` media-comment envelope (not a post). */
+export function isCommentEnvelope(body: string): boolean {
+  const s = (body || "").trim();
+  if (!s.startsWith("{")) return false;
+  try {
+    const o = JSON.parse(s) as { v?: number; t?: string };
+    return o?.v === 1 && o?.t === "c";
+  } catch {
+    return false;
+  }
+}
+
 /** Decode a comment body (plain text or a `{v:1,t:"c",…}` media envelope). */
 export function decodeComment(body: string): CommentContent {
   const s = (body || "").trim();

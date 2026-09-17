@@ -29,7 +29,8 @@ import UserLink from "./UserLink";
 import SaveButton from "./SaveButton";
 import TipButton from "./TipButton";
 import Caption from "./Caption";
-import { Film, MapPin } from "lucide-react";
+import FullscreenVideo from "./FullscreenVideo";
+import { Film, MapPin, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function PostCard({ post }: { post: SocialPost }) {
@@ -40,6 +41,7 @@ export default function PostCard({ post }: { post: SocialPost }) {
   const repost = useToggleRepost(post.id);
   const navigate = useNavigate();
   const [burst, setBurst] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const lastTap = useRef(0);
 
   // photo / video / carousel render as media cards; plain text as text.
@@ -144,20 +146,31 @@ export default function PostCard({ post }: { post: SocialPost }) {
         className="relative mt-3 max-h-[85vh] w-full select-none overflow-hidden bg-black sm:rounded-2xl"
         style={{ aspectRatio }}
         onClick={isVideo || isCarousel ? undefined : onImageTap}
-        onDoubleClick={() => !liked && triggerLike()}
+        onDoubleClick={isVideo || isCarousel ? undefined : () => !liked && triggerLike()}
       >
         {isCarousel ? (
           <Carousel items={carouselItems!} />
         ) : isVideo ? (
-          <MediaVideo
-            refUri={media.cid}
-            poster={posterRef}
-            className={cn("h-full w-full bg-black", cropped ? "object-cover" : "object-contain")}
-            loop={isReel}
-            controls
-            clipStart={media.start}
-            clipEnd={media.end}
-          />
+          <>
+            {/* Muted, on-screen preview; tap opens the fullscreen player. */}
+            <MediaVideo
+              refUri={media.cid}
+              poster={posterRef}
+              className={cn("h-full w-full bg-black", cropped ? "object-cover" : "object-contain")}
+              autoPreview
+              clipStart={media.start}
+              clipEnd={media.end}
+            />
+            <button
+              onClick={() => setFullscreen(true)}
+              className="absolute inset-0 flex items-center justify-center"
+              aria-label="Play video fullscreen"
+            >
+              <span className="rounded-full bg-black/45 p-4 backdrop-blur transition-transform active:scale-90">
+                <Play className="h-8 w-8 fill-white text-white" />
+              </span>
+            </button>
+          </>
         ) : (
           <MediaImage
             refUri={media.cid}
@@ -251,37 +264,156 @@ export default function PostCard({ post }: { post: SocialPost }) {
           {timeAgo(post.created_at)}
         </div>
       </div>
+
+      {fullscreen && isVideo && (
+        <FullscreenVideo post={post} onClose={() => setFullscreen(false)} />
+      )}
     </article>
   );
 }
 
+/**
+ * A plain-text post (X/Threads-style) rendered as a first-class feed card:
+ * full action row (like / comment / repost / tip / share / save) and a body that
+ * links through to the thread view. `isThreadSegment` renders the compact form
+ * used inside PostDetail's connected-thread rail (no bottom border, tighter).
+ */
 function TextPostCard({
   post,
   profile,
+  isThreadSegment = false,
 }: {
   post: SocialPost;
   profile?: { address: string; name: string; avatarRef: string };
+  isThreadSegment?: boolean;
 }) {
+  const navigate = useNavigate();
+  const { data: stats } = usePostStats(post.id);
+  const like = useToggleLike(post.id);
+  const repost = useToggleRepost(post.id);
+  const [expanded, setExpanded] = useState(false);
+  const liked = stats?.liked ?? false;
+
+  const CLAMP = 280;
+  const isLong = post.body.length > CLAMP && !isThreadSegment;
+  const shown = expanded || !isLong ? post.body : post.body.slice(0, CLAMP).trimEnd();
+
   return (
-    <article className="animate-fade-in border-b border-ink-border/60 px-3 py-4 sm:px-0">
+    <article
+      className={cn(
+        "animate-fade-in px-3 py-4 sm:px-0",
+        !isThreadSegment && "border-b border-ink-border/60",
+      )}
+    >
       <header className="flex items-center gap-3">
-        <Avatar
-          refUri={profile?.avatarRef}
-          seed={post.author_pubkey}
-          name={profile?.name}
-          size={38}
-        />
+        <button onClick={() => navigate(profileTarget(profile?.address))}>
+          <Avatar
+            refUri={profile?.avatarRef}
+            seed={post.author_pubkey}
+            name={profile?.name}
+            size={38}
+          />
+        </button>
         <div className="min-w-0 flex-1 leading-tight">
-          <UserLink pubkey={post.author_pubkey} className="text-sm font-semibold" />
-          <div className="text-xs text-ink-muted">{timeAgo(post.created_at)}</div>
+          <UserLink
+            pubkey={post.author_pubkey}
+            className="block truncate text-sm font-semibold"
+          />
+          <div className="truncate text-xs text-ink-muted">
+            <span className="font-mono">{shortAddress(profile?.address ?? "", 10, 5)}</span> ·{" "}
+            {timeAgo(post.created_at)}
+          </div>
         </div>
+        <PostMenu postId={post.id} authorPubkey={post.author_pubkey} />
       </header>
-      <p className="mt-3 whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-        {post.body}
-      </p>
+
+      <div
+        className="mt-2 cursor-pointer"
+        onClick={() => navigate(`/p/${post.id}`)}
+      >
+        <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+          {shown}
+          {isLong && !expanded && (
+            <>
+              …{" "}
+              <button
+                className="text-ink-muted hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded(true);
+                }}
+              >
+                more
+              </button>
+            </>
+          )}
+        </p>
+      </div>
+
+      {/* actions */}
+      <div className="flex items-center gap-4 pt-3">
+        <button
+          onClick={() => like.mutate()}
+          className={cn(
+            "flex items-center gap-1.5 transition-transform active:scale-90",
+            liked ? "text-rouge-500" : "text-white hover:text-ink-muted",
+          )}
+          aria-label="Like"
+        >
+          <Heart className={cn("h-6 w-6", liked && "fill-rouge-500")} />
+        </button>
+        <button
+          onClick={() => navigate(`/p/${post.id}`)}
+          className="text-white hover:text-ink-muted"
+          aria-label="Comments"
+        >
+          <MessageCircle className="h-6 w-6" />
+        </button>
+        <button
+          onClick={() => repost.mutate()}
+          className={cn(
+            "transition-transform active:scale-90",
+            stats?.reposted ? "text-emerald-500" : "text-white hover:text-ink-muted",
+          )}
+          aria-label="Repost"
+        >
+          <Repeat2 className="h-6 w-6" />
+        </button>
+        <TipButton toAddress={profile?.address} toName={profile?.name} />
+        <ShareButton postId={post.id} />
+        <SaveButton postId={post.id} className="ml-auto" />
+      </div>
+
+      {/* meta */}
+      <div className="space-y-1 pt-2">
+        {(((stats?.likes ?? 0) > 0) || (stats?.reposts ?? 0) > 0) && (
+          <div className="flex items-center gap-3 text-sm">
+            {(stats?.likes ?? 0) > 0 && (
+              <span className="font-semibold">
+                {formatCount(stats!.likes)} {stats!.likes === 1 ? "like" : "likes"}
+              </span>
+            )}
+            {(stats?.reposts ?? 0) > 0 && (
+              <span className="text-ink-muted">
+                {formatCount(stats!.reposts)} {stats!.reposts === 1 ? "repost" : "reposts"}
+              </span>
+            )}
+          </div>
+        )}
+        {(stats?.replies ?? 0) > 0 && (
+          <button
+            onClick={() => navigate(`/p/${post.id}`)}
+            className="text-sm text-ink-muted hover:underline"
+          >
+            View {stats!.replies === 1 ? "1 reply" : `all ${formatCount(stats!.replies)} replies`}
+          </button>
+        )}
+      </div>
     </article>
   );
 }
+
+export { TextPostCard };
 
 function ShareButton({ postId }: { postId: string }) {
   const { toast } = useToast();

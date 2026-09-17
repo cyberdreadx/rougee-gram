@@ -23,8 +23,12 @@ import {
   Music2,
   Wand2,
   MapPin,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
+import { useMyProfile } from "@/hooks/useProfile";
+import Avatar from "./Avatar";
 import { useToast } from "./Toast";
 import Modal from "./Modal";
 import { processImage } from "@/lib/image";
@@ -44,6 +48,7 @@ import {
   encodeCarousel,
   CAPTION_LIMIT,
   CAROUSEL_MAX,
+  POST_BODY_LIMIT,
 } from "@/lib/envelope";
 import { requestFaucet } from "@/lib/rouge";
 import { invalidateFeeds } from "@/hooks/useSocial";
@@ -53,7 +58,10 @@ import SoundPicker from "./SoundPicker";
 import PhotoEditor from "./PhotoEditor";
 import { cn } from "@/lib/utils";
 
-type CreateMode = "post" | "story" | "reel";
+type CreateMode = "post" | "text" | "story" | "reel";
+
+/** Max posts in a single thread (matches X's cap). */
+const THREAD_MAX = 25;
 
 interface CreatePostCtx {
   open: (mode?: CreateMode) => void;
@@ -98,6 +106,7 @@ function CreatePostDialog({
   const [mode, setMode] = useState<CreateMode>(initialMode);
   const isStory = mode === "story";
   const isReelMode = mode === "reel";
+  const isTextMode = mode === "text";
   const { wallet, publicKey, isExtensionWallet } = useAuth();
   const { toast } = useToast();
   const client = useQueryClient();
@@ -125,6 +134,9 @@ function CreatePostDialog({
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
+  // Text/thread composer: one string per thread segment (X-style). First entry
+  // is the top-level post; the rest are chained self-replies.
+  const [segments, setSegments] = useState<string[]>([""]);
 
   const audioEnv = sound
     ? { id: sound.id, url: sound.audioUrl, title: sound.title, artist: sound.artist }
@@ -236,6 +248,7 @@ function CreatePostDialog({
     setTrimEnd(0);
     setCrop916(false);
     setVinfo(null);
+    setSegments([""]);
   }
 
   function handleEdited(blob: Blob) {
@@ -418,6 +431,55 @@ function CreatePostDialog({
     );
   }
 
+  /**
+   * Post a text post, or a whole thread. The first part is a top-level post; the
+   * continuation parts are posted as replies to that root (all pointing at the
+   * root, not chained one-to-the-next) so the whole thread comes back from a
+   * single `getPostReplies(root)` and renders top-down. Empty parts are dropped.
+   */
+  async function shareText() {
+    if (!wallet) return;
+    const writer = { wallet, publicKey, isExtensionWallet };
+    const parts = segments.map((s) => s.trim()).filter(Boolean);
+    if (!parts.length) {
+      toast("Write something first.", "error");
+      return;
+    }
+    let rootId: string | undefined;
+    for (let i = 0; i < parts.length; i++) {
+      setStage(
+        parts.length > 1
+          ? `Posting ${i + 1}/${parts.length}…`
+          : "Signing & posting on-chain…",
+      );
+      const parentId = i === 0 ? undefined : rootId;
+      let res = await write.createPost(writer, parts[i], parentId);
+      if (!res.success && needsFunds(res.error) && !isExtensionWallet) {
+        setStage("Funding account via faucet…");
+        await requestFaucet(wallet);
+        res = await write.createPost(writer, parts[i], parentId);
+      }
+      if (!res.success) {
+        throw new Error(
+          i === 0
+            ? res.error || "Post failed"
+            : `Posted ${i}/${parts.length}, then failed: ${res.error || "unknown error"}`,
+        );
+      }
+      if (i === 0) {
+        rootId = write.newPostId(res);
+        // Without the root's id we can't attach the continuation — stop cleanly.
+        if (!rootId && parts.length > 1) {
+          throw new Error("Posted the first part, but couldn't link the rest of the thread.");
+        }
+      }
+    }
+    invalidateFeeds(client, publicKey);
+    toast(parts.length > 1 ? "Thread posted 🧵" : "Posted! 🎉", "success");
+    reset();
+    onClose();
+  }
+
   async function submit(body: string) {
     if (!wallet) return;
     const writer = { wallet, publicKey, isExtensionWallet };
@@ -442,10 +504,12 @@ function CreatePostDialog({
   }
 
   async function share() {
-    if (!file || !wallet || processing) return;
+    if (!wallet || processing) return;
+    if (!isTextMode && !file) return;
     setBusy(true);
     try {
-      if (isStory) await shareStory();
+      if (isTextMode) await shareText();
+      else if (isStory) await shareStory();
       else if (kind === "video") await shareVideo();
       else if (kind === "carousel") await shareCarousel();
       else await shareImage();
@@ -459,13 +523,21 @@ function CreatePostDialog({
 
   const tooBig = kind === "video" && file ? file.size > VIDEO_WARN_BYTES : false;
 
-  const title = isStory ? "New story" : isReelMode ? "New reel" : "New post";
+  const title = isStory
+    ? "New story"
+    : isReelMode
+      ? "New reel"
+      : isTextMode
+        ? segments.length > 1
+          ? "New thread"
+          : "New post"
+        : "New post";
 
   return (
     <Modal onClose={busy ? () => {} : onClose} title={title} maxWidth="max-w-lg">
       {/* Mode tabs — Instagram's POST / STORY / REEL selector. */}
       <div className="mb-4 flex rounded-xl bg-ink-soft p-1">
-        {(["post", "story", "reel"] as CreateMode[]).map((m) => (
+        {(["post", "text", "story", "reel"] as CreateMode[]).map((m) => (
           <button
             key={m}
             disabled={busy}
@@ -480,7 +552,16 @@ function CreatePostDialog({
         ))}
       </div>
 
-      {!file ? (
+      {isTextMode ? (
+        <ThreadComposer
+          segments={segments}
+          setSegments={setSegments}
+          allowThread={!isExtensionWallet}
+          busy={busy}
+          stage={stage}
+          onShare={share}
+        />
+      ) : !file ? (
         <DropZone onFiles={pickFiles} onBrowse={() => fileInput.current?.click()} mode={mode} />
       ) : (
         <div className="space-y-4">
@@ -846,6 +927,139 @@ function OptionToggle({
           )}
         />
       </button>
+    </div>
+  );
+}
+
+/**
+ * X / Threads-style text composer. Each segment is one post; multiple segments
+ * post as a connected thread (self-reply chain). Single-wallet users can build
+ * threads; extension wallets get a single post (we can't read back the new post
+ * id to chain replies through the extension bridge).
+ */
+function ThreadComposer({
+  segments,
+  setSegments,
+  allowThread,
+  busy,
+  stage,
+  onShare,
+}: {
+  segments: string[];
+  setSegments: React.Dispatch<React.SetStateAction<string[]>>;
+  allowThread: boolean;
+  busy: boolean;
+  stage: string;
+  onShare: () => void;
+}) {
+  const { address, publicKey } = useAuth();
+  const profile = useMyProfile();
+
+  const filled = segments.filter((s) => s.trim()).length;
+  const canShare = filled > 0 && !busy;
+  const isThread = segments.length > 1;
+
+  function update(i: number, value: string) {
+    setSegments((prev) => prev.map((s, idx) => (idx === i ? value : s)));
+  }
+  function add() {
+    setSegments((prev) =>
+      prev.length >= THREAD_MAX ? prev : [...prev, ""],
+    );
+  }
+  function remove(i: number) {
+    setSegments((prev) => (prev.length <= 1 ? prev : prev.filter((_, idx) => idx !== i)));
+  }
+
+  return (
+    <div className="space-y-1">
+      {segments.map((seg, i) => {
+        const last = i === segments.length - 1;
+        return (
+          <div key={i} className="flex gap-3">
+            {/* avatar rail + thread connector */}
+            <div className="flex flex-col items-center">
+              <Avatar
+                refUri={profile?.avatarRef}
+                seed={publicKey || address}
+                name={profile?.name}
+                size={38}
+              />
+              {!last && <div className="mt-1 w-0.5 flex-1 rounded-full bg-ink-border" />}
+            </div>
+
+            <div className="min-w-0 flex-1 pb-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">
+                  {profile?.name || "You"}
+                </span>
+                {isThread && (
+                  <button
+                    onClick={() => remove(i)}
+                    disabled={busy}
+                    className="text-ink-muted hover:text-rouge-400 disabled:opacity-50"
+                    aria-label="Remove from thread"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <textarea
+                autoFocus={last}
+                className="mt-0.5 w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-relaxed outline-none placeholder:text-ink-muted focus:ring-0"
+                rows={i === 0 ? 4 : 3}
+                placeholder={
+                  i === 0
+                    ? isThread
+                      ? "Start your thread…"
+                      : "What's happening?"
+                    : "Add another post…"
+                }
+                value={seg}
+                maxLength={POST_BODY_LIMIT}
+                onChange={(e) => update(i, e.target.value)}
+                disabled={busy}
+              />
+              <div className="mt-1 text-right text-xs text-ink-muted">
+                {seg.length}/{POST_BODY_LIMIT}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {allowThread && (
+        <button
+          type="button"
+          onClick={add}
+          disabled={busy || segments.length >= THREAD_MAX || !segments[segments.length - 1].trim()}
+          className="flex items-center gap-2 pl-[7px] text-sm font-medium text-rouge-400 hover:text-rouge-300 disabled:opacity-40"
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-full border border-ink-border">
+            <Plus className="h-3.5 w-3.5" />
+          </span>
+          Add to thread
+        </button>
+      )}
+
+      <div className="pt-4">
+        <button
+          className="btn-primary w-full py-3"
+          onClick={onShare}
+          disabled={!canShare}
+        >
+          {busy ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {stage || "Posting…"}
+            </>
+          ) : isThread ? (
+            `Post thread (${filled})`
+          ) : (
+            "Post"
+          )}
+        </button>
+      </div>
     </div>
   );
 }
