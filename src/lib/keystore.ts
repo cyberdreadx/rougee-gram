@@ -175,3 +175,18 @@ export async function deleteWallet(address: string): Promise<void> {
   await database.delete("wallets", address);
   lsDelete(address);
 }
+
+/**
+ * Change the encryption password: verify the current one by decrypting, then
+ * re-encrypt the same keys under the new password (updates both stores). The
+ * wallet's keys are unchanged, so the in-memory/session session stays valid.
+ * Throws "Wallet not found" or a decrypt error (wrong current password).
+ */
+export async function changePassword(
+  address: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const keys = await unlockWallet(address, currentPassword); // throws if wrong
+  await saveWallet(address, keys, newPassword);
+}

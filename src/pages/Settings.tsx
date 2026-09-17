@@ -14,6 +14,8 @@ import {
   Cloud,
   ShieldCheck,
   RefreshCw,
+  KeyRound,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
@@ -28,6 +30,7 @@ import {
 import { testPinataJwt, testCloudflareWorker, activeBackend } from "@/lib/media";
 import { requestFaucet } from "@/lib/rouge";
 import { rc } from "@/lib/rouge";
+import { changePassword } from "@/lib/keystore";
 import { clearProfileCache } from "@/lib/profile";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -40,7 +43,8 @@ const SHOW_ADVANCED =
   import.meta.env.DEV || import.meta.env.VITE_SHOW_ADVANCED === "true";
 
 export default function Settings() {
-  const { wallet, address, balance, publicKey, lock, logout, refreshBalance } = useAuth();
+  const { wallet, address, balance, publicKey, lock, logout, refreshBalance, isExtensionWallet } =
+    useAuth();
   const { toast } = useToast();
 
   return (
@@ -64,6 +68,8 @@ export default function Settings() {
           }}
           onRefresh={refreshBalance}
         />
+
+        <SecuritySection address={address} isExtensionWallet={isExtensionWallet} />
 
         {SHOW_ADVANCED ? (
           <>
@@ -512,6 +518,114 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
       <span className="text-ink-muted">{label}</span>
       <span className={mono ? "truncate font-mono text-xs" : "truncate"}>{value}</span>
     </div>
+  );
+}
+
+function SecuritySection({
+  address,
+  isExtensionWallet,
+}: {
+  address: string;
+  isExtensionWallet: boolean;
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [cur, setCur] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Extension wallets have no local password — the key lives in the extension.
+  if (isExtensionWallet) return null;
+
+  function reset() {
+    setCur("");
+    setNext("");
+    setConfirm("");
+    setShow(false);
+  }
+
+  async function submit() {
+    if (next.length < 8) return toast("New password must be at least 8 characters.", "error");
+    if (next !== confirm) return toast("New passwords don't match.", "error");
+    if (next === cur) return toast("New password matches the current one.", "error");
+    setBusy(true);
+    try {
+      await changePassword(address, cur, next);
+      toast("Password changed 🔒", "success");
+      reset();
+      setOpen(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      toast(/not found/i.test(msg) ? "Wallet not found on this device." : "Current password is incorrect.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section icon={<KeyRound className="h-4 w-4" />} title="Security">
+      <button className="btn-soft w-full" onClick={() => setOpen(true)}>
+        <Lock className="h-4 w-4" /> Change password
+      </button>
+      <p className="text-xs text-ink-muted">
+        Re-encrypts your account key under a new password on this device. Your
+        recovery phrase is unchanged.
+      </p>
+
+      {open && (
+        <Modal
+          onClose={busy ? () => {} : () => setOpen(false)}
+          title="Change password"
+        >
+          <div className="space-y-2">
+            <div className="relative">
+              <input
+                className="input pr-10"
+                type={show ? "text" : "password"}
+                placeholder="Current password"
+                value={cur}
+                onChange={(e) => setCur(e.target.value)}
+                autoFocus
+                disabled={busy}
+              />
+              <button
+                type="button"
+                onClick={() => setShow((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-ink-muted"
+                aria-label={show ? "Hide" : "Show"}
+              >
+                {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <input
+              className="input"
+              type={show ? "text" : "password"}
+              placeholder="New password (min 8 chars)"
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+              disabled={busy}
+            />
+            <input
+              className="input"
+              type={show ? "text" : "password"}
+              placeholder="Confirm new password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <button
+            className="btn-primary mt-4 w-full py-3"
+            onClick={submit}
+            disabled={busy || !cur || !next || !confirm}
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}
+          </button>
+        </Modal>
+      )}
+    </Section>
   );
 }
 
