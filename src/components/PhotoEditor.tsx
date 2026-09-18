@@ -166,7 +166,7 @@ export default function PhotoEditor({
         <button
           onClick={save}
           disabled={saving}
-          className="flex items-center gap-1.5 rounded-full bg-rouge-600 px-4 py-1.5 text-sm font-semibold text-ink disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-full bg-rouge-600 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
           Done

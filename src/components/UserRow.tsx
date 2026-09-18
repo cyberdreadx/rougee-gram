@@ -44,7 +44,7 @@ export default function UserRow({
             "shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors",
             stats.data?.isFollowing
               ? "bg-white/5 text-white hover:bg-white/10"
-              : "bg-rouge-600 text-ink hover:bg-rouge-500",
+              : "bg-rouge-600 text-white hover:bg-rouge-500",
           )}
           disabled={follow.isPending}
           onClick={() =>

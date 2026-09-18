@@ -68,7 +68,7 @@ export default function Messages() {
             <TabBtn active={tab === "requests"} onClick={() => setTab("requests")}>
               Requests
               {requests.length > 0 && (
-                <span className="ml-1.5 rounded-full bg-rouge-600 px-1.5 py-0.5 text-[10px] font-bold text-ink">
+                <span className="ml-1.5 rounded-full bg-rouge-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
                   {requests.length}
                 </span>
               )}
@@ -189,7 +189,7 @@ function RequestRow({
           Delete
         </button>
         <button
-          className="rounded-lg bg-rouge-600 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-rouge-500"
+          className="rounded-lg bg-rouge-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rouge-500"
           onClick={() => onAccept(conversation.id)}
         >
           Accept

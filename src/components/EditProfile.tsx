@@ -73,7 +73,7 @@ export default function EditProfile({
             ) : (
               <Avatar refUri={avatarRef} seed={profile.pubkey} name={name} size={80} />
             )}
-            <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-rouge-600 text-ink ring-2 ring-ink-card">
+            <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-rouge-600 text-white ring-2 ring-ink-card">
               {uploadingAvatar ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (

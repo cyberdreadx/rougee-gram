@@ -74,20 +74,20 @@
       text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-rouge-600 text-ink hover:bg-rouge-500 active:bg-rouge-700;
-    /* Quantum teal glow, echoing RougeChain's neon button treatment. */
-    box-shadow: 0 0 18px -3px rgba(0, 210, 190, 0.5);
+    @apply btn bg-rouge-600 text-white hover:bg-rouge-500 active:bg-rouge-700;
+    /* Quantum purple glow, matching the logo. */
+    box-shadow: 0 0 18px -3px rgba(168, 85, 247, 0.5);
   }
   .btn-primary:hover {
-    box-shadow: 0 0 24px -2px rgba(0, 210, 190, 0.65);
+    box-shadow: 0 0 24px -2px rgba(168, 85, 247, 0.65);
   }
   .btn-primary:disabled {
     box-shadow: none;
   }
 
-  /* Reusable teal glow for accent elements (avatars, active states, badges). */
+  /* Reusable accent glow for accent elements (avatars, active states, badges). */
   .glow-teal {
-    box-shadow: 0 0 20px -4px rgba(0, 210, 190, 0.55);
+    box-shadow: 0 0 20px -4px rgba(168, 85, 247, 0.55);
   }
   .btn-ghost {
     @apply btn bg-transparent text-ink-muted hover:bg-white/5 hover:text-white;
@@ -131,10 +131,10 @@
 
   /* RougeChain "quantum" gradient: teal -> blue -> purple. */
   .brand-gradient {
-    background-image: linear-gradient(135deg, #13ecda 0%, #0b84d4 50%, #a855f7 100%);
+    background-image: linear-gradient(135deg, #ff5ea8 0%, #a855f7 50%, #2f6bff 100%);
   }
   .brand-text {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #34f5da 0%, #00d2be 45%, #a855f7 100%);
+    background-image: linear-gradient(135deg, #ff6fb3 0%, #b06bfa 45%, #4f7cff 100%);
   }
 }

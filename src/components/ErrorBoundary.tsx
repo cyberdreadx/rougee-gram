@@ -68,7 +68,7 @@ export default class ErrorBoundary extends Component<
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
           <button
             onClick={() => location.reload()}
-            style={btn("#00d2be", "#0a0c12")}
+            style={btn("#a855f7", "#ffffff")}
           >
             Reload
           </button>

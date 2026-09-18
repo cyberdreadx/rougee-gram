@@ -6,28 +6,29 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Quantum teal — RougeChain's brand primary (hsl 175 85% 50%). Kept
-        // under the `rouge` token name so every existing class re-themes at once.
-        // Teal is bright, so solid `rouge-600` surfaces use dark (`text-ink`) text.
+        // Quantum purple — matches the RouGee/RougeCoin logo gradient (the mark's
+        // bridge color). Kept under the `rouge` token name so every existing class
+        // re-themes at once. Purple is a mid tone, so solid `rouge-600` surfaces
+        // use light (`text-white`) text (teal used dark text; this flipped).
         rouge: {
-          50: "#e6fffb",
-          100: "#b8fff2",
-          200: "#7cffe9",
-          300: "#34f5da",
-          400: "#13ecda",
-          500: "#00d2be",
-          600: "#06b6a4",
-          700: "#0c9184",
-          800: "#12736a",
-          900: "#145d56",
-          950: "#04322e",
-        },
-        // Quantum purple accent ("quantum pulse", hsl 280 80% 60%).
-        accent: {
-          DEFAULT: "#a855f7",
+          50: "#faf5ff",
+          100: "#f3e8ff",
+          200: "#e9d5ff",
+          300: "#d8b4fe",
           400: "#c084fc",
           500: "#a855f7",
           600: "#9333ea",
+          700: "#7e22ce",
+          800: "#6b21a8",
+          900: "#581c87",
+          950: "#3b0764",
+        },
+        // Pink accent from the logo (its orbit dots / edge glow).
+        accent: {
+          DEFAULT: "#ec4899",
+          400: "#f472b6",
+          500: "#ec4899",
+          600: "#db2777",
         },
         // RougeChain's cool near-black navy surfaces (hsl 220 20-30%).
         ink: {

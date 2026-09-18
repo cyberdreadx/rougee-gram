@@ -119,7 +119,7 @@ export default function SoundPicker({
                 className={cn(
                   "shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold",
                   selectedId === s.id
-                    ? "bg-rouge-600 text-ink"
+                    ? "bg-rouge-600 text-white"
                     : "bg-white/5 text-white hover:bg-white/10",
                 )}
               >

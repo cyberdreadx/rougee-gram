@@ -102,7 +102,7 @@ function TipModal({
             disabled={tip.isPending}
             className={cn(
               "rounded-xl py-2.5 text-sm font-semibold transition-colors disabled:opacity-50",
-              amount === v ? "bg-rouge-600 text-ink" : "bg-ink-soft text-white hover:bg-white/10",
+              amount === v ? "bg-rouge-600 text-white" : "bg-ink-soft text-white hover:bg-white/10",
             )}
           >
             {v}
