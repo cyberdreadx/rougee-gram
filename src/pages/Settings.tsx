@@ -536,8 +536,19 @@ function SecuritySection({
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Extension wallets have no local password — the key lives in the extension.
-  if (isExtensionWallet) return null;
+  // Provider wallets (Qwalla / RougeChain extension) keep the key themselves —
+  // there's no local password for RouGee to change. Say so rather than hiding it.
+  if (isExtensionWallet) {
+    return (
+      <Section icon={<KeyRound className="h-4 w-4" />} title="Security">
+        <p className="text-xs text-ink-muted">
+          Your key is managed by your connected wallet (Qwalla or the RougeChain
+          extension). Change your password or biometrics there — RouGee never
+          stores your key on this device.
+        </p>
+      </Section>
+    );
+  }
 
   function reset() {
     setCur("");

@@ -26,7 +26,10 @@ import Avatar from "@/components/Avatar";
 import PhotoGrid, { toPhotoCells } from "@/components/PhotoGrid";
 import { TextPostCard } from "@/components/PostCard";
 import EditProfile from "@/components/EditProfile";
+import NoteEditor from "@/components/NoteEditor";
 import { FollowingModal, FollowersModal } from "@/components/FollowListModal";
+import { latestActiveNote, type Note } from "@/hooks/useNotes";
+import { Plus } from "lucide-react";
 import { decodeBody } from "@/lib/envelope";
 import { displayName, type Profile as ProfileData } from "@/lib/profile";
 import { shortAddress, formatCount } from "@/lib/format";
@@ -49,6 +52,7 @@ export default function Profile() {
   const posts = useUserPosts(pubkey || undefined);
   const [tab, setTab] = useState<ProfileTab>("posts");
   const [followList, setFollowList] = useState<null | "following" | "followers">(null);
+  const [showNote, setShowNote] = useState(false);
 
   const isMe = Boolean(pubkey) && pubkey === myPubkey;
 
@@ -69,6 +73,7 @@ export default function Profile() {
   }
 
   const photoCount = toPhotoCells(posts.data?.posts).length;
+  const note = latestActiveNote(posts.data?.posts, pubkey);
 
   return (
     <div className="pb-8">
@@ -88,13 +93,15 @@ export default function Profile() {
       </header>
 
       {/* Profile head */}
-      <div className="px-4 py-5">
+      <div className="px-4 pb-5 pt-8">
         <div className="flex items-center gap-5">
-          <Avatar
-            refUri={profile?.avatarRef}
+          <ProfileNote
+            note={note}
+            isMe={isMe}
+            avatarRef={profile?.avatarRef}
             seed={pubkey}
             name={profile?.name}
-            size={84}
+            onEdit={() => setShowNote(true)}
           />
           <div className="flex flex-1 justify-around text-center">
             <Stat label="Posts" value={photoCount} />
@@ -185,8 +192,68 @@ export default function Profile() {
       {followList === "followers" && pubkey && (
         <FollowersModal pubkey={pubkey} onClose={() => setFollowList(null)} />
       )}
+
+      {showNote && isMe && (
+        <NoteEditor note={note} onClose={() => setShowNote(false)} />
+      )}
     </div>
   );
+}
+
+/** Avatar with an Instagram-style 24h "note" bubble floating above it. Tappable
+ *  to set/clear on your own profile; read-only on others'. */
+function ProfileNote({
+  note,
+  isMe,
+  avatarRef,
+  seed,
+  name,
+  onEdit,
+}: {
+  note: Note | null;
+  isMe: boolean;
+  avatarRef?: string;
+  seed: string;
+  name?: string;
+  onEdit: () => void;
+}) {
+  const showChip = Boolean(note) || isMe;
+  const inner = (
+    <>
+      {showChip && (
+        <div className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2">
+          <div className="relative max-w-[120px] rounded-2xl rounded-bl-sm bg-ink-card px-3 py-1.5 text-center text-[11px] leading-tight shadow-lg">
+            {note ? (
+              <span className="line-clamp-2 text-white">{note.text}</span>
+            ) : (
+              <span className="text-ink-muted">Note…</span>
+            )}
+            <span className="absolute -bottom-1 left-3 h-2 w-2 rounded-full bg-ink-card" />
+          </div>
+        </div>
+      )}
+      <Avatar refUri={avatarRef} seed={seed} name={name} size={84} />
+      {isMe && !note && (
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-rouge-600 ring-2 ring-ink">
+          <Plus className="h-3.5 w-3.5 text-white" />
+        </span>
+      )}
+    </>
+  );
+
+  if (isMe) {
+    return (
+      <button
+        type="button"
+        onClick={onEdit}
+        className="relative shrink-0"
+        aria-label="Edit your note"
+      >
+        {inner}
+      </button>
+    );
+  }
+  return <div className="relative shrink-0">{inner}</div>;
 }
 
 function TabButton({

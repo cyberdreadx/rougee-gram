@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { SocialPost } from "@rougechain/sdk";
 import { useGlobalTimeline, qk } from "./useSocial";
 import { useAuth } from "@/store/auth";
 import { decodeBody, encodeNote, NOTE_TTL_MS } from "@/lib/envelope";
@@ -49,6 +50,31 @@ export function useNotes(): { notes: Note[]; myNote: Note | null; isLoading: boo
     .sort((a, b) => b.at - a.at);
 
   return { notes, myNote, isLoading };
+}
+
+/**
+ * Latest active (<24h) note for one author, derived from a set of their posts
+ * (e.g. `getUserPosts` on a profile). Returns null if they have none. Reliable
+ * for a specific user even when their note isn't in the recent global timeline.
+ */
+export function latestActiveNote(
+  posts: SocialPost[] | undefined,
+  pubkey: string | undefined,
+): Note | null {
+  if (!pubkey) return null;
+  const now = Date.now();
+  let best: Note | null = null;
+  for (const p of posts ?? []) {
+    if (p.reply_to_id || p.author_pubkey !== pubkey) continue;
+    const d = decodeBody(p.body);
+    if (d.kind !== "note") continue;
+    const at = toMs(p.created_at);
+    if (!at || now - at > NOTE_TTL_MS) continue;
+    const text = d.data.txt?.trim();
+    if (!text) continue;
+    if (!best || at > best.at) best = { pubkey, text, postId: p.id, at };
+  }
+  return best;
 }
 
 export function useSetNote() {
