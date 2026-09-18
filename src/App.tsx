@@ -13,6 +13,7 @@ import Profile from "./pages/Profile";
 import PostDetail from "./pages/PostDetail";
 import Settings from "./pages/Settings";
 import Splash from "./components/Splash";
+import Tutorial from "./components/Tutorial";
 
 export default function App() {
   const { status } = useAuth();
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Tutorial />
     </Layout>
   );
 }

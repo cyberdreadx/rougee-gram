@@ -1,6 +1,6 @@
 import { rc } from "./rouge";
 import { resolveAddress, handleFromAddress } from "./format";
-import { decodeBody, type ProfileEnvelope } from "./envelope";
+import { decodeBody, sanitizeLinks, type ProfileEnvelope, type ProfileLink } from "./envelope";
 
 /**
  * Profiles have no dedicated on-chain endpoint, so a user's profile is derived
@@ -15,6 +15,8 @@ export interface Profile {
   name: string;
   bio: string;
   avatarRef: string; // media reference URI or ""
+  links: ProfileLink[]; // link-in-bio entries (sanitized)
+  vfy: string; // verified-badge attestation (HQ signature hex), "" if none
 }
 
 const cache = new Map<string, { at: number; profile: Profile }>();
@@ -32,6 +34,8 @@ export async function getProfile(pubkey: string): Promise<Profile> {
     name: "",
     bio: "",
     avatarRef: "",
+    links: [],
+    vfy: "",
   };
 
   try {
@@ -41,6 +45,8 @@ export async function getProfile(pubkey: string): Promise<Profile> {
       base.name = latest.name?.trim() || "";
       base.bio = latest.bio?.trim() || "";
       base.avatarRef = latest.avatar || "";
+      base.links = sanitizeLinks(latest.links);
+      base.vfy = typeof latest.vfy === "string" ? latest.vfy : "";
     }
   } catch {
     /* keep the address-derived defaults */

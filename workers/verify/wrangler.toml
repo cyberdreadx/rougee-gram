@@ -1,0 +1,31 @@
+# Cloudflare Worker: RouGee verified-badge issuer ("RouGee HQ").
+#
+# Sends a one-time code to a user's on-chain mail, checks they hold ≥ MIN_XRGE,
+# and signs an ML-DSA-65 attestation the client stores in its profile. The HQ
+# signing key lives ONLY as a Worker secret; the client trusts the matching
+# public key (baked into src/lib/verify.ts).
+#
+# Setup:
+#   npx wrangler kv namespace create VERIFY_CODES
+#     -> put the returned id below under [[kv_namespaces]]
+#   # HQ wallet — generate one (e.g. in the app) and set its recovery phrase:
+#   npx wrangler secret put HQ_MNEMONIC --config workers/verify/wrangler.toml
+#   npx wrangler deploy --config workers/verify/wrangler.toml
+#   # then GET https://<worker>/verify/hq to read HQ's public key and paste it
+#   # into HQ_PUBLIC_KEY in src/lib/verify.ts.
+name = "rougee-verify"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "VERIFY_CODES"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[vars]
+# RougeChain node the Worker reads balances from / sends mail through. Match the
+# network the app runs on (testnet today).
+ROUGE_API = "https://testnet.rougechain.io"
+ALLOW_ORIGIN = "*"
+# Minimum XRGE required to be (and stay) verified.
+MIN_XRGE = "50000"

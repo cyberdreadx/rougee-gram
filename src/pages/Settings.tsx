@@ -34,6 +34,11 @@ import { changePassword } from "@/lib/keystore";
 import { clearProfileCache } from "@/lib/profile";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useMyProfile, useUpdateProfile } from "@/hooks/useProfile";
+import { useVerified } from "@/hooks/useVerified";
+import VerifiedBadge from "@/components/VerifiedBadge";
+import { startVerify, confirmVerify } from "@/lib/verifyApi";
+import { VERIFY_MIN_XRGE } from "@/lib/verify";
 
 /** Operator-only sections (media backend config, network switcher) are hidden
  *  from consumers. They show in local dev, or in any build with
@@ -71,6 +76,8 @@ export default function Settings() {
 
         <SecuritySection address={address} isExtensionWallet={isExtensionWallet} />
 
+        <VerifySection publicKey={publicKey} balance={balance} />
+
         {SHOW_ADVANCED ? (
           <>
             <MediaSection />
@@ -91,6 +98,119 @@ export default function Settings() {
         </p>
       </div>
     </div>
+  );
+}
+
+function VerifySection({ publicKey, balance }: { publicKey: string; balance: number }) {
+  const { toast } = useToast();
+  const verified = useVerified(publicKey || undefined);
+  const profile = useMyProfile();
+  const update = useUpdateProfile();
+  const configured = Boolean(getConfig().verifyWorkerUrl);
+  const [step, setStep] = useState<"idle" | "sent">("idle");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const eligible = balance >= VERIFY_MIN_XRGE;
+
+  async function sendCode() {
+    setBusy(true);
+    try {
+      await startVerify(publicKey);
+      setStep("sent");
+      toast("Code sent to your RouGee mail.", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Couldn't send code.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirm() {
+    if (!/^\d{6}$/.test(code.trim())) return toast("Enter the 6-digit code.", "error");
+    setBusy(true);
+    try {
+      const sig = await confirmVerify(publicKey, code.trim());
+      // Republish the profile with the attestation, preserving existing fields.
+      await update.mutateAsync({
+        name: profile?.name ?? "",
+        bio: profile?.bio ?? "",
+        avatarRef: profile?.avatarRef ?? "",
+        links: profile?.links ?? [],
+        vfy: sig,
+      });
+      toast("You're verified! ✨", "success");
+      setStep("idle");
+      setCode("");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Verification failed.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section icon={<ShieldCheck className="h-4 w-4" />} title="Verification">
+      {verified ? (
+        <div className="flex items-center gap-2 text-sm">
+          <VerifiedBadge size={20} />
+          <span className="font-medium">Your account is verified.</span>
+        </div>
+      ) : !configured ? (
+        <p className="text-sm text-ink-muted">
+          Verification isn't available yet. Check back soon.
+        </p>
+      ) : (
+        <>
+          <p className="text-sm text-ink-muted">
+            Get the gradient check. You need to hold at least{" "}
+            <span className="font-semibold text-white">
+              {VERIFY_MIN_XRGE.toLocaleString()} XRGE
+            </span>{" "}
+            and confirm a one-time code we send to your on-chain mail.
+          </p>
+          <div
+            className={cn(
+              "rounded-xl px-3 py-2 text-xs",
+              eligible ? "bg-emerald-500/10 text-emerald-300" : "bg-ink-soft text-ink-muted",
+            )}
+          >
+            You hold {balance.toLocaleString()} XRGE —{" "}
+            {eligible ? "eligible." : `hold ${(VERIFY_MIN_XRGE - balance).toLocaleString()} more to qualify.`}
+          </div>
+
+          {step === "idle" ? (
+            <button
+              className="btn-primary w-full py-2.5"
+              disabled={!eligible || busy}
+              onClick={sendCode}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send code to my mail"}
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <input
+                className="input text-center font-mono tracking-[0.4em]"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="______"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+              <button className="btn-primary w-full py-2.5" disabled={busy} onClick={confirm}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm & verify"}
+              </button>
+              <button
+                className="btn-ghost w-full text-xs"
+                disabled={busy}
+                onClick={sendCode}
+              >
+                Resend code
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </Section>
   );
 }
 

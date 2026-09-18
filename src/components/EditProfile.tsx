@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Link2, Plus, X } from "lucide-react";
 import Modal from "./Modal";
 import Avatar from "./Avatar";
 import { useToast } from "./Toast";
@@ -7,7 +7,14 @@ import { useUpdateProfile } from "@/hooks/useProfile";
 import type { Profile } from "@/lib/profile";
 import { processImage } from "@/lib/image";
 import { putImage } from "@/lib/media";
-import { NAME_LIMIT, BIO_LIMIT } from "@/lib/envelope";
+import {
+  NAME_LIMIT,
+  BIO_LIMIT,
+  PROFILE_LINKS_MAX,
+  LINK_LABEL_LIMIT,
+  normalizeLinkUrl,
+  type ProfileLink,
+} from "@/lib/envelope";
 
 export default function EditProfile({
   profile,
@@ -25,6 +32,17 @@ export default function EditProfile({
   const [avatarRef, setAvatarRef] = useState(profile.avatarRef);
   const [localPreview, setLocalPreview] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [links, setLinks] = useState<ProfileLink[]>(profile.links);
+
+  function updateLink(i: number, patch: Partial<ProfileLink>) {
+    setLinks((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  }
+  function addLink() {
+    setLinks((ls) => (ls.length >= PROFILE_LINKS_MAX ? ls : [...ls, { url: "" }]));
+  }
+  function removeLink(i: number) {
+    setLinks((ls) => ls.filter((_, idx) => idx !== i));
+  }
 
   async function pickAvatar(f: File | null) {
     if (!f) return;
@@ -42,8 +60,15 @@ export default function EditProfile({
   }
 
   function save() {
+    // Drop blank rows; reject any non-empty URL that isn't a valid http(s) link.
+    const filled = links.filter((l) => (l.url || "").trim());
+    const bad = filled.find((l) => !normalizeLinkUrl(l.url));
+    if (bad) {
+      toast(`"${bad.url}" isn't a valid link.`, "error");
+      return;
+    }
     update.mutate(
-      { name, bio, avatarRef },
+      { name, bio, avatarRef, links: filled, vfy: profile.vfy },
       {
         onSuccess: () => {
           toast("Profile saved", "success");
@@ -112,6 +137,52 @@ export default function EditProfile({
           <div className="mt-1 text-right text-xs text-ink-muted">
             {bio.length}/{BIO_LIMIT}
           </div>
+        </div>
+
+        <div>
+          <label className="label flex items-center gap-1.5">
+            <Link2 className="h-3.5 w-3.5" /> Links
+          </label>
+          <div className="space-y-2">
+            {links.map((l, i) => (
+              <div key={i} className="rounded-xl border border-ink-border bg-ink-soft p-2.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    className="input flex-1"
+                    value={l.url}
+                    inputMode="url"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="yoursite.com"
+                    onChange={(e) => updateLink(i, { url: e.target.value })}
+                  />
+                  <button
+                    className="btn-ghost h-9 w-9 shrink-0 p-0"
+                    onClick={() => removeLink(i)}
+                    aria-label="Remove link"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <input
+                  className="input mt-2"
+                  value={l.label ?? ""}
+                  maxLength={LINK_LABEL_LIMIT}
+                  placeholder="Label (optional)"
+                  onChange={(e) => updateLink(i, { label: e.target.value })}
+                />
+              </div>
+            ))}
+          </div>
+          {links.length < PROFILE_LINKS_MAX && (
+            <button
+              className="btn-soft mt-2 w-full justify-center gap-1.5 py-2 text-sm"
+              onClick={addLink}
+            >
+              <Plus className="h-4 w-4" /> Add link
+            </button>
+          )}
         </div>
 
         <button

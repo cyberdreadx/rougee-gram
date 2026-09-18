@@ -127,6 +127,18 @@ export interface StoryEnvelope {
   cap?: string;
 }
 
+/** A single "link in bio" — an external URL with an optional display label. */
+export interface ProfileLink {
+  /** Absolute http(s) URL. */
+  url: string;
+  /** Short display label (falls back to the URL's hostname when absent). */
+  label?: string;
+}
+
+/** Max links shown on a profile (Instagram-style link-in-bio). */
+export const PROFILE_LINKS_MAX = 5;
+export const LINK_LABEL_LIMIT = 30;
+
 export interface ProfileEnvelope {
   v: 1;
   t: "profile";
@@ -134,6 +146,46 @@ export interface ProfileEnvelope {
   bio?: string;
   /** Avatar media reference URI, or "" to clear */
   avatar?: string;
+  /** Link-in-bio entries (max PROFILE_LINKS_MAX). */
+  links?: ProfileLink[];
+  /** Verified-badge attestation: RouGee HQ's ML-DSA-65 signature (hex) over
+   *  `verify:v1:<pubkey>`. Validated client-side against HQ's public key. */
+  vfy?: string;
+}
+
+/**
+ * Coerce arbitrary user input to a safe absolute http(s) URL, or null if it
+ * can't be one. Prevents `javascript:`/`data:` and other unsafe schemes from
+ * ever reaching an anchor's href.
+ */
+export function normalizeLinkUrl(raw: string): string | null {
+  const s = (raw || "").trim();
+  if (!s) return null;
+  const withScheme = /^https?:\/\//i.test(s) ? s : `https://${s}`;
+  try {
+    const u = new URL(withScheme);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    if (!u.hostname.includes(".")) return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Sanitize a links array for storage: valid http(s) URLs only, capped, deduped. */
+export function sanitizeLinks(links: ProfileLink[] | undefined): ProfileLink[] {
+  if (!Array.isArray(links)) return [];
+  const out: ProfileLink[] = [];
+  const seen = new Set<string>();
+  for (const l of links) {
+    const url = normalizeLinkUrl(l?.url ?? "");
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    const label = (l?.label || "").trim().slice(0, LINK_LABEL_LIMIT);
+    out.push(label ? { url, label } : { url });
+    if (out.length >= PROFILE_LINKS_MAX) break;
+  }
+  return out;
 }
 
 /** A "note" — a short, ephemeral text status shown in the DM inbox (à la IG). */
@@ -286,6 +338,8 @@ export function encodeProfile(env: Omit<ProfileEnvelope, "v" | "t">): string {
   const full: ProfileEnvelope = { v: 1, t: "profile", ...env };
   if (full.name) full.name = full.name.slice(0, NAME_LIMIT);
   if (full.bio) full.bio = full.bio.slice(0, BIO_LIMIT);
+  const links = sanitizeLinks(full.links);
+  full.links = links.length ? links : undefined;
   return JSON.stringify(stripUndefined(full));
 }
 

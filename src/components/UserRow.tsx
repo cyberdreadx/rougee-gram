@@ -2,11 +2,13 @@ import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useArtistStats, useToggleFollow } from "@/hooks/useSocial";
+import { useVerified } from "@/hooks/useVerified";
 import { useAuth } from "@/store/auth";
 import { useToast } from "./Toast";
 import { displayName } from "@/lib/profile";
 import { shortAddress } from "@/lib/format";
 import Avatar from "./Avatar";
+import VerifiedBadge from "./VerifiedBadge";
 import { cn } from "@/lib/utils";
 
 export default function UserRow({
@@ -23,6 +25,7 @@ export default function UserRow({
   const { data: profile } = useProfile(pubkey);
   const stats = useArtistStats(showFollow ? pubkey : undefined);
   const follow = useToggleFollow(pubkey);
+  const verified = useVerified(pubkey);
   const isMe = pubkey === publicKey;
 
   const name = profile ? displayName(profile) : shortAddress(pubkey, 8, 4);
@@ -35,7 +38,10 @@ export default function UserRow({
         <Avatar refUri={profile?.avatarRef} seed={pubkey} name={profile?.name} size={40} />
       </Link>
       <Link to={to} state={{ pubkey }} className="min-w-0 flex-1 leading-tight">
-        <div className="truncate text-sm font-semibold hover:underline">{name}</div>
+        <div className="flex items-center gap-1">
+          <span className="truncate text-sm font-semibold hover:underline">{name}</span>
+          {verified && <VerifiedBadge size={14} className="shrink-0" />}
+        </div>
         <div className="truncate text-xs text-ink-muted">{sub}</div>
       </Link>
       {showFollow && !isMe && (

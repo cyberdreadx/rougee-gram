@@ -11,6 +11,7 @@ import {
   UserSquare,
   Bookmark,
   AlignLeft,
+  Link2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
@@ -29,7 +30,18 @@ import EditProfile from "@/components/EditProfile";
 import NoteEditor from "@/components/NoteEditor";
 import { FollowingModal, FollowersModal } from "@/components/FollowListModal";
 import { latestActiveNote, type Note } from "@/hooks/useNotes";
+import { useVerified } from "@/hooks/useVerified";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { Plus } from "lucide-react";
+
+/** Display host for a link chip (drops the www. and scheme). */
+function linkHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
 import { decodeBody } from "@/lib/envelope";
 import { displayName, type Profile as ProfileData } from "@/lib/profile";
 import { shortAddress, formatCount } from "@/lib/format";
@@ -50,6 +62,7 @@ export default function Profile() {
   const { data: profile } = useProfile(pubkey || undefined);
   const stats = useArtistStats(pubkey || undefined);
   const posts = useUserPosts(pubkey || undefined);
+  const verified = useVerified(pubkey || undefined);
   const [tab, setTab] = useState<ProfileTab>("posts");
   const [followList, setFollowList] = useState<null | "following" | "followers">(null);
   const [showNote, setShowNote] = useState(false);
@@ -92,8 +105,9 @@ export default function Profile() {
         )}
       </header>
 
-      {/* Profile head */}
-      <div className="px-4 pb-5 pt-8">
+      {/* Profile head — extra top padding leaves room for the note bubble that
+          floats above the avatar so it clears the sticky header (see ProfileNote). */}
+      <div className="px-4 pb-5 pt-14">
         <div className="flex items-center gap-5">
           <ProfileNote
             note={note}
@@ -119,8 +133,9 @@ export default function Profile() {
         </div>
 
         <div className="mt-4">
-          <div className="font-semibold">
-            {profile ? displayName(profile) : shortAddress(address ?? "")}
+          <div className="flex items-center gap-1 font-semibold">
+            <span>{profile ? displayName(profile) : shortAddress(address ?? "")}</span>
+            {verified && <VerifiedBadge size={18} />}
           </div>
           <div className="font-mono text-sm text-ink-muted">
             {shortAddress(profile?.address ?? address ?? "", 14, 8)}
@@ -129,6 +144,22 @@ export default function Profile() {
             <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
               {profile.bio}
             </p>
+          )}
+          {profile?.links && profile.links.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {profile.links.map((l) => (
+                <a
+                  key={l.url}
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-ink-soft px-3 py-1.5 text-sm font-medium text-rouge-400 hover:bg-ink-border"
+                >
+                  <Link2 className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{l.label || linkHost(l.url)}</span>
+                </a>
+              ))}
+            </div>
           )}
         </div>
 

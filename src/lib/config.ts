@@ -18,6 +18,8 @@ export interface RuntimeConfig {
   /** Route video through Cloudflare Stream (adaptive HLS). Requires the Worker
    *  to be configured with Stream secrets. */
   cfStream: boolean;
+  /** RouGee HQ verification Worker base URL (issues verified-badge attestations). */
+  verifyWorkerUrl: string;
 }
 
 /** Well-known RougeChain networks selectable at runtime in Settings. */
@@ -45,6 +47,7 @@ const defaults: RuntimeConfig = {
   cfWorkerUrl: import.meta.env.VITE_CF_WORKER_URL || "",
   cfUploadSecret: import.meta.env.VITE_CF_UPLOAD_SECRET || "",
   cfStream: (import.meta.env.VITE_CF_STREAM || "") === "true",
+  verifyWorkerUrl: import.meta.env.VITE_VERIFY_WORKER_URL || "",
 };
 
 function load(): RuntimeConfig {

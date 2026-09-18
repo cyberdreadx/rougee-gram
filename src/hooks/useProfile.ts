@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getProfile, invalidateProfile, type Profile } from "@/lib/profile";
 import { useAuth } from "@/store/auth";
-import { encodeProfile } from "@/lib/envelope";
+import { encodeProfile, type ProfileLink } from "@/lib/envelope";
 import { invalidateFeeds } from "./useSocial";
 import * as write from "@/lib/write";
 
@@ -25,6 +25,9 @@ export interface ProfileUpdate {
   name: string;
   bio: string;
   avatarRef: string;
+  links: ProfileLink[];
+  /** Verified attestation to preserve across edits (empty string clears it). */
+  vfy?: string;
 }
 
 /** Publishes a `profile`-type post that becomes the user's current profile. */
@@ -38,6 +41,8 @@ export function useUpdateProfile() {
         name: update.name.trim() || undefined,
         bio: update.bio.trim() || undefined,
         avatar: update.avatarRef || undefined,
+        links: update.links.length ? update.links : undefined,
+        vfy: update.vfy || undefined,
       });
       const res = await write.createPost({ wallet, publicKey, isExtensionWallet }, body);
       if (!res.success) throw new Error(res.error || "Failed to save profile");

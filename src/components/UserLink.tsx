@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
+import { useVerified } from "@/hooks/useVerified";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { displayName } from "@/lib/profile";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -42,5 +44,30 @@ export default function UserLink({
         </span>
       )}
     </Link>
+  );
+}
+
+/**
+ * A user's name (linking to their profile) followed by the verified badge when
+ * the account is verified. Use for author/display names; the wrapping inline-flex
+ * keeps the name truncating while the badge stays visible.
+ */
+export function VerifiedName({
+  pubkey,
+  className,
+  showHandle,
+  badgeSize = 15,
+}: {
+  pubkey: string;
+  className?: string;
+  showHandle?: boolean;
+  badgeSize?: number;
+}) {
+  const verified = useVerified(pubkey);
+  return (
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1 align-middle">
+      <UserLink pubkey={pubkey} className={className} showHandle={showHandle} />
+      {verified && <VerifiedBadge size={badgeSize} className="shrink-0" />}
+    </span>
   );
 }

@@ -24,7 +24,7 @@ import { shortAddress, timeAgo, formatCount } from "@/lib/format";
 import Avatar from "./Avatar";
 import MediaImage from "./MediaImage";
 import Carousel from "./Carousel";
-import UserLink from "./UserLink";
+import { VerifiedName } from "./UserLink";
 import SaveButton from "./SaveButton";
 import TipButton from "./TipButton";
 import Caption from "./Caption";
@@ -122,9 +122,9 @@ export default function PostCard({ post }: { post: SocialPost }) {
           />
         </button>
         <div className="min-w-0 flex-1 leading-tight">
-          <UserLink
+          <VerifiedName
             pubkey={post.author_pubkey}
-            className="block truncate text-sm font-semibold"
+            className="truncate text-sm font-semibold"
           />
           {location ? (
             <div className="flex items-center gap-1 truncate text-xs text-white/90">
@@ -298,9 +298,9 @@ function TextPostCard({
           />
         </button>
         <div className="min-w-0 flex-1 leading-tight">
-          <UserLink
+          <VerifiedName
             pubkey={post.author_pubkey}
-            className="block truncate text-sm font-semibold"
+            className="truncate text-sm font-semibold"
           />
           <div className="truncate text-xs text-ink-muted">
             <span className="font-mono">{shortAddress(profile?.address ?? "", 10, 5)}</span> ·{" "}
