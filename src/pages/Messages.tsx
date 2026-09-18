@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Loader2, Pencil, ShieldCheck, MessageCircle, X } from "lucide-react";
+import { Loader2, Pencil, ShieldCheck, MessageCircle, X, Ban } from "lucide-react";
 import type { MessengerConversation } from "@rougechain/sdk";
 import {
   useConversationBuckets,
@@ -13,6 +13,7 @@ import { useToast } from "@/components/Toast";
 import Modal from "@/components/Modal";
 import Avatar from "@/components/Avatar";
 import NotesRow from "@/components/NotesRow";
+import BlockedModal from "@/components/BlockedModal";
 import { rc } from "@/lib/rouge";
 import { displayName } from "@/lib/profile";
 import { shortAddress, timeAgo } from "@/lib/format";
@@ -24,6 +25,7 @@ export default function Messages() {
   const { isExtensionWallet } = useAuth();
   const navigate = useNavigate();
   const [composing, setComposing] = useState(false);
+  const [showBlocked, setShowBlocked] = useState(false);
   const [tab, setTab] = useState<"primary" | "requests">("primary");
   const list = tab === "primary" ? primary : requests;
 
@@ -37,9 +39,18 @@ export default function Messages() {
           </p>
         </div>
         {!isExtensionWallet && (
-          <button className="btn-ghost h-10 w-10 p-0" onClick={() => setComposing(true)} aria-label="New message">
-            <Pencil className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              className="btn-ghost h-10 w-10 p-0"
+              onClick={() => setShowBlocked(true)}
+              aria-label="Blocked accounts"
+            >
+              <Ban className="h-5 w-5" />
+            </button>
+            <button className="btn-ghost h-10 w-10 p-0" onClick={() => setComposing(true)} aria-label="New message">
+              <Pencil className="h-5 w-5" />
+            </button>
+          </div>
         )}
       </header>
 
@@ -129,6 +140,7 @@ export default function Messages() {
       )}
 
       {composing && <NewMessageDialog onClose={() => setComposing(false)} />}
+      {showBlocked && <BlockedModal onClose={() => setShowBlocked(false)} />}
     </div>
   );
 }

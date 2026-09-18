@@ -80,3 +80,13 @@ export function blockPubkey(address: string, pubkey: string): void {
     write(address, g);
   }
 }
+
+/** Unblock a sender — their conversations reappear (as requests if unaccepted). */
+export function unblockPubkey(address: string, pubkey: string): void {
+  if (!address || !pubkey) return;
+  const g = read(address);
+  if (g.blocked.includes(pubkey)) {
+    g.blocked = g.blocked.filter((p) => p !== pubkey);
+    write(address, g);
+  }
+}

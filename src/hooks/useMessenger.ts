@@ -12,6 +12,7 @@ import { deriveKemKeypair, encryptForRecipients, decryptEnvelope } from "@/lib/p
 import {
   acceptConversation,
   blockPubkey,
+  unblockPubkey,
   getGateSnapshot,
   parseGate,
   subscribeGate,
@@ -247,6 +248,7 @@ export function useDmGate() {
       blocked: new Set(gate.blocked),
       accept: (conversationId: string) => acceptConversation(address, conversationId),
       block: (pubkey: string) => blockPubkey(address, pubkey),
+      unblock: (pubkey: string) => unblockPubkey(address, pubkey),
     }),
     [gate, address],
   );
