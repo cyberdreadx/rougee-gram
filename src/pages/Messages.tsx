@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Pencil, ShieldCheck, MessageCircle, X } from "lucide-react";
 import type { MessengerConversation } from "@rougechain/sdk";
 import {
-  useConversations,
+  useConversationBuckets,
   useEnsureRegistered,
   useStartConversation,
 } from "@/hooks/useMessenger";
@@ -16,12 +16,16 @@ import NotesRow from "@/components/NotesRow";
 import { rc } from "@/lib/rouge";
 import { displayName } from "@/lib/profile";
 import { shortAddress, timeAgo } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export default function Messages() {
   useEnsureRegistered();
-  const { data, isLoading } = useConversations();
+  const { primary, requests, isLoading, gate } = useConversationBuckets();
   const { isExtensionWallet } = useAuth();
+  const navigate = useNavigate();
   const [composing, setComposing] = useState(false);
+  const [tab, setTab] = useState<"primary" | "requests">("primary");
+  const list = tab === "primary" ? primary : requests;
 
   return (
     <div>
@@ -55,35 +59,142 @@ export default function Messages() {
             </p>
           </div>
         </div>
-      ) : isLoading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin text-ink-muted" />
-        </div>
-      ) : data && data.length > 0 ? (
-        <div className="divide-y divide-ink-border/60">
-          {data.map((c) => (
-            <ConversationRow key={c.id} conversation={c} />
-          ))}
-        </div>
       ) : (
-        <div className="flex flex-col items-center gap-3 px-6 py-20 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rouge-600/15 text-rouge-400">
-            <MessageCircle className="h-8 w-8" />
+        <>
+          <div className="flex border-b border-ink-border">
+            <TabBtn active={tab === "primary"} onClick={() => setTab("primary")}>
+              Primary
+            </TabBtn>
+            <TabBtn active={tab === "requests"} onClick={() => setTab("requests")}>
+              Requests
+              {requests.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-rouge-600 px-1.5 py-0.5 text-[10px] font-bold text-ink">
+                  {requests.length}
+                </span>
+              )}
+            </TabBtn>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold">No messages yet</h3>
-            <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
-              Start a private, end-to-end encrypted conversation. Not even the
-              network can read it.
-            </p>
-          </div>
-          <button className="btn-primary" onClick={() => setComposing(true)}>
-            New message
-          </button>
-        </div>
+
+          {isLoading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="h-5 w-5 animate-spin text-ink-muted" />
+            </div>
+          ) : list.length > 0 ? (
+            <div className="divide-y divide-ink-border/60">
+              {tab === "primary"
+                ? list.map((c) => <ConversationRow key={c.id} conversation={c} />)
+                : list.map((c) => (
+                    <RequestRow
+                      key={c.id}
+                      conversation={c}
+                      onAccept={(id) => {
+                        gate.accept(id);
+                        navigate(`/messages/${id}`);
+                      }}
+                      onReject={(pk) => gate.block(pk)}
+                    />
+                  ))}
+            </div>
+          ) : tab === "requests" ? (
+            <div className="flex flex-col items-center gap-3 px-6 py-20 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rouge-600/15 text-rouge-400">
+                <ShieldCheck className="h-8 w-8" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">No message requests</h3>
+                <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
+                  Messages from people you don&apos;t follow wait here — their
+                  contents stay hidden until you accept.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 px-6 py-20 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rouge-600/15 text-rouge-400">
+                <MessageCircle className="h-8 w-8" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">No messages yet</h3>
+                <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
+                  Start a private, end-to-end encrypted conversation. Not even the
+                  network can read it.
+                </p>
+              </div>
+              <button className="btn-primary" onClick={() => setComposing(true)}>
+                New message
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {composing && <NewMessageDialog onClose={() => setComposing(false)} />}
+    </div>
+  );
+}
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "relative flex flex-1 items-center justify-center py-3 text-sm font-semibold transition-colors",
+        active ? "text-white" : "text-ink-muted hover:text-white",
+      )}
+    >
+      {children}
+      {active && (
+        <span className="absolute inset-x-0 bottom-0 mx-auto h-0.5 w-16 rounded-full bg-rouge-500" />
+      )}
+    </button>
+  );
+}
+
+/** A quarantined DM from someone you don't follow. Sender + avatar only — the
+ *  message contents stay hidden (and un-decrypted) until Accept. */
+function RequestRow({
+  conversation,
+  onAccept,
+  onReject,
+}: {
+  conversation: MessengerConversation;
+  onAccept: (conversationId: string) => void;
+  onReject: (pubkey: string) => void;
+}) {
+  const { publicKey } = useAuth();
+  const otherId = (conversation.participants ?? []).find((p) => p !== publicKey) ?? publicKey;
+  const { data: profile } = useProfile(otherId);
+  const name = profile ? displayName(profile) : shortAddress(otherId, 8, 4);
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <Avatar refUri={profile?.avatarRef} seed={otherId} name={profile?.name} size={48} />
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="truncate text-sm font-semibold">{name}</div>
+        <div className="truncate text-xs text-ink-muted">wants to send you a message</div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          className="rounded-lg bg-white/5 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-white/10 hover:text-white"
+          onClick={() => onReject(otherId)}
+        >
+          Delete
+        </button>
+        <button
+          className="rounded-lg bg-rouge-600 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-rouge-500"
+          onClick={() => onAccept(conversation.id)}
+        >
+          Accept
+        </button>
+      </div>
     </div>
   );
 }

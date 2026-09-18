@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Send, ShieldCheck } from "lucide-react";
 import {
   useConversations,
   useMessages,
   useSendMessage,
+  useDmGate,
+  classifyConversation,
   type DecryptedMessage,
 } from "@/hooks/useMessenger";
+import { useFollowing } from "@/hooks/useSocial";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
@@ -27,7 +30,26 @@ export default function Chat() {
   const otherId = others[0] ?? "";
 
   const { data: profile } = useProfile(otherId || undefined);
-  const { data: messages, isLoading } = useMessages(id);
+
+  // Message-request gate: if this is a quarantined request (a 1:1 from someone
+  // you don't follow, not yet accepted), don't fetch or decrypt its contents —
+  // show an accept/reject prompt instead.
+  const gate = useDmGate();
+  const { data: followingList } = useFollowing(publicKey || undefined);
+  const following = useMemo(() => new Set(followingList ?? []), [followingList]);
+  const bucket = conv
+    ? classifyConversation(conv, {
+        publicKey,
+        following,
+        accepted: gate.accepted,
+        blocked: gate.blocked,
+      })
+    : undefined;
+  const isRequest = bucket === "request";
+
+  const { data: messages, isLoading } = useMessages(id, {
+    enabled: !!convos && !isRequest,
+  });
   const send = useSendMessage(id ?? "", participants);
   const { toast } = useToast();
   const [text, setText] = useState("");
@@ -67,22 +89,52 @@ export default function Chat() {
         </div>
       </header>
 
-      <div className="flex-1 space-y-2 overflow-y-auto p-3">
-        {isLoading ? (
-          <div className="flex justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-ink-muted" />
+      {isRequest ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 py-16 text-center">
+          <Avatar refUri={profile?.avatarRef} seed={otherId} name={profile?.name} size={72} />
+          <div>
+            <h2 className="text-lg font-semibold">{name} wants to message you</h2>
+            <p className="mx-auto mt-1.5 max-w-xs text-sm text-ink-muted">
+              You don&apos;t follow this account. Their message stays hidden — and
+              isn&apos;t even decrypted — until you accept.
+            </p>
           </div>
-        ) : messages && messages.length > 0 ? (
-          messages.map((m) => <Bubble key={m.id} m={m} group={isGroup} />)
-        ) : (
-          <p className="py-10 text-center text-sm text-ink-muted">
-            No messages yet. Say hi 👋
-          </p>
-        )}
-        <div ref={bottomRef} />
-      </div>
+          <div className="mt-2 flex w-full max-w-xs gap-2">
+            <button
+              className="btn-soft flex-1 py-3"
+              onClick={() => {
+                gate.block(otherId);
+                navigate("/messages");
+              }}
+            >
+              Delete
+            </button>
+            <button
+              className="btn-primary flex-[2] py-3"
+              onClick={() => id && gate.accept(id)}
+            >
+              Accept
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 space-y-2 overflow-y-auto p-3">
+            {isLoading ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="h-5 w-5 animate-spin text-ink-muted" />
+              </div>
+            ) : messages && messages.length > 0 ? (
+              messages.map((m) => <Bubble key={m.id} m={m} group={isGroup} />)
+            ) : (
+              <p className="py-10 text-center text-sm text-ink-muted">
+                No messages yet. Say hi 👋
+              </p>
+            )}
+            <div ref={bottomRef} />
+          </div>
 
-      <div className="fixed inset-x-0 bottom-[var(--bottom-nav-h)] z-20 border-t border-ink-border bg-ink/95 p-3 backdrop-blur md:static md:bottom-0">
+          <div className="fixed inset-x-0 bottom-[var(--bottom-nav-h)] z-20 border-t border-ink-border bg-ink/95 p-3 backdrop-blur md:static md:bottom-0">
         <div className="mx-auto flex max-w-[620px] items-center gap-2">
           <input
             className="input flex-1"
@@ -109,8 +161,10 @@ export default function Chat() {
               <Send className="h-4 w-4" />
             )}
           </button>
-        </div>
-      </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

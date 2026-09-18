@@ -1,9 +1,21 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { MessengerMessage, MessengerWallet } from "@rougechain/sdk";
+import type {
+  MessengerConversation,
+  MessengerMessage,
+  MessengerWallet,
+} from "@rougechain/sdk";
 import { rc } from "@/lib/rouge";
 import { useAuth } from "@/store/auth";
+import { useFollowing } from "@/hooks/useSocial";
 import { deriveKemKeypair, encryptForRecipients, decryptEnvelope } from "@/lib/pqc";
+import {
+  acceptConversation,
+  blockPubkey,
+  getGateSnapshot,
+  parseGate,
+  subscribeGate,
+} from "@/lib/dmGate";
 
 function toMs(s: string | number): number {
   if (typeof s === "number") return s < 1e12 ? s * 1000 : s;
@@ -107,12 +119,17 @@ export interface DecryptedMessage extends MessengerMessage {
   mine: boolean;
 }
 
-export function useMessages(conversationId: string | undefined) {
+export function useMessages(
+  conversationId: string | undefined,
+  opts?: { enabled?: boolean },
+) {
   const { wallet, publicKey } = useAuth();
   const { data: kem } = useMyKem();
   return useQuery({
     queryKey: ["messages", conversationId, publicKey],
-    enabled: !!wallet && !!conversationId && !!kem,
+    // `enabled` lets callers keep a request's contents un-fetched (and thus
+    // un-decrypted) until it's accepted — see the message-request gate.
+    enabled: (opts?.enabled ?? true) && !!wallet && !!conversationId && !!kem,
     refetchInterval: 8000,
     queryFn: async (): Promise<DecryptedMessage[]> => {
       const msgs = await rc().messenger.getMessages(wallet!, conversationId!);
@@ -168,7 +185,7 @@ export function useSendMessage(conversationId: string, participantIds: string[])
 }
 
 export function useStartConversation() {
-  const { wallet, publicKey } = useAuth();
+  const { wallet, publicKey, address } = useAuth();
   const client = useQueryClient();
   return useMutation({
     // Accepts one or more recipient pubkeys (group chat when >1).
@@ -202,6 +219,83 @@ export function useStartConversation() {
       if (!id) throw new Error("Conversation created, but no id was returned.");
       return id;
     },
-    onSuccess: () => client.invalidateQueries({ queryKey: ["conversations", publicKey] }),
+    onSuccess: (id) => {
+      // A conversation you start is trusted — auto-accept so it lands in Primary,
+      // never Requests.
+      acceptConversation(address, id);
+      client.invalidateQueries({ queryKey: ["conversations", publicKey] });
+    },
   });
+}
+
+// ===== Message-request gate =====
+
+export type DmBucket = "primary" | "request" | "blocked";
+
+/** Reactive view of the local accept/block gate for the signed-in account. */
+export function useDmGate() {
+  const { address } = useAuth();
+  const snap = useSyncExternalStore(
+    subscribeGate,
+    () => getGateSnapshot(address),
+    () => "",
+  );
+  const gate = useMemo(() => parseGate(snap), [snap]);
+  return useMemo(
+    () => ({
+      accepted: new Set(gate.accepted),
+      blocked: new Set(gate.blocked),
+      accept: (conversationId: string) => acceptConversation(address, conversationId),
+      block: (pubkey: string) => blockPubkey(address, pubkey),
+    }),
+    [gate, address],
+  );
+}
+
+/** Classify a conversation: Primary (trusted), Request (unknown sender), or
+ *  Blocked (rejected — hidden entirely). */
+export function classifyConversation(
+  c: MessengerConversation,
+  opts: {
+    publicKey: string;
+    following: Set<string>;
+    accepted: Set<string>;
+    blocked: Set<string>;
+  },
+): DmBucket {
+  const others = (c.participants ?? []).filter((p) => p !== opts.publicKey);
+  const isGroup = others.length > 1;
+  const otherId = others[0];
+  if (!isGroup && otherId && opts.blocked.has(otherId)) return "blocked";
+  if (opts.accepted.has(c.id)) return "primary";
+  if (isGroup) return "primary"; // group threads aren't gated for now
+  if (otherId && opts.following.has(otherId)) return "primary"; // people you follow are trusted
+  return "request";
+}
+
+/** Split conversations into Primary and Requests using the follow graph + gate. */
+export function useConversationBuckets() {
+  const { publicKey } = useAuth();
+  const convos = useConversations();
+  const gate = useDmGate();
+  const { data: followingList } = useFollowing(publicKey || undefined);
+  const following = useMemo(() => new Set(followingList ?? []), [followingList]);
+
+  const { primary, requests } = useMemo(() => {
+    const primary: MessengerConversation[] = [];
+    const requests: MessengerConversation[] = [];
+    for (const c of convos.data ?? []) {
+      const bucket = classifyConversation(c, {
+        publicKey,
+        following,
+        accepted: gate.accepted,
+        blocked: gate.blocked,
+      });
+      if (bucket === "primary") primary.push(c);
+      else if (bucket === "request") requests.push(c);
+    }
+    return { primary, requests };
+  }, [convos.data, publicKey, following, gate.accepted, gate.blocked]);
+
+  return { primary, requests, isLoading: convos.isLoading, gate };
 }
