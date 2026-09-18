@@ -146,7 +146,10 @@ export function useConversations() {
     // KEM bridge every request would be provider-signed → a wallet approval
     // popup on each 15s poll, so we must not run it at all.
     enabled: !!wallet && canDm,
-    refetchInterval: 15_000,
+    // Provider wallets sign every read through the wallet (approval prompt), so
+    // never poll them in the background — fetch once on open. Local wallets sign
+    // silently in-page, so keep them live.
+    refetchInterval: isExtensionWallet ? false : 15_000,
     // Don't retry-storm the wallet with sign prompts if a signed read fails.
     retry: false,
     queryFn: () =>
@@ -179,7 +182,9 @@ export function useMessages(
     // `enabled` lets callers keep a request's contents un-fetched (and thus
     // un-decrypted) until it's accepted — see the message-request gate.
     enabled: (opts?.enabled ?? true) && !!wallet && !!conversationId && !!kem,
-    refetchInterval: 8000,
+    // See useConversations: don't background-poll provider wallets (each poll is
+    // a wallet signature prompt). Fetch on open; local wallets stay live.
+    refetchInterval: isExtensionWallet ? false : 8000,
     retry: false,
     queryFn: async (): Promise<DecryptedMessage[]> => {
       const msgs = isExtensionWallet
