@@ -28,6 +28,8 @@ interface RougeChainProvider {
   getEncryptionPublicKey?(): Promise<{ encryptionPublicKey: string } | string>;
   /** KEM bridge: decrypt a RouGee DM envelope; returns plaintext only. */
   decrypt?(params: { envelope: string; myId: string }): Promise<{ plaintext: string } | string>;
+  /** The wallet's currently-selected network (so the dApp can follow it). */
+  getNetwork?(): Promise<{ network?: string; api?: string; label?: string }>;
 }
 
 export function getProvider(): RougeChainProvider | null {
@@ -61,6 +63,21 @@ export function detectHost(): Host {
     return w.ReactNativeWebView ? "qwalla" : "extension";
   }
   return "browser";
+}
+
+/** The host wallet's active network (id + node api URL), if it exposes one. */
+export async function getProviderNetwork(): Promise<{ network: string; api: string } | null> {
+  const p = getProvider();
+  if (!p?.getNetwork) return null;
+  try {
+    const r = await p.getNetwork();
+    if (r && typeof r.network === "string" && typeof r.api === "string") {
+      return { network: r.network, api: r.api };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 /** Connect on a user gesture; returns the account public key. */

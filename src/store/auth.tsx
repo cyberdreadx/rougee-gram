@@ -18,7 +18,8 @@ import {
   type StoredWalletMeta,
 } from "@/lib/keystore";
 import { requestFaucet, getXrgeBalance } from "@/lib/rouge";
-import { invalidateProfile } from "@/lib/profile";
+import { invalidateProfile, clearProfileCache } from "@/lib/profile";
+import { getConfig, updateConfig, NETWORKS } from "@/lib/config";
 import * as extSigner from "@/lib/extensionSigner";
 import type { Host } from "@/lib/extensionSigner";
 
@@ -167,6 +168,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // extension (wallet.privateKey stays ""), so writes route through it.
   const connectExtension = useCallback(async () => {
     const pk = await extSigner.connect();
+    // Follow the wallet's active network so RouGee signs/reads on the same chain
+    // as the host wallet (e.g. Qwalla on mainnet) instead of its own default.
+    try {
+      const net = await extSigner.getProviderNetwork();
+      if (net) {
+        const known = NETWORKS[net.network as keyof typeof NETWORKS];
+        const apiUrl = known?.apiUrl ?? (/^https?:\/\//.test(net.api) ? net.api : "");
+        if (apiUrl && apiUrl !== getConfig().apiUrl) {
+          updateConfig({ apiUrl, network: net.network });
+          clearProfileCache();
+        }
+      }
+    } catch {
+      /* keep RouGee's configured network */
+    }
     const addr = await pubkeyToAddress(pk);
     setWallet({ publicKey: pk, privateKey: "" });
     setAddress(addr);
