@@ -21,7 +21,7 @@ export default function Logo({
         draggable={false}
       />
       {withWordmark && (
-        <span className="text-xl font-bold tracking-tight">
+        <span className="-mr-[0.18em] font-mono text-[15px] font-semibold uppercase tracking-[0.18em]">
           Rou<span className="brand-text">Gee</span>
         </span>
       )}
