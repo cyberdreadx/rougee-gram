@@ -28,7 +28,10 @@ export default function Onboarding() {
     importKeys,
     connectExtension,
     extensionDetected,
+    host,
   } = useAuth();
+  const isQwalla = host === "qwalla";
+  const walletName = isQwalla ? "Qwalla" : "RougeChain extension";
   const { toast } = useToast();
   const [view, setView] = useState<View>("welcome");
   const [busy, setBusy] = useState(false);
@@ -161,14 +164,19 @@ export default function Onboarding() {
                 </p>
                 {extensionDetected && (
                   <button
-                    className="btn-soft w-full justify-center gap-2 py-3"
+                    className={cn(
+                      "w-full justify-center gap-2 py-3",
+                      isQwalla ? "btn-primary" : "btn-soft",
+                    )}
                     onClick={async () => {
                       setBusy(true);
                       try {
                         await connectExtension();
                       } catch (e) {
                         toast(
-                          e instanceof Error ? e.message : "Couldn't connect the extension.",
+                          e instanceof Error
+                            ? e.message
+                            : `Couldn't connect ${walletName}.`,
                           "error",
                         );
                       } finally {
@@ -177,7 +185,8 @@ export default function Onboarding() {
                     }}
                     disabled={busy}
                   >
-                    <Plug className="h-4 w-4" /> Connect RougeChain extension
+                    <Plug className="h-4 w-4" />{" "}
+                    {isQwalla ? "Continue with Qwalla" : "Connect RougeChain extension"}
                   </button>
                 )}
                 <button
@@ -208,8 +217,8 @@ export default function Onboarding() {
                 </div>
                 {extensionDetected && (
                   <p className="text-center text-xs text-ink-muted">
-                    Extension keeps your key; create/import stores it encrypted in
-                    this browser.
+                    {walletName} keeps your key; create/import stores it encrypted
+                    in this browser.
                   </p>
                 )}
               </div>

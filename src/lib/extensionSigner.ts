@@ -36,6 +36,29 @@ export function extensionAvailable(): boolean {
   return typeof window !== "undefined" && !!getProvider();
 }
 
+export type Host = "qwalla" | "extension" | "browser";
+
+/**
+ * Identify the runtime host so login can label the connect flow correctly.
+ *
+ * Qwalla's in-app dApp browser injects the SAME `window.rougechain` provider
+ * (`isRougeChain: true`, connect/signTransaction) as the desktop RougeChain
+ * extension — so both look identical to `getProvider()`. The tie-breaker is the
+ * React-Native WebView bridge (`window.ReactNativeWebView`), which Qwalla's
+ * provider uses to talk to native and which a desktop extension never has.
+ */
+export function detectHost(): Host {
+  if (typeof window === "undefined") return "browser";
+  const w = window as unknown as {
+    rougechain?: RougeChainProvider;
+    ReactNativeWebView?: unknown;
+  };
+  if (w.rougechain?.isRougeChain) {
+    return w.ReactNativeWebView ? "qwalla" : "extension";
+  }
+  return "browser";
+}
+
 /** Connect on a user gesture; returns the account public key. */
 export async function connect(): Promise<string> {
   const provider = getProvider();

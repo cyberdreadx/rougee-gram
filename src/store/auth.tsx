@@ -20,6 +20,7 @@ import {
 import { requestFaucet, getXrgeBalance } from "@/lib/rouge";
 import { invalidateProfile } from "@/lib/profile";
 import * as extSigner from "@/lib/extensionSigner";
+import type { Host } from "@/lib/extensionSigner";
 
 type Status = "loading" | "onboarding" | "locked" | "ready";
 
@@ -72,6 +73,8 @@ interface AuthState {
   isExtensionWallet: boolean;
   /** True when a RougeChain extension is present (desktop). */
   extensionDetected: boolean;
+  /** Runtime host: inside the Qwalla app, a desktop extension, or a plain browser. */
+  host: Host;
 }
 
 interface AuthActions {
@@ -103,10 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState(0);
   const [isExtensionWallet, setIsExtensionWallet] = useState(false);
   const [extensionDetected, setExtensionDetected] = useState(false);
+  const [host, setHost] = useState<Host>("browser");
 
-  // Detect a RougeChain browser extension (desktop only).
+  // Detect a RougeChain provider (desktop extension or the Qwalla in-app browser).
   useEffect(() => {
-    const check = () => setExtensionDetected(extSigner.extensionAvailable());
+    const check = () => {
+      setExtensionDetected(extSigner.extensionAvailable());
+      setHost(extSigner.detectHost());
+    };
     check();
     window.addEventListener("rougechain#initialized", check);
     return () => window.removeEventListener("rougechain#initialized", check);
@@ -294,6 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       balance,
       isExtensionWallet,
       extensionDetected,
+      host,
       createWallet,
       finalizeOnboarding,
       connectExtension,
@@ -313,6 +321,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       balance,
       isExtensionWallet,
       extensionDetected,
+      host,
       connectExtension,
       createWallet,
       finalizeOnboarding,
