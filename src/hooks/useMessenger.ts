@@ -139,10 +139,16 @@ export function useEnsureRegistered() {
 
 export function useConversations() {
   const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const canDm = useDmCapable();
   return useQuery({
     queryKey: ["conversations", publicKey],
-    enabled: !!wallet,
+    // Only poll when DMs are actually usable. For a provider wallet WITHOUT the
+    // KEM bridge every request would be provider-signed → a wallet approval
+    // popup on each 15s poll, so we must not run it at all.
+    enabled: !!wallet && canDm,
     refetchInterval: 15_000,
+    // Don't retry-storm the wallet with sign prompts if a signed read fails.
+    retry: false,
     queryFn: () =>
       isExtensionWallet
         ? (extSigner.messengerListConversations(publicKey) as Promise<MessengerConversation[]>)
@@ -174,6 +180,7 @@ export function useMessages(
     // un-decrypted) until it's accepted — see the message-request gate.
     enabled: (opts?.enabled ?? true) && !!wallet && !!conversationId && !!kem,
     refetchInterval: 8000,
+    retry: false,
     queryFn: async (): Promise<DecryptedMessage[]> => {
       const msgs = isExtensionWallet
         ? ((await extSigner.messengerListMessages(publicKey, conversationId!)) as MessengerMessage[])
