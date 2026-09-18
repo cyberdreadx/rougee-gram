@@ -63,6 +63,65 @@ function clearSession(): void {
   }
 }
 
+// A provider (Qwalla / extension) connection holds no secret — the key stays in
+// the wallet and only the public key is ever exposed here. So unlike a local
+// wallet's decrypted keys (sessionStorage, cleared with the tab), we remember it
+// in localStorage: inside Qwalla's dApp browser every navigation destroys the
+// page context, and without this the user is thrown back to "Continue with
+// Qwalla" on every single page load.
+const EXT_SESSION_KEY = "rougee-gram:ext-session";
+
+function readExtSession(): { addr: string; publicKey: string } | null {
+  try {
+    const raw = localStorage.getItem(EXT_SESSION_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { addr?: string; publicKey?: string };
+    return v?.addr && v?.publicKey ? { addr: v.addr, publicKey: v.publicKey } : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeExtSession(addr: string, publicKey: string): void {
+  try {
+    localStorage.setItem(EXT_SESSION_KEY, JSON.stringify({ addr, publicKey }));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearExtSession(): void {
+  try {
+    localStorage.removeItem(EXT_SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** The injected provider can appear a tick after the page loads (Qwalla injects
+ *  it before content, an extension may not). Give it a moment before deciding
+ *  the user has no wallet. */
+function waitForProvider(timeoutMs = 1500): Promise<boolean> {
+  if (extSigner.extensionAvailable()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (ok: boolean) => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("rougechain#initialized", onInit);
+      clearInterval(poll);
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    const onInit = () => finish(true);
+    window.addEventListener("rougechain#initialized", onInit);
+    const poll = setInterval(() => {
+      if (extSigner.extensionAvailable()) finish(true);
+    }, 100);
+    const timer = setTimeout(() => finish(extSigner.extensionAvailable()), timeoutMs);
+  });
+}
+
 interface AuthState {
   status: Status;
   wallet: WalletKeys | null;
@@ -140,6 +199,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await activate(sess.keys);
         return;
       }
+      // Previously connected through a provider (Qwalla / extension)? Re-establish
+      // it silently. The site is already approved in the wallet, so connect()
+      // returns without prompting — this is what stops the constant re-login
+      // when navigating inside Qwalla's dApp browser.
+      const ext = readExtSession();
+      if (ext && (await waitForProvider())) {
+        try {
+          const pk = await extSigner.connect();
+          if (pk === ext.publicKey) {
+            setWallet({ publicKey: pk, privateKey: "" });
+            setAddress(ext.addr);
+            setIsExtensionWallet(true);
+            setStatus("ready");
+            getXrgeBalance(pk).then(setBalance).catch(() => {});
+            return;
+          }
+          // Different account selected in the wallet — drop the stale session.
+          clearExtSession();
+        } catch {
+          // Wallet declined or unavailable; fall through to the normal screens.
+          clearExtSession();
+        }
+      }
       setStatus(list.length > 0 ? "locked" : "onboarding");
     })();
     // activate is stable (useCallback []), so this runs once on mount.
@@ -188,6 +270,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAddress(addr);
     setIsExtensionWallet(true);
     setStatus("ready");
+    // Remember the connection so a page load (every navigation inside Qwalla's
+    // dApp browser) restores it instead of showing onboarding again.
+    writeExtSession(addr, pk);
     try {
       localStorage.setItem(LAST_ADDR_KEY, addr);
     } catch {
@@ -276,6 +361,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const lock = useCallback(() => {
     clearSession();
+    clearExtSession();
     setWallet(null);
     setAddress("");
     setBalance(0);
@@ -288,6 +374,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(
     async (addr: string) => {
       clearSession();
+      clearExtSession();
       if (addr) await deleteWallet(addr);
       if (wallet) invalidateProfile(wallet.publicKey);
       const list = await listWallets();
