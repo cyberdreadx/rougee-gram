@@ -26,6 +26,7 @@ import Avatar from "@/components/Avatar";
 import PhotoGrid, { toPhotoCells } from "@/components/PhotoGrid";
 import { TextPostCard } from "@/components/PostCard";
 import EditProfile from "@/components/EditProfile";
+import { FollowingModal, FollowersModal } from "@/components/FollowListModal";
 import { decodeBody } from "@/lib/envelope";
 import { displayName, type Profile as ProfileData } from "@/lib/profile";
 import { shortAddress, formatCount } from "@/lib/format";
@@ -47,6 +48,7 @@ export default function Profile() {
   const stats = useArtistStats(pubkey || undefined);
   const posts = useUserPosts(pubkey || undefined);
   const [tab, setTab] = useState<ProfileTab>("posts");
+  const [followList, setFollowList] = useState<null | "following" | "followers">(null);
 
   const isMe = Boolean(pubkey) && pubkey === myPubkey;
 
@@ -96,8 +98,16 @@ export default function Profile() {
           />
           <div className="flex flex-1 justify-around text-center">
             <Stat label="Posts" value={photoCount} />
-            <Stat label="Followers" value={stats.data?.followers ?? 0} />
-            <Stat label="Following" value={stats.data?.following ?? 0} />
+            <Stat
+              label="Followers"
+              value={stats.data?.followers ?? 0}
+              onClick={pubkey ? () => setFollowList("followers") : undefined}
+            />
+            <Stat
+              label="Following"
+              value={stats.data?.following ?? 0}
+              onClick={pubkey ? () => setFollowList("following") : undefined}
+            />
           </div>
         </div>
 
@@ -168,6 +178,13 @@ export default function Profile() {
         {tab === "tagged" && <TaggedEmpty />}
         {tab === "saved" && isMe && <SavedGrid />}
       </div>
+
+      {followList === "following" && pubkey && (
+        <FollowingModal pubkey={pubkey} onClose={() => setFollowList(null)} />
+      )}
+      {followList === "followers" && pubkey && (
+        <FollowersModal pubkey={pubkey} onClose={() => setFollowList(null)} />
+      )}
     </div>
   );
 }
@@ -275,12 +292,30 @@ function TaggedEmpty() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
+function Stat({
+  label,
+  value,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  onClick?: () => void;
+}) {
+  const inner = (
+    <>
       <div className="text-lg font-bold">{formatCount(value)}</div>
       <div className="text-xs text-ink-muted">{label}</div>
-    </div>
+    </>
+  );
+  if (!onClick) return <div>{inner}</div>;
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-lg transition-colors hover:bg-white/5"
+      aria-label={`View ${label.toLowerCase()}`}
+    >
+      {inner}
+    </button>
   );
 }
 

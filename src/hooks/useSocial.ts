@@ -291,6 +291,15 @@ export function useFollowing(pubkey: string | undefined) {
   });
 }
 
+export function useFollowers(pubkey: string | undefined) {
+  return useQuery({
+    queryKey: ["followers", pubkey],
+    enabled: Boolean(pubkey),
+    queryFn: () => rc().social.getUserFollowers(pubkey as string),
+    staleTime: 30_000,
+  });
+}
+
 /** Suggested accounts to follow: active posters on the global timeline, minus
  *  yourself and people you already follow. */
 export function useSuggestedUsers(limit = 5): {
