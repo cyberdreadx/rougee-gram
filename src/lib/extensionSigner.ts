@@ -245,6 +245,12 @@ export const messengerSendMessage = (
 export const messengerMarkRead = (pk: string, messageId: string, conversationId: string) =>
   signAndSubmit("/v2/messenger/messages/read", { messageId, conversationId }, pk);
 
+export const messengerDeleteMessage = (pk: string, messageId: string, conversationId: string) =>
+  signAndSubmit("/v2/messenger/messages/delete", { messageId, conversationId }, pk);
+
+export const messengerDeleteConversation = (pk: string, conversationId: string) =>
+  signAndSubmit("/v2/messenger/conversations/delete", { conversationId }, pk);
+
 // ── Messenger reads (POST list endpoints) ──
 export const messengerListConversations = (pk: string) =>
   signAndPost("/v2/messenger/conversations/list", {}, pk).then(

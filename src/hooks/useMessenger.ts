@@ -243,6 +243,49 @@ export function useSendMessage(conversationId: string, participantIds: string[])
   });
 }
 
+/**
+ * Delete a whole conversation. The node drops it for the caller; the other
+ * participant keeps their own copy (there's no global delete on-chain), so the
+ * UI should say "delete for me" rather than promise it's gone everywhere.
+ */
+export function useDeleteConversation() {
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (conversationId: string) => {
+      if (!wallet) throw new Error("Locked");
+      const res = isExtensionWallet
+        ? await extSigner.messengerDeleteConversation(publicKey, conversationId)
+        : await rc().messenger.deleteConversation(wallet, conversationId);
+      if (!res.success) throw new Error(res.error || "Could not delete conversation");
+      return res;
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["conversations", publicKey] });
+    },
+  });
+}
+
+/** Delete a single message from a conversation (for the caller). */
+export function useDeleteMessage(conversationId: string) {
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (messageId: string) => {
+      if (!wallet) throw new Error("Locked");
+      const res = isExtensionWallet
+        ? await extSigner.messengerDeleteMessage(publicKey, messageId, conversationId)
+        : await rc().messenger.deleteMessage(wallet, messageId, conversationId);
+      if (!res.success) throw new Error(res.error || "Could not delete message");
+      return res;
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["messages", conversationId, publicKey] });
+      client.invalidateQueries({ queryKey: ["conversations", publicKey] });
+    },
+  });
+}
+
 export function useStartConversation() {
   const { wallet, publicKey, address, isExtensionWallet } = useAuth();
   const client = useQueryClient();

@@ -27,6 +27,7 @@ import Avatar from "@/components/Avatar";
 import PhotoGrid, { toPhotoCells } from "@/components/PhotoGrid";
 import { TextPostCard } from "@/components/PostCard";
 import EditProfile from "@/components/EditProfile";
+import BlockButton from "@/components/BlockButton";
 import NoteEditor from "@/components/NoteEditor";
 import { FollowingModal, FollowersModal } from "@/components/FollowListModal";
 import { latestActiveNote, type Note } from "@/hooks/useNotes";
@@ -179,6 +180,7 @@ export default function Profile() {
             iconClassName="h-4 w-4"
           />
           <ShareProfileButton address={profile?.address ?? address ?? ""} />
+          {!isMe && pubkey && <BlockButton pubkey={pubkey} />}
         </div>
       </div>
 
