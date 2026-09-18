@@ -9,6 +9,7 @@ import { rc } from "@/lib/rouge";
 import { useAuth } from "@/store/auth";
 import { useFollowing } from "@/hooks/useSocial";
 import { deriveKemKeypair, encryptForRecipients, decryptEnvelope } from "@/lib/pqc";
+import * as extSigner from "@/lib/extensionSigner";
 import {
   acceptConversation,
   blockPubkey,
@@ -26,16 +27,51 @@ function toMs(s: string | number): number {
   return Number.isNaN(p) ? 0 : p;
 }
 
-/** My deterministically-derived ML-KEM keypair (cached forever per session). */
+/**
+ * A KEM "session" for DMs: the wallet's encryption public key plus a decrypt
+ * function. Local wallets derive the keypair from the seed and decrypt in-page;
+ * provider wallets (Qwalla / extension) get the public key from the wallet's KEM
+ * bridge and delegate decryption to it, so the seed never leaves the wallet.
+ */
+export interface KemSession {
+  publicKeyHex: string;
+  decrypt: (envelope: string, myId: string) => Promise<string>;
+}
+
+/** True for a provider wallet whose host exposes the DM KEM bridge. */
+function useKemBridge(): boolean {
+  const { isExtensionWallet } = useAuth();
+  return isExtensionWallet && extSigner.supportsKemBridge();
+}
+
+/** Whether the signed-in wallet can use DMs: a local wallet, or a provider
+ *  wallet (Qwalla/extension) whose host exposes the KEM bridge. */
+export function useDmCapable(): boolean {
+  const { isExtensionWallet } = useAuth();
+  return !isExtensionWallet || extSigner.supportsKemBridge();
+}
+
+/** My KEM session (cached per session). Enabled for local wallets, or provider
+ *  wallets whose host supports the bridge. */
 export function useMyKem() {
-  const { wallet, isExtensionWallet } = useAuth();
-  return useQuery({
-    queryKey: ["kem", wallet?.publicKey],
-    // Extension wallets don't expose a private key, so a KEM key can't be
-    // derived — DMs are gated off for them.
-    enabled: !!wallet && !isExtensionWallet,
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const bridge = useKemBridge();
+  return useQuery<KemSession>({
+    queryKey: ["kem", publicKey, bridge],
+    // Provider wallets without the bridge can't derive a KEM key → DMs gated off.
+    enabled: !!wallet && (!isExtensionWallet || bridge),
     staleTime: Infinity,
-    queryFn: () => deriveKemKeypair(wallet!),
+    queryFn: async (): Promise<KemSession> => {
+      if (bridge) {
+        const publicKeyHex = await extSigner.getEncryptionPublicKey();
+        return { publicKeyHex, decrypt: (env, myId) => extSigner.kemDecrypt(env, myId) };
+      }
+      const kp = await deriveKemKeypair(wallet!);
+      return {
+        publicKeyHex: kp.publicKeyHex,
+        decrypt: (env, myId) => decryptEnvelope(env, myId, kp.secretKey),
+      };
+    },
   });
 }
 
@@ -78,33 +114,39 @@ export function useMessengerDirectory() {
 /** Publish my encryption public key so others can message me (once). */
 export function useEnsureRegistered() {
   const { wallet, publicKey, address, isExtensionWallet } = useAuth();
+  const bridge = useKemBridge();
   const { data: kem } = useMyKem();
   useEffect(() => {
-    if (!wallet || isExtensionWallet || !kem) return;
+    // Register local wallets, or provider wallets that support the KEM bridge.
+    if (!wallet || !kem || (isExtensionWallet && !bridge)) return;
     const flag = `rougee-gram:msg-reg:${publicKey.slice(0, 24)}:${kem.publicKeyHex.slice(0, 12)}`;
     if (localStorage.getItem(flag)) return;
-    rc()
-      .messenger.registerWallet(wallet, {
-        id: publicKey,
-        displayName: address.slice(0, 16),
-        signingPublicKey: publicKey,
-        encryptionPublicKey: kem.publicKeyHex,
-        discoverable: true,
-      })
-      .then((res) => {
-        if (res.success) localStorage.setItem(flag, "1");
-      })
-      .catch(() => {});
-  }, [wallet, kem, publicKey, address, isExtensionWallet]);
+    const opts = {
+      id: publicKey,
+      displayName: address.slice(0, 16),
+      signingPublicKey: publicKey,
+      encryptionPublicKey: kem.publicKeyHex,
+      discoverable: true,
+    };
+    const p = isExtensionWallet
+      ? extSigner.messengerRegister(publicKey, opts)
+      : rc().messenger.registerWallet(wallet, opts);
+    p.then((res) => {
+      if (res.success) localStorage.setItem(flag, "1");
+    }).catch(() => {});
+  }, [wallet, kem, publicKey, address, isExtensionWallet, bridge]);
 }
 
 export function useConversations() {
-  const { wallet, publicKey } = useAuth();
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
   return useQuery({
     queryKey: ["conversations", publicKey],
     enabled: !!wallet,
     refetchInterval: 15_000,
-    queryFn: () => rc().messenger.getConversations(wallet!),
+    queryFn: () =>
+      isExtensionWallet
+        ? (extSigner.messengerListConversations(publicKey) as Promise<MessengerConversation[]>)
+        : rc().messenger.getConversations(wallet!),
   });
 }
 
@@ -124,7 +166,7 @@ export function useMessages(
   conversationId: string | undefined,
   opts?: { enabled?: boolean },
 ) {
-  const { wallet, publicKey } = useAuth();
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
   const { data: kem } = useMyKem();
   return useQuery({
     queryKey: ["messages", conversationId, publicKey],
@@ -133,12 +175,14 @@ export function useMessages(
     enabled: (opts?.enabled ?? true) && !!wallet && !!conversationId && !!kem,
     refetchInterval: 8000,
     queryFn: async (): Promise<DecryptedMessage[]> => {
-      const msgs = await rc().messenger.getMessages(wallet!, conversationId!);
+      const msgs = isExtensionWallet
+        ? ((await extSigner.messengerListMessages(publicKey, conversationId!)) as MessengerMessage[])
+        : await rc().messenger.getMessages(wallet!, conversationId!);
       const out: DecryptedMessage[] = [];
       for (const m of msgs) {
         let text = "";
         try {
-          text = await decryptEnvelope(m.encrypted_content, publicKey, kem!.secretKey);
+          text = await kem!.decrypt(m.encrypted_content, publicKey);
         } catch {
           text = "🔒 Unable to decrypt";
         }
@@ -151,7 +195,7 @@ export function useMessages(
 }
 
 export function useSendMessage(conversationId: string, participantIds: string[]) {
-  const { wallet, publicKey } = useAuth();
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
   const { data: dir } = useMessengerDirectory();
   const { data: kem } = useMyKem();
   const client = useQueryClient();
@@ -172,9 +216,11 @@ export function useSendMessage(conversationId: string, participantIds: string[])
         }
       }
       const envelope = await encryptForRecipients(body, recips);
-      const res = await rc().messenger.sendMessage(wallet, conversationId, envelope, {
-        messageType: "text",
-      });
+      const res = isExtensionWallet
+        ? await extSigner.messengerSendMessage(publicKey, conversationId, envelope)
+        : await rc().messenger.sendMessage(wallet, conversationId, envelope, {
+            messageType: "text",
+          });
       if (!res.success) throw new Error(res.error || "Send failed");
       return res;
     },
@@ -186,7 +232,7 @@ export function useSendMessage(conversationId: string, participantIds: string[])
 }
 
 export function useStartConversation() {
-  const { wallet, publicKey, address } = useAuth();
+  const { wallet, publicKey, address, isExtensionWallet } = useAuth();
   const client = useQueryClient();
   return useMutation({
     // Accepts one or more recipient pubkeys (group chat when >1).
@@ -203,9 +249,10 @@ export function useStartConversation() {
         }
       }
       const participants = [publicKey, ...recips];
-      const res = await rc().messenger.createConversation(wallet, participants, {
-        isGroup: recips.length > 1,
-      });
+      const isGroup = recips.length > 1;
+      const res = isExtensionWallet
+        ? await extSigner.messengerCreateConversation(publicKey, participants, isGroup)
+        : await rc().messenger.createConversation(wallet, participants, { isGroup });
       if (!res.success) throw new Error(res.error || "Could not start conversation");
       const data = (res.data ?? {}) as {
         conversationId?: string;
@@ -214,7 +261,11 @@ export function useStartConversation() {
       };
       let id = data.conversationId || data.id || data.conversation?.id;
       if (!id) {
-        const convos = await rc().messenger.getConversations(wallet);
+        const convos = (
+          isExtensionWallet
+            ? ((await extSigner.messengerListConversations(publicKey)) as MessengerConversation[])
+            : await rc().messenger.getConversations(wallet)
+        );
         id = convos.find((c) => recips.every((r) => c.participants?.includes(r)))?.id;
       }
       if (!id) throw new Error("Conversation created, but no id was returned.");

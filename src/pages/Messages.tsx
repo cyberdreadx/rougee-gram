@@ -4,6 +4,7 @@ import { Loader2, Pencil, ShieldCheck, MessageCircle, X, Ban } from "lucide-reac
 import type { MessengerConversation } from "@rougechain/sdk";
 import {
   useConversationBuckets,
+  useDmCapable,
   useEnsureRegistered,
   useStartConversation,
 } from "@/hooks/useMessenger";
@@ -22,7 +23,7 @@ import { cn } from "@/lib/utils";
 export default function Messages() {
   useEnsureRegistered();
   const { primary, requests, isLoading, gate } = useConversationBuckets();
-  const { isExtensionWallet } = useAuth();
+  const canDm = useDmCapable();
   const navigate = useNavigate();
   const [composing, setComposing] = useState(false);
   const [showBlocked, setShowBlocked] = useState(false);
@@ -38,7 +39,7 @@ export default function Messages() {
             <ShieldCheck className="h-3 w-3" /> End-to-end encrypted (ML-KEM-768)
           </p>
         </div>
-        {!isExtensionWallet && (
+        {canDm && (
           <div className="flex items-center gap-1">
             <button
               className="btn-ghost h-10 w-10 p-0"
@@ -56,7 +57,7 @@ export default function Messages() {
 
       <NotesRow />
 
-      {isExtensionWallet ? (
+      {!canDm ? (
         <div className="flex flex-col items-center gap-3 px-6 py-20 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rouge-600/15 text-rouge-400">
             <ShieldCheck className="h-8 w-8" />

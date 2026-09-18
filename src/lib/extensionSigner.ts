@@ -24,6 +24,10 @@ interface RougeChainProvider {
   isRougeChain?: boolean;
   connect(): Promise<{ publicKey: string }>;
   signTransaction(payload: Payload): Promise<ExtensionSignResult>;
+  /** KEM bridge (Qwalla/extension): the wallet's DM encryption public key. */
+  getEncryptionPublicKey?(): Promise<{ encryptionPublicKey: string } | string>;
+  /** KEM bridge: decrypt a RouGee DM envelope; returns plaintext only. */
+  decrypt?(params: { envelope: string; myId: string }): Promise<{ plaintext: string } | string>;
 }
 
 export function getProvider(): RougeChainProvider | null {
@@ -127,3 +131,110 @@ export const socialDeletePost = (pk: string, postId: string) =>
 // ── Value transfer (tips) ──
 export const transfer = (pk: string, to: string, amount: number, token = "XRGE") =>
   signAndSubmit("/v2/transfer", { type: "transfer", to, amount, fee: 1, token }, pk);
+
+// ── KEM bridge for E2E DMs (Qwalla/extension) ─────────────────────────────────
+// A provider wallet never exposes its seed, so the KEM key can't be derived here.
+// When the provider advertises the bridge, RouGee gets its DM public key from it
+// and delegates decryption to it (plaintext-only), keeping the seed in the wallet.
+
+/** True when the connected provider can serve the DM key bridge. */
+export function supportsKemBridge(): boolean {
+  const p = getProvider();
+  return !!(p && typeof p.getEncryptionPublicKey === "function" && typeof p.decrypt === "function");
+}
+
+/** The provider wallet's ML-KEM public key (hex) for DMs. */
+export async function getEncryptionPublicKey(): Promise<string> {
+  const p = getProvider();
+  if (!p?.getEncryptionPublicKey) throw new Error("Wallet can't provide an encryption key.");
+  const r = await p.getEncryptionPublicKey();
+  const hex = typeof r === "string" ? r : r?.encryptionPublicKey;
+  if (!hex) throw new Error("Wallet did not return an encryption key.");
+  return hex;
+}
+
+/** Decrypt a RouGee DM envelope addressed to `myId` via the provider. */
+export async function kemDecrypt(envelope: string, myId: string): Promise<string> {
+  const p = getProvider();
+  if (!p?.decrypt) throw new Error("Wallet can't decrypt messages.");
+  const r = await p.decrypt({ envelope, myId });
+  const txt = typeof r === "string" ? r : r?.plaintext;
+  if (typeof txt !== "string") throw new Error("Wallet returned no plaintext.");
+  return txt;
+}
+
+/** Sign a read request via the provider and POST it (list endpoints return data
+ *  directly, not the submitTx {success,…} envelope). */
+async function signAndPost(
+  endpoint: string,
+  fields: Record<string, unknown>,
+  publicKey: string,
+): Promise<Record<string, unknown>> {
+  const provider = getProvider();
+  if (!provider) throw new Error("RougeChain wallet not available.");
+  const payload: Payload = { ...fields, from: publicKey, timestamp: Date.now(), nonce: nonce() };
+  const result = await provider.signTransaction(payload);
+  if (!result?.signature) throw new Error("Wallet did not return a signature.");
+  const signedTx = {
+    payload: result.payload ?? payload,
+    signature: result.signature,
+    public_key: result.public_key ?? publicKey,
+  };
+  const client = rc() as unknown as { post(p: string, b: unknown): Promise<Record<string, unknown>> };
+  return client.post(endpoint, signedTx);
+}
+
+// ── Messenger writes (mirror @rougechain/sdk MessengerClient payloads) ──
+export const messengerRegister = (
+  pk: string,
+  opts: { id: string; displayName: string; signingPublicKey: string; encryptionPublicKey: string; discoverable?: boolean },
+) =>
+  signAndSubmit(
+    "/v2/messenger/wallets/register",
+    {
+      id: opts.id,
+      displayName: opts.displayName,
+      signingPublicKey: opts.signingPublicKey,
+      encryptionPublicKey: opts.encryptionPublicKey,
+      discoverable: opts.discoverable ?? true,
+    },
+    pk,
+  );
+
+export const messengerCreateConversation = (
+  pk: string,
+  participantIds: string[],
+  isGroup: boolean,
+  name?: string,
+) =>
+  signAndSubmit(
+    "/v2/messenger/conversations",
+    { participantIds, isGroup, ...(name ? { name } : {}) },
+    pk,
+  );
+
+export const messengerSendMessage = (
+  pk: string,
+  conversationId: string,
+  encryptedContent: string,
+  messageType = "text",
+) =>
+  signAndSubmit(
+    "/v2/messenger/messages",
+    { conversationId, encryptedContent, contentSignature: "", messageType, selfDestruct: false, spoiler: false },
+    pk,
+  );
+
+export const messengerMarkRead = (pk: string, messageId: string, conversationId: string) =>
+  signAndSubmit("/v2/messenger/messages/read", { messageId, conversationId }, pk);
+
+// ── Messenger reads (POST list endpoints) ──
+export const messengerListConversations = (pk: string) =>
+  signAndPost("/v2/messenger/conversations/list", {}, pk).then(
+    (d) => (d.conversations as unknown[]) ?? [],
+  );
+
+export const messengerListMessages = (pk: string, conversationId: string) =>
+  signAndPost("/v2/messenger/messages/list", { conversationId }, pk).then(
+    (d) => (d.messages as unknown[]) ?? [],
+  );
