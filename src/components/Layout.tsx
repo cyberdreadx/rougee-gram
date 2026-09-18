@@ -197,7 +197,7 @@ function MobileBottomNav() {
   const profile = useMyProfile();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-ink-border bg-ink/95 px-2 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around bg-gradient-to-t from-ink via-ink/80 to-transparent px-2 pt-6 pb-[calc(0.375rem+env(safe-area-inset-bottom))] md:hidden">
       {/* Home fills solid when active — Instagram's signature tab behavior. */}
       <BottomLink to="/" end icon={Home} label="Home" fillOnActive />
       <BottomLink to="/explore" icon={Search} label="Explore" />
