@@ -30,6 +30,9 @@ interface RougeChainProvider {
   decrypt?(params: { envelope: string; myId: string }): Promise<{ plaintext: string } | string>;
   /** The wallet's currently-selected network (so the dApp can follow it). */
   getNetwork?(): Promise<{ network?: string; api?: string; label?: string }>;
+  /** Live provider events (Qwalla emits 'networkChanged' when the user switches). */
+  on?(event: string, cb: (data: unknown) => void): void;
+  removeListener?(event: string, cb: (data: unknown) => void): void;
 }
 
 export function getProvider(): RougeChainProvider | null {
@@ -78,6 +81,27 @@ export async function getProviderNetwork(): Promise<{ network: string; api: stri
     /* ignore */
   }
   return null;
+}
+
+/**
+ * Subscribe to the wallet switching networks while RouGee is open. Qwalla emits
+ * `networkChanged` with `{ network, api }` from its dApp bridge, so RouGee can
+ * retarget its API without a reconnect. Returns an unsubscribe function (a no-op
+ * if the provider doesn't support events).
+ */
+export function onProviderNetworkChange(
+  cb: (net: { network: string; api: string }) => void,
+): () => void {
+  const p = getProvider();
+  if (!p?.on) return () => {};
+  const handler = (data: unknown) => {
+    const d = data as { network?: unknown; api?: unknown } | null;
+    if (d && typeof d.network === "string" && typeof d.api === "string") {
+      cb({ network: d.network, api: d.api });
+    }
+  };
+  p.on("networkChanged", handler);
+  return () => p.removeListener?.("networkChanged", handler);
 }
 
 /** Connect on a user gesture; returns the account public key. */

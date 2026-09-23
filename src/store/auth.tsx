@@ -122,6 +122,24 @@ function waitForProvider(timeoutMs = 1500): Promise<boolean> {
   });
 }
 
+/** Point RouGee's apiUrl at whatever network the host wallet is currently on, so
+ *  reads/writes land on the same chain the wallet signs for. A no-op in a plain
+ *  browser or when the wallet exposes no (or an unknown, non-URL) network. */
+async function followProviderNetwork(): Promise<void> {
+  try {
+    const net = await extSigner.getProviderNetwork();
+    if (!net) return;
+    const known = NETWORKS[net.network as keyof typeof NETWORKS];
+    const apiUrl = known?.apiUrl ?? (/^https?:\/\//.test(net.api) ? net.api : "");
+    if (apiUrl && apiUrl !== getConfig().apiUrl) {
+      updateConfig({ apiUrl, network: net.network });
+      clearProfileCache();
+    }
+  } catch {
+    /* keep RouGee's configured network */
+  }
+}
+
 interface AuthState {
   status: Status;
   wallet: WalletKeys | null;
@@ -179,6 +197,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("rougechain#initialized", check);
   }, []);
 
+  // While connected to a provider wallet, follow it if the user switches networks
+  // inside the wallet (Qwalla emits `networkChanged`). Everything downstream —
+  // feeds, balances, profiles, resolved addresses — is per-network, so once the
+  // config is retargeted we reload to rebuild all of it from the new node.
+  useEffect(() => {
+    if (!isExtensionWallet) return;
+    return extSigner.onProviderNetworkChange((net) => {
+      const known = NETWORKS[net.network as keyof typeof NETWORKS];
+      const apiUrl = known?.apiUrl ?? (/^https?:\/\//.test(net.api) ? net.api : "");
+      if (apiUrl && apiUrl !== getConfig().apiUrl) {
+        updateConfig({ apiUrl, network: net.network });
+        clearProfileCache();
+        window.location.reload();
+      }
+    });
+  }, [isExtensionWallet]);
+
   const refreshWallets = useCallback(async () => {
     const list = await listWallets();
     setWallets(list);
@@ -208,6 +243,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const pk = await extSigner.connect();
           if (pk === ext.publicKey) {
+            // Re-follow the wallet's network: inside Qwalla the page reloads on
+            // every navigation, and the user may have switched networks since
+            // the last connect. Without this the persisted apiUrl sticks (e.g.
+            // still mainnet after switching Qwalla to testnet).
+            await followProviderNetwork();
             setWallet({ publicKey: pk, privateKey: "" });
             setAddress(ext.addr);
             setIsExtensionWallet(true);
@@ -252,19 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const pk = await extSigner.connect();
     // Follow the wallet's active network so RouGee signs/reads on the same chain
     // as the host wallet (e.g. Qwalla on mainnet) instead of its own default.
-    try {
-      const net = await extSigner.getProviderNetwork();
-      if (net) {
-        const known = NETWORKS[net.network as keyof typeof NETWORKS];
-        const apiUrl = known?.apiUrl ?? (/^https?:\/\//.test(net.api) ? net.api : "");
-        if (apiUrl && apiUrl !== getConfig().apiUrl) {
-          updateConfig({ apiUrl, network: net.network });
-          clearProfileCache();
-        }
-      }
-    } catch {
-      /* keep RouGee's configured network */
-    }
+    await followProviderNetwork();
     const addr = await pubkeyToAddress(pk);
     setWallet({ publicKey: pk, privateKey: "" });
     setAddress(addr);
