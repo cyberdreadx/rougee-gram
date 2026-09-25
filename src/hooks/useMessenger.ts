@@ -257,9 +257,39 @@ export function useSendMessage(conversationId: string, participantIds: string[])
       if (!res.success) throw new Error(res.error || "Send failed");
       return res;
     },
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: ["messages", conversationId, publicKey] });
-      client.invalidateQueries({ queryKey: ["conversations", publicKey] });
+    onSuccess: (res, variables) => {
+      // Optimistically append the sent message so it shows instantly. Critically,
+      // for a PROVIDER wallet we must NOT invalidate/refetch here — every read is
+      // a signed request (a wallet approval prompt), so a post-send refetch hangs
+      // the thread (the "freeze": you had to leave and re-open to see the message).
+      // Local wallets read silently, so they still refetch to reconcile.
+      const data = (res as { data?: { message?: { id?: string }; id?: string } }).data;
+      const msgId = data?.message?.id ?? data?.id ?? `tmp-${Date.now()}`;
+      client.setQueryData<DecryptedMessage[]>(
+        ["messages", conversationId, publicKey],
+        (old = []) => {
+          if (old.some((m) => m.id === msgId)) return old;
+          const optimistic = {
+            id: msgId,
+            conversation_id: conversationId,
+            sender_wallet_id: publicKey,
+            encrypted_content: "",
+            signature: "",
+            self_destruct: false,
+            created_at: Date.now(),
+            is_read: true,
+            message_type: "text",
+            spoiler: false,
+            text: variables.trim(),
+            mine: true,
+          } as DecryptedMessage;
+          return [...old, optimistic];
+        },
+      );
+      if (!isExtensionWallet) {
+        client.invalidateQueries({ queryKey: ["messages", conversationId, publicKey] });
+        client.invalidateQueries({ queryKey: ["conversations", publicKey] });
+      }
     },
   });
 }
