@@ -34,6 +34,11 @@
   # See workers/story/wrangler.toml.
   VITE_STORY_WORKER_URL = "https://rougee-story.rougee.workers.dev"
 
+  # Verification Worker ("RouGee HQ") — issues verified-badge attestations for
+  # accounts holding >= 50k XRGE. HQ public key is baked into src/lib/verify.ts;
+  # HQ_MNEMONIC is a worker secret. See workers/verify/wrangler.toml.
+  VITE_VERIFY_WORKER_URL = "https://rougee-verify.rougee.workers.dev"
+
 # Never cache the HTML entry, so a new deploy is picked up on the next load
 # instead of a stale index.html pointing at an old (or purged) JS bundle — the
 # classic cause of a post-deploy white screen. Fingerprinted assets (Vite puts a

@@ -20,12 +20,13 @@ compatibility_flags = ["nodejs_compat"]
 
 [[kv_namespaces]]
 binding = "VERIFY_CODES"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "718ed03ac4d74bd7b44c228fd11fb687"
 
 [vars]
-# RougeChain node the Worker reads balances from / sends mail through. Match the
-# network the app runs on (testnet today).
-ROUGE_API = "https://testnet.rougechain.io"
+# RougeChain node the Worker reads balances from / sends mail through. MUST
+# include the /api suffix (the SDK builds paths like /balance, /mail, /messenger
+# onto this base). Mainnet — matches the network users are on.
+ROUGE_API = "https://api.rougechain.io/api"
 ALLOW_ORIGIN = "*"
 # Minimum XRGE required to be (and stay) verified.
 MIN_XRGE = "50000"
