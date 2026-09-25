@@ -8,6 +8,7 @@ import {
   useDeleteMessage,
   useDmGate,
   classifyConversation,
+  convoParticipants,
   type DecryptedMessage,
 } from "@/hooks/useMessenger";
 import { useFollowing } from "@/hooks/useSocial";
@@ -26,7 +27,7 @@ export default function Chat() {
   const { publicKey } = useAuth();
   const { data: convos } = useConversations();
   const conv = convos?.find((c) => c.id === id);
-  const participants = conv?.participants ?? [];
+  const participants = convoParticipants(conv);
   const others = participants.filter((p) => p !== publicKey);
   const isGroup = others.length > 1;
   const otherId = others[0] ?? "";

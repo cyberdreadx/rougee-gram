@@ -7,6 +7,7 @@ import {
   useDmCapable,
   useEnsureRegistered,
   useStartConversation,
+  convoParticipants,
 } from "@/hooks/useMessenger";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/store/auth";
@@ -183,7 +184,7 @@ function RequestRow({
   onReject: (pubkey: string) => void;
 }) {
   const { publicKey } = useAuth();
-  const otherId = (conversation.participants ?? []).find((p) => p !== publicKey) ?? publicKey;
+  const otherId = convoParticipants(conversation).find((p) => p !== publicKey) ?? publicKey;
   const { data: profile } = useProfile(otherId);
   const name = profile ? displayName(profile) : shortAddress(otherId, 8, 4);
 
@@ -214,7 +215,7 @@ function RequestRow({
 
 function ConversationRow({ conversation }: { conversation: MessengerConversation }) {
   const { publicKey } = useAuth();
-  const others = (conversation.participants ?? []).filter((p) => p !== publicKey);
+  const others = convoParticipants(conversation).filter((p) => p !== publicKey);
   const isGroup = others.length > 1;
   const otherId = others[0] ?? publicKey;
   const { data: profile } = useProfile(otherId);

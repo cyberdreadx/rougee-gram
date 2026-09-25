@@ -19,6 +19,22 @@ import {
   subscribeGate,
 } from "@/lib/dmGate";
 
+/**
+ * A conversation's member pubkeys. The node serializes this as `participant_ids`
+ * (see quantum-vault messenger_store `Conversation`), but the SDK type declares
+ * `participants` — so `c.participants` is always undefined and every thread looks
+ * memberless (own face on the row, all threads collapsed to one, broken recipient
+ * lists). Read `participant_ids` with `participants`/`participantIds` fallbacks.
+ */
+export function convoParticipants(c: MessengerConversation | undefined | null): string[] {
+  const raw = c as unknown as {
+    participant_ids?: string[];
+    participants?: string[];
+    participantIds?: string[];
+  } | null;
+  return raw?.participant_ids ?? raw?.participants ?? raw?.participantIds ?? [];
+}
+
 function toMs(s: string | number): number {
   if (typeof s === "number") return s < 1e12 ? s * 1000 : s;
   const n = Number(s);
@@ -322,11 +338,10 @@ export function useSendStoryReply() {
         isExtensionWallet
           ? ((await extSigner.messengerListConversations(publicKey)) as MessengerConversation[])
           : await rc().messenger.getConversations(wallet)
-      ).find(
-        (c) =>
-          participants.every((p) => c.participants?.includes(p)) &&
-          (c.participants?.length ?? 0) === 2,
-      );
+      ).find((c) => {
+        const members = convoParticipants(c);
+        return participants.every((p) => members.includes(p)) && members.length === 2;
+      });
 
       let conversationId = existing?.id;
       if (!conversationId) {
@@ -344,7 +359,10 @@ export function useSendStoryReply() {
           const convos = isExtensionWallet
             ? ((await extSigner.messengerListConversations(publicKey)) as MessengerConversation[])
             : await rc().messenger.getConversations(wallet);
-          conversationId = convos.find((c) => participants.every((p) => c.participants?.includes(p)))?.id;
+          conversationId = convos.find((c) => {
+            const m = convoParticipants(c);
+            return participants.every((p) => m.includes(p));
+          })?.id;
         }
         if (!conversationId) throw new Error("Conversation created, but no id was returned.");
       }
@@ -393,7 +411,7 @@ export function useStartConversation() {
         isExtensionWallet
           ? ((await extSigner.messengerListConversations(publicKey)) as MessengerConversation[])
           : await rc().messenger.getConversations(wallet)
-      ).find((c) => [...(c.participants ?? [])].sort().join(",") === want);
+      ).find((c) => [...convoParticipants(c)].sort().join(",") === want);
       if (existing?.id) return existing.id;
 
       const res = isExtensionWallet
@@ -412,7 +430,10 @@ export function useStartConversation() {
             ? ((await extSigner.messengerListConversations(publicKey)) as MessengerConversation[])
             : await rc().messenger.getConversations(wallet)
         );
-        id = convos.find((c) => recips.every((r) => c.participants?.includes(r)))?.id;
+        id = convos.find((c) => {
+          const m = convoParticipants(c);
+          return recips.every((r) => m.includes(r));
+        })?.id;
       }
       if (!id) throw new Error("Conversation created, but no id was returned.");
       return id;
@@ -462,7 +483,7 @@ export function classifyConversation(
     blocked: Set<string>;
   },
 ): DmBucket {
-  const others = (c.participants ?? []).filter((p) => p !== opts.publicKey);
+  const others = convoParticipants(c).filter((p) => p !== opts.publicKey);
   const isGroup = others.length > 1;
   const otherId = others[0];
   if (!isGroup && otherId && opts.blocked.has(otherId)) return "blocked";
@@ -476,7 +497,7 @@ export function classifyConversation(
 /** Stable key for a conversation's participant SET (self excluded), so repeated
  *  1:1s (or identical groups) with the same people collapse to one row. */
 function participantKey(c: MessengerConversation, publicKey: string): string {
-  return (c.participants ?? [])
+  return convoParticipants(c)
     .filter((p) => p !== publicKey)
     .sort()
     .join(",");
