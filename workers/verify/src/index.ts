@@ -136,6 +136,18 @@ function sixDigitCode(): string {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // Wrap everything so ANY unhandled error still returns a CORS-bearing JSON
+    // response. Without this, a thrown exception yields a 500 with no CORS
+    // headers, which the browser reports opaquely as "Load failed".
+    try {
+      return await handle(request, env);
+    } catch (e) {
+      return json({ error: `Server error: ${e instanceof Error ? e.message : String(e)}` }, 500, env);
+    }
+  },
+};
+
+async function handle(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") return new Response(null, { headers: cors(env) });
@@ -249,5 +261,4 @@ export default {
     }
 
     return json({ error: "not found" }, 404, env);
-  },
-};
+}

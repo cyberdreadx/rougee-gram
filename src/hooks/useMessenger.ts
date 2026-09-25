@@ -137,18 +137,21 @@ export function useEnsureRegistered() {
   }, [wallet, kem, publicKey, address, isExtensionWallet, bridge]);
 }
 
-export function useConversations() {
+export function useConversations(opts?: { background?: boolean }) {
   const { wallet, publicKey, isExtensionWallet } = useAuth();
   const canDm = useDmCapable();
+  // A provider wallet (Qwalla) signs EVERY messenger read, which pops a wallet
+  // approval. `background` usage (the always-mounted nav unread badge) must NOT
+  // fetch for provider wallets — otherwise Qwalla prompts for a signature on
+  // every page load (it reloads the page each time you return to it). We only
+  // do the signed read for them when the user actively opens Messages. Local
+  // wallets sign silently in-page, so they're unaffected either way.
+  const enabled = !!wallet && canDm && !(isExtensionWallet && opts?.background);
   return useQuery({
     queryKey: ["conversations", publicKey],
-    // Only poll when DMs are actually usable. For a provider wallet WITHOUT the
-    // KEM bridge every request would be provider-signed → a wallet approval
-    // popup on each 15s poll, so we must not run it at all.
-    enabled: !!wallet && canDm,
-    // Provider wallets sign every read through the wallet (approval prompt), so
-    // never poll them in the background — fetch once on open. Local wallets sign
-    // silently in-page, so keep them live.
+    enabled,
+    // Never background-poll provider wallets (each poll = an approval prompt);
+    // fetch once on open. Local wallets sign silently, so keep them live.
     refetchInterval: isExtensionWallet ? false : 15_000,
     // Don't retry-storm the wallet with sign prompts if a signed read fails.
     retry: false,
@@ -159,9 +162,11 @@ export function useConversations() {
   });
 }
 
-/** Total unread messages across conversations (0 when none / not loaded). */
+/** Total unread messages across conversations (0 when none / not loaded). Runs
+ *  in BACKGROUND mode so a provider wallet's nav badge never triggers a signed
+ *  read (and thus a wallet popup) on every page load. */
 export function useUnreadCount(): number {
-  const { data } = useConversations();
+  const { data } = useConversations({ background: true });
   if (!data) return 0;
   return data.reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
 }
