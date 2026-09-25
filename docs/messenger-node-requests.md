@@ -16,8 +16,9 @@ Endpoints referenced (all v2 signed):
 ## 1. Deterministic conversation IDs (stop duplicate threads)
 
 ### Problem
-`create conversation` mints a **new random id on every call**, from either party,
-with no dedupe by participant set. A single pair therefore accumulates many
+`create_conversation` (`core/storage/src/messenger_store.rs` ~L314) mints a
+**new random id on every call** (`id: Uuid::new_v4()`), from either party, with no
+lookup/dedupe by participant set. A single pair therefore accumulates many
 distinct 1:1 conversations, and their messages **scatter across those ids**.
 Observed with real users: one contact shown as 4 separate "Encrypted
 conversation" rows; another as 6 duplicate message requests — all the same
@@ -65,13 +66,17 @@ Recommend shipping (a) now, scheduling (b) if history should unify.
 ## 2. Recoverable conversation/message delete (soft-delete + Trash)
 
 ### Problem
-`conversations/delete` (and `messages/delete`) appear to be an **immediate,
-irreversible server-side delete for the caller's account**. Because one wallet =
-one inbox shared across every app signed into it, deleting in RouGee also cleared
-it in Qwalla, with **no way to undo** — a real user lost a thread this way. There
-is no `restore`/`undelete` endpoint.
+`conversations/delete` is a **global, irreversible hard delete**, not a
+per-caller "delete for me". In `core/storage/src/messenger_store.rs`
+`delete_conversation` (~L342): it removes the conversation record, removes the
+participant-index entry for **every** participant (not just the caller), and
+**permanently deletes every message** in the conversation from the shared
+`msg_messages` tree. So a delete by either participant destroys the whole thread
+and all its contents **for both people, on every device** — and there is no
+`restore`/`undelete`. A real user lost a conversation this way (deleted in RouGee,
+also gone in Qwalla — same account — and gone for the other party too).
 
-The Mail side already models this well (Inbox / Sent / **Trash** with move +
+The Mail side already models the right shape (Inbox / Sent / **Trash** with move +
 permanent-delete). Messenger should match.
 
 ### Proposed fix
@@ -95,9 +100,12 @@ Two-stage delete, per participant (never touches the other party's copy):
 ### Acceptance criteria
 - Delete then restore (within the window) returns the conversation and all its
   messages to `…/list` for that account.
-- Delete never affects the other participant's copy (unchanged from today).
-- After the retention window, a soft-deleted thread is purged and no longer
-  restorable.
+- Delete affects **only the calling participant's** view — a **change from
+  today's global hard delete**, which wipes the thread + all messages for
+  everyone. The other participant keeps their copy until they also delete.
+- After the retention window, a soft-deleted thread is purged for that
+  participant; the conversation/messages are hard-removed only once ALL
+  participants have deleted.
 - Existing clients keep working: default delete still "removes it from my inbox",
   just recoverably; `restore`/`folder:"trash"` are additive.
 

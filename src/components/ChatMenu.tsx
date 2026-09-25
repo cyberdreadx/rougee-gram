@@ -8,10 +8,12 @@ import { useToast } from "./Toast";
  * Per-conversation actions: block the other party, or delete the thread.
  *
  * Blocking is client-side (there is no on-chain block): it hides their DMs on
- * this device. Deleting is server-side for your ACCOUNT — the node drops it from
- * this wallet's inbox, so it disappears from every app signed into the same
- * wallet (RouGee AND Qwalla share one inbox); the other participant keeps their
- * copy, and there's no undo. The confirm copy reflects this honestly.
+ * this device. Deleting is DESTRUCTIVE and GLOBAL: the node's delete_conversation
+ * hard-removes the conversation, its participant index for ALL participants, and
+ * every message from the shared store — so it's gone for BOTH parties on every
+ * device, with no undo. (Confirmed in quantum-vault core/storage messenger_store.)
+ * The confirm copy warns accordingly. TODO(node): soft-delete + restore so this
+ * is per-participant and recoverable — see docs/messenger-node-requests.md.
  */
 export default function ChatMenu({
   conversationId,
@@ -101,7 +103,7 @@ export default function ChatMenu({
             <p className="mt-1.5 text-sm text-ink-muted">
               {confirm === "block"
                 ? "Their messages stop showing up for you on this device. You can undo this from the blocked list."
-                : "This deletes it from your account everywhere you're signed in — RouGee AND Qwalla share one inbox — and can't be undone. The other person keeps their own copy."}
+                : "This permanently deletes the entire conversation and every message — for BOTH of you, on every device — and can't be undone."}
             </p>
             <div className="mt-4 flex gap-2">
               <button className="btn-soft flex-1 py-2.5" onClick={() => setConfirm(null)}>
