@@ -35,7 +35,6 @@ import { changePassword } from "@/lib/keystore";
 import { clearProfileCache } from "@/lib/profile";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useMyProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { useVerified } from "@/hooks/useVerified";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { startVerify, confirmVerify } from "@/lib/verifyApi";
@@ -230,9 +229,8 @@ function UsernameSection() {
 
 function VerifySection({ publicKey, balance }: { publicKey: string; balance: number }) {
   const { toast } = useToast();
+  const client = useQueryClient();
   const verified = useVerified(publicKey || undefined);
-  const profile = useMyProfile();
-  const update = useUpdateProfile();
   const configured = Boolean(getConfig().verifyWorkerUrl);
   const [step, setStep] = useState<"idle" | "sent">("idle");
   const [code, setCode] = useState("");
@@ -256,15 +254,11 @@ function VerifySection({ publicKey, balance }: { publicKey: string; balance: num
     if (!/^\d{6}$/.test(code.trim())) return toast("Enter the 6-digit code.", "error");
     setBusy(true);
     try {
-      const sig = await confirmVerify(publicKey, code.trim());
-      // Republish the profile with the attestation, preserving existing fields.
-      await update.mutateAsync({
-        name: profile?.name ?? "",
-        bio: profile?.bio ?? "",
-        avatarRef: profile?.avatarRef ?? "",
-        links: profile?.links ?? [],
-        vfy: sig,
-      });
+      // The attestation is signed AND stored by the Worker (too large for the
+      // on-chain profile), so we just confirm and refresh the badge state.
+      await confirmVerify(publicKey, code.trim());
+      client.invalidateQueries({ queryKey: ["attestation", publicKey] });
+      client.invalidateQueries({ queryKey: ["verify-balance", publicKey] });
       toast("You're verified! ✨", "success");
       setStep("idle");
       setCode("");

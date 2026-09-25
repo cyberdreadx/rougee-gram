@@ -168,6 +168,14 @@ async function handle(request: Request, env: Env): Promise<Response> {
       }
     }
 
+    // ── Attestation lookup (unsigned read; clients validate it locally) ──
+    if (request.method === "GET" && url.pathname === "/verify/attestation") {
+      const pubkey = url.searchParams.get("pubkey") || "";
+      if (!isPubkey(pubkey)) return json({ error: "invalid pubkey" }, 400, env);
+      const vfy = await env.VERIFY_CODES.get(`vfy:${await keyId(pubkey)}`);
+      return json({ vfy: vfy || null }, 200, env);
+    }
+
     // ── Start: mail a one-time code ──
     if (request.method === "POST" && url.pathname === "/verify/start") {
       const { pubkey } = (await request.json().catch(() => ({}))) as { pubkey?: string };
@@ -283,6 +291,11 @@ async function handle(request: Request, env: Env): Promise<Response> {
       }
 
       await env.VERIFY_CODES.delete(`code:${id}`);
+      // Persist the attestation server-side. It can't live in the profile — an
+      // ML-DSA-65 signature is ~6600 hex chars, over the 4000-char post-body
+      // limit — so clients read it from here and validate it locally against the
+      // HQ public key + live balance (auto-revoke still applies).
+      await env.VERIFY_CODES.put(`vfy:${id}`, signature);
       return json({ signature }, 200, env);
     }
 
