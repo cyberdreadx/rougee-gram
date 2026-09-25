@@ -28,7 +28,11 @@ export interface Env {
 const CODE_TTL = 900; // 15 min
 const RESEND_COOLDOWN = 60; // seconds between code sends per account
 const MAX_ATTEMPTS = 5;
-const HEX64 = /^[0-9a-f]{64}$/i;
+// RougeChain ML-DSA-65 public keys are long hex (1952 bytes = 3904 hex chars),
+// NOT a 64-char hash — validate as even-length hex with a sane minimum.
+const HEX_PUBKEY = /^[0-9a-f]+$/i;
+const isPubkey = (pk?: string): pk is string =>
+  !!pk && pk.length >= 64 && pk.length % 2 === 0 && HEX_PUBKEY.test(pk);
 
 function cors(env: Env, extra: Record<string, string> = {}): Record<string, string> {
   return {
@@ -148,7 +152,7 @@ export default {
     // ── Start: mail a one-time code ──
     if (request.method === "POST" && url.pathname === "/verify/start") {
       const { pubkey } = (await request.json().catch(() => ({}))) as { pubkey?: string };
-      if (!pubkey || !HEX64.test(pubkey)) return json({ error: "invalid pubkey" }, 400, env);
+      if (!isPubkey(pubkey)) return json({ error: "invalid pubkey" }, 400, env);
 
       const min = minXrge(env);
       if ((await balanceOf(env, pubkey)) < min) {
@@ -204,7 +208,7 @@ export default {
         pubkey?: string;
         code?: string;
       };
-      if (!pubkey || !HEX64.test(pubkey)) return json({ error: "invalid pubkey" }, 400, env);
+      if (!isPubkey(pubkey)) return json({ error: "invalid pubkey" }, 400, env);
       if (!code || !/^\d{6}$/.test(code)) return json({ error: "invalid code" }, 400, env);
 
       const raw = await env.VERIFY_CODES.get(`code:${pubkey}`);
