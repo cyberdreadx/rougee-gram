@@ -4,6 +4,7 @@ import { Search, X, ArrowRight } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { useGlobalTimeline } from "@/hooks/useSocial";
 import ExploreGrid from "@/components/ExploreGrid";
+import FeedList from "@/components/FeedList";
 import WhoToFollow from "@/components/WhoToFollow";
 import UserRow from "@/components/UserRow";
 import { resolveAddress, handleFromAddress, shortAddress } from "@/lib/format";
@@ -50,6 +51,21 @@ export default function Explore() {
           <div className="p-0.5 sm:p-1">
             <ExploreGrid posts={data} isLoading={isLoading} />
           </div>
+          {/* Discovery is text-heavy too — the media grid hides text posts, so
+              show the latest ones here or they'd be invisible. */}
+          <h2 className="px-4 pb-1 pt-5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+            Latest posts
+          </h2>
+          <FeedList
+            posts={data}
+            isLoading={isLoading}
+            textOnly
+            emptyState={
+              <div className="px-6 py-10 text-center text-sm text-ink-muted">
+                No text posts yet.
+              </div>
+            }
+          />
         </>
       )}
     </div>

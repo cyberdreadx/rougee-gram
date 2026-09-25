@@ -12,6 +12,8 @@ interface Props {
   emptyState?: ReactNode;
   /** Only show photo posts (hides plain-text chain posts). */
   photosOnly?: boolean;
+  /** Only show plain-text posts (hides media — used to surface text on Explore). */
+  textOnly?: boolean;
 }
 
 export default function FeedList({
@@ -20,6 +22,7 @@ export default function FeedList({
   isError,
   emptyState,
   photosOnly,
+  textOnly,
 }: Props) {
   if (isLoading) {
     return (
@@ -44,6 +47,7 @@ export default function FeedList({
     const kind = decodeBody(p.body).kind;
     if (kind === "profile" || kind === "story" || kind === "note") return false;
     if (photosOnly && kind !== "photo") return false;
+    if (textOnly && kind !== "text") return false;
     return true;
   });
 

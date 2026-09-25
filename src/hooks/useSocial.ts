@@ -48,9 +48,12 @@ export function useFollowingFeed() {
       const pubkeys = (Array.isArray(following) ? following : []).filter(
         (x): x is string => typeof x === "string" && x.length > 0,
       );
-      if (pubkeys.length === 0) return [];
+      // Include your OWN posts in the feed so it isn't empty when you follow few
+      // people, and you can see your own activity in-line.
+      const targets = [...new Set([publicKey, ...pubkeys])].filter(Boolean);
+      if (targets.length === 0) return [];
       const perUser = await Promise.all(
-        pubkeys.slice(0, 100).map((pk) =>
+        targets.slice(0, 100).map((pk) =>
           rc()
             .social.getUserPosts(pk, 20, 0)
             .then((r) => ((r?.posts ?? []) as SocialPost[]))
