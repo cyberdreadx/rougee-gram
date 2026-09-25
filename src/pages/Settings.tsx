@@ -405,6 +405,10 @@ function AccountSection({
   const [revealPhrase, setRevealPhrase] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
   const [fauceting, setFauceting] = useState(false);
+  // The faucet only exists on testnet — never show it on mainnet (where XRGE is
+  // real and there's no faucet), which otherwise makes a mainnet user think
+  // they're on testnet.
+  const isTestnet = networkIdForUrl(getConfig().apiUrl) === "testnet";
 
   return (
     <Section icon={<ShieldCheck className="h-4 w-4" />} title="Account">
@@ -421,17 +425,19 @@ function AccountSection({
           <button className="btn-ghost h-9 px-2.5" onClick={onRefresh} title="Refresh">
             <RefreshCw className="h-4 w-4" />
           </button>
-          <button
-            className="btn-soft h-9 px-3 text-xs"
-            onClick={async () => {
-              setFauceting(true);
-              await onFaucet();
-              setFauceting(false);
-            }}
-            disabled={fauceting}
-          >
-            {fauceting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Get testnet XRGE"}
-          </button>
+          {isTestnet && (
+            <button
+              className="btn-soft h-9 px-3 text-xs"
+              onClick={async () => {
+                setFauceting(true);
+                await onFaucet();
+                setFauceting(false);
+              }}
+              disabled={fauceting}
+            >
+              {fauceting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Get testnet XRGE"}
+            </button>
+          )}
         </div>
       </div>
 

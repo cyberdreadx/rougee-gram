@@ -12,6 +12,13 @@
   # are reproducible and don't break when Netlify changes its default Node.
   NODE_VERSION = "20"
 
+  # Default network = MAINNET (public launch, 2026-09-25). Without this the build
+  # defaulted to testnet, so anyone not connected via a Qwalla-on-mainnet wallet
+  # (which auto-follows) saw testnet balances. A Qwalla wallet on testnet still
+  # gets followed to testnet at connect. MUST include /api (SDK path base).
+  VITE_ROUGE_API = "https://api.rougechain.io/api"
+  VITE_ROUGE_NETWORK = "mainnet"
+
   # Shared Cloudflare R2 media backend (Worker in workers/media). This is the
   # public Worker URL, not a secret, so it's safe to commit here — every visitor's
   # uploads go to the same bucket and are visible to everyone. Media refs are
