@@ -9,24 +9,68 @@ import { cn } from "@/lib/utils";
  * filters for live preview, mirrored onto a canvas for export.
  */
 
+// A filter is an ordered list of ops. The SAME list drives the live CSS preview
+// (via `cssOf`) and the exported pixels (via `applyOps`) — we do NOT use the
+// canvas `ctx.filter` property for export because it's silently a no-op in iOS
+// Safari and RN WebViews (Qwalla), which made saved filters disappear.
+type FilterOp =
+  | { fn: "brightness"; v: number }
+  | { fn: "contrast"; v: number }
+  | { fn: "saturate"; v: number }
+  | { fn: "sepia"; v: number }
+  | { fn: "grayscale"; v: number }
+  | { fn: "hue-rotate"; deg: number };
+
 interface Filter {
   id: string;
   label: string;
-  /** CSS filter string; also applied to the export canvas via ctx.filter. */
-  css: string;
+  ops: FilterOp[];
 }
 
 const FILTERS: Filter[] = [
-  { id: "original", label: "Original", css: "none" },
-  { id: "vivid", label: "Vivid", css: "saturate(1.4) contrast(1.1)" },
-  { id: "warm", label: "Warm", css: "sepia(.3) saturate(1.3) brightness(1.05)" },
-  { id: "cool", label: "Cool", css: "hue-rotate(-12deg) saturate(1.2) brightness(1.03)" },
-  { id: "bw", label: "B&W", css: "grayscale(1) contrast(1.1)" },
-  { id: "vintage", label: "Vintage", css: "sepia(.5) contrast(.9) brightness(1.1) saturate(1.2)" },
-  { id: "fade", label: "Fade", css: "contrast(.85) brightness(1.1) saturate(.9)" },
-  { id: "noir", label: "Noir", css: "grayscale(1) contrast(1.4) brightness(.95)" },
-  { id: "punch", label: "Punch", css: "contrast(1.3) saturate(1.5)" },
+  { id: "original", label: "Original", ops: [] },
+  { id: "vivid", label: "Vivid", ops: [{ fn: "saturate", v: 1.4 }, { fn: "contrast", v: 1.1 }] },
+  {
+    id: "warm",
+    label: "Warm",
+    ops: [{ fn: "sepia", v: 0.3 }, { fn: "saturate", v: 1.3 }, { fn: "brightness", v: 1.05 }],
+  },
+  {
+    id: "cool",
+    label: "Cool",
+    ops: [{ fn: "hue-rotate", deg: -12 }, { fn: "saturate", v: 1.2 }, { fn: "brightness", v: 1.03 }],
+  },
+  { id: "bw", label: "B&W", ops: [{ fn: "grayscale", v: 1 }, { fn: "contrast", v: 1.1 }] },
+  {
+    id: "vintage",
+    label: "Vintage",
+    ops: [
+      { fn: "sepia", v: 0.5 },
+      { fn: "contrast", v: 0.9 },
+      { fn: "brightness", v: 1.1 },
+      { fn: "saturate", v: 1.2 },
+    ],
+  },
+  {
+    id: "fade",
+    label: "Fade",
+    ops: [{ fn: "contrast", v: 0.85 }, { fn: "brightness", v: 1.1 }, { fn: "saturate", v: 0.9 }],
+  },
+  {
+    id: "noir",
+    label: "Noir",
+    ops: [{ fn: "grayscale", v: 1 }, { fn: "contrast", v: 1.4 }, { fn: "brightness", v: 0.95 }],
+  },
+  { id: "punch", label: "Punch", ops: [{ fn: "contrast", v: 1.3 }, { fn: "saturate", v: 1.5 }] },
 ];
+
+/** CSS `filter` string for the live preview — same ops, same order. */
+function cssOf(ops: FilterOp[]): string {
+  if (!ops.length) return "none";
+  return ops
+    .map((o) => (o.fn === "hue-rotate" ? `hue-rotate(${o.deg}deg)` : `${o.fn}(${o.v})`))
+    .join(" ");
+}
 
 interface FontStyle {
   id: string;
@@ -148,7 +192,7 @@ export default function PhotoEditor({
   async function save() {
     setSaving(true);
     try {
-      const blob = await renderToBlob(src, filter.css, overlays);
+      const blob = await renderToBlob(src, filter.ops, overlays);
       onSave(blob);
     } finally {
       setSaving(false);
@@ -188,7 +232,7 @@ export default function PhotoEditor({
             src={src}
             alt="edit preview"
             className="max-h-[calc(100dvh-14rem)] max-w-full object-contain"
-            style={{ filter: filter.css }}
+            style={{ filter: cssOf(filter.ops) }}
             draggable={false}
             onLoad={() => setStageH(imgRef.current?.clientHeight ?? 0)}
           />
@@ -250,7 +294,7 @@ export default function PhotoEditor({
                       filter.id === f.id ? "ring-rouge-500" : "ring-transparent",
                     )}
                   >
-                    <img src={src} alt="" className="h-full w-full object-cover" style={{ filter: f.css }} />
+                    <img src={src} alt="" className="h-full w-full object-cover" style={{ filter: cssOf(f.ops) }} />
                   </div>
                   <span
                     className={cn(
@@ -350,7 +394,7 @@ function TextControls({
 }
 
 /** Bake the filter + text overlays into a WebP blob at the image's native size. */
-async function renderToBlob(src: string, filterCss: string, overlays: Overlay[]): Promise<Blob> {
+async function renderToBlob(src: string, ops: FilterOp[], overlays: Overlay[]): Promise<Blob> {
   const img = await loadImage(src);
   const w = img.naturalWidth || img.width;
   const h = img.naturalHeight || img.height;
@@ -359,10 +403,15 @@ async function renderToBlob(src: string, filterCss: string, overlays: Overlay[])
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
 
-  // Draw the filtered image.
-  ctx.filter = filterCss && filterCss !== "none" ? filterCss : "none";
+  // Draw the image, then bake the filter in pixel space. We do NOT use
+  // ctx.filter — it's unsupported (silent no-op) in iOS Safari / RN WebViews,
+  // which is what dropped the filter from saved photos.
   ctx.drawImage(img, 0, 0, w, h);
-  ctx.filter = "none";
+  if (ops.length) {
+    const data = ctx.getImageData(0, 0, w, h);
+    applyOps(data.data, ops);
+    ctx.putImageData(data, 0, 0);
+  }
 
   // Ensure the fonts we use are loaded before drawing text to canvas.
   await ensureFonts(overlays, h);
@@ -396,6 +445,95 @@ async function renderToBlob(src: string, filterCss: string, overlays: Overlay[])
   return new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Export failed"))), "image/webp", 0.92),
   );
+}
+
+// ── Pixel-space filter baking (matches the CSS `filter` functions) ──
+// Every CSS filter we use is an affine color transform (out = M·rgb + offset),
+// so we compose the whole chain into ONE 3×3 matrix + offset and apply it once
+// per pixel. Values are normalized to 0..1 (contrast's 0.5 pivot lives there).
+type Mat3 = [number, number, number, number, number, number, number, number, number];
+
+function mul3(a: Mat3, b: Mat3): Mat3 {
+  const m: number[] = [];
+  for (let r = 0; r < 3; r++)
+    for (let c = 0; c < 3; c++)
+      m[r * 3 + c] = a[r * 3] * b[c] + a[r * 3 + 1] * b[3 + c] + a[r * 3 + 2] * b[6 + c];
+  return m as Mat3;
+}
+function mulVec3(a: Mat3, v: [number, number, number]): [number, number, number] {
+  return [
+    a[0] * v[0] + a[1] * v[1] + a[2] * v[2],
+    a[3] * v[0] + a[4] * v[1] + a[5] * v[2],
+    a[6] * v[0] + a[7] * v[1] + a[8] * v[2],
+  ];
+}
+
+// CSS/SVG feColorMatrix coefficients.
+function saturateMat(s: number): Mat3 {
+  return [
+    0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s,
+    0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s,
+    0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s,
+  ];
+}
+function sepiaMat(s: number): Mat3 {
+  const t = 1 - s;
+  return [
+    0.393 + 0.607 * t, 0.769 - 0.769 * t, 0.189 - 0.189 * t,
+    0.349 - 0.349 * t, 0.686 + 0.314 * t, 0.168 - 0.168 * t,
+    0.272 - 0.272 * t, 0.534 - 0.534 * t, 0.131 + 0.869 * t,
+  ];
+}
+function hueMat(rad: number): Mat3 {
+  const c = Math.cos(rad);
+  const s = Math.sin(rad);
+  return [
+    0.213 + c * 0.787 - s * 0.213, 0.715 - c * 0.715 - s * 0.715, 0.072 - c * 0.072 + s * 0.928,
+    0.213 - c * 0.213 + s * 0.143, 0.715 + c * 0.285 + s * 0.14, 0.072 - c * 0.072 - s * 0.283,
+    0.213 - c * 0.213 - s * 0.787, 0.715 - c * 0.715 + s * 0.715, 0.072 + c * 0.928 + s * 0.072,
+  ];
+}
+
+function opAffine(op: FilterOp): { A: Mat3; b: [number, number, number] } {
+  switch (op.fn) {
+    case "brightness":
+      return { A: [op.v, 0, 0, 0, op.v, 0, 0, 0, op.v], b: [0, 0, 0] };
+    case "contrast": {
+      const o = 0.5 - 0.5 * op.v;
+      return { A: [op.v, 0, 0, 0, op.v, 0, 0, 0, op.v], b: [o, o, o] };
+    }
+    case "saturate":
+      return { A: saturateMat(op.v), b: [0, 0, 0] };
+    case "grayscale":
+      return { A: saturateMat(1 - op.v), b: [0, 0, 0] };
+    case "sepia":
+      return { A: sepiaMat(op.v), b: [0, 0, 0] };
+    case "hue-rotate":
+      return { A: hueMat((op.deg * Math.PI) / 180), b: [0, 0, 0] };
+  }
+}
+
+function applyOps(data: Uint8ClampedArray, ops: FilterOp[]): void {
+  // Compose ops (applied left→right) into one transform.
+  let A: Mat3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  let b: [number, number, number] = [0, 0, 0];
+  for (const op of ops) {
+    const { A: Ak, b: bk } = opAffine(op);
+    A = mul3(Ak, A);
+    const nb = mulVec3(Ak, b);
+    b = [nb[0] + bk[0], nb[1] + bk[1], nb[2] + bk[2]];
+  }
+  const [a0, a1, a2, a3, a4, a5, a6, a7, a8] = A;
+  const [b0, b1, b2] = b;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i] / 255;
+    const g = data[i + 1] / 255;
+    const bl = data[i + 2] / 255;
+    // Uint8ClampedArray clamps to 0..255 on assignment.
+    data[i] = (a0 * r + a1 * g + a2 * bl + b0) * 255;
+    data[i + 1] = (a3 * r + a4 * g + a5 * bl + b1) * 255;
+    data[i + 2] = (a6 * r + a7 * g + a8 * bl + b2) * 255;
+  }
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
