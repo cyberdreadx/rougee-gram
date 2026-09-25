@@ -7,15 +7,12 @@ import MediaVideo from "./MediaVideo";
 import { cn } from "@/lib/utils";
 
 /**
- * Instagram-style Explore grid: mostly square tiles with a periodic 2-row
- * "featured" tile, packed with dense auto-flow so the mosaic stays gap-free.
- * The tall tiles' heights come from the surrounding square tiles' tracks.
+ * Explore grid: a uniform square photo grid. (An earlier "featured" 2-row mosaic
+ * tile collapsed into an empty gap when there were few posts — the tall tile
+ * borrowed its height from neighboring square tiles that didn't exist. A plain
+ * square grid has no such edge case; bring the mosaic back behind a
+ * content-count check if desired once there's reliably enough to fill it.)
  */
-function isFeatured(i: number): boolean {
-  // One tall tile per 7 — its column drifts naturally, giving an organic mosaic.
-  return i % 7 === 3;
-}
-
 export default function ExploreGrid({
   posts,
   isLoading,
@@ -25,12 +22,9 @@ export default function ExploreGrid({
 }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-0.5 sm:gap-1" style={{ gridAutoFlow: "dense" }}>
-        {Array.from({ length: 12 }).map((_, i) => (
-          <div
-            key={i}
-            className={cn("skeleton", isFeatured(i) ? "row-span-2" : "aspect-square")}
-          />
+      <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <div key={i} className="skeleton aspect-square" />
         ))}
       </div>
     );
@@ -46,17 +40,15 @@ export default function ExploreGrid({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-0.5 sm:gap-1" style={{ gridAutoFlow: "dense" }}>
+    <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
       {cells.map(({ post, thumbRef, videoRef, isVideo, isReel, isCarousel }, i) => {
-        const featured = isFeatured(i);
         return (
           <Link
             key={post.id}
             to={`/p/${post.id}`}
             style={{ animationDelay: `${Math.min(i, 11) * 28}ms` }}
             className={cn(
-              "group relative animate-fade-in-up overflow-hidden bg-ink-soft",
-              featured ? "row-span-2" : "aspect-square",
+              "group relative aspect-square animate-fade-in-up overflow-hidden bg-ink-soft",
             )}
           >
             {isVideo && videoRef ? (
