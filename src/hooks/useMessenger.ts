@@ -8,7 +8,14 @@ import type {
 import { rc } from "@/lib/rouge";
 import { useAuth } from "@/store/auth";
 import { useFollowing } from "@/hooks/useSocial";
-import { deriveKemKeypair, encryptForRecipients, decryptEnvelope } from "@/lib/pqc";
+import {
+  deriveKemKeypair,
+  encryptForRecipients,
+  decryptEnvelope,
+  encryptMessage,
+  decryptMessage,
+  isV1Envelope,
+} from "@/lib/pqc";
 import * as extSigner from "@/lib/extensionSigner";
 import {
   acceptConversation,
@@ -85,7 +92,12 @@ export function useMyKem() {
       const kp = await deriveKemKeypair(wallet!);
       return {
         publicKeyHex: kp.publicKeyHex,
-        decrypt: (env, myId) => decryptEnvelope(env, myId, kp.secretKey),
+        // Route by format: legacy v1 multi-recipient envelopes vs the Qwalla
+        // message format (new 1:1 DMs, cross-readable with Qwalla native).
+        decrypt: (env, myId) =>
+          isV1Envelope(env)
+            ? decryptEnvelope(env, myId, kp.secretKey)
+            : decryptMessage(env, kp.secretKey),
       };
     },
   });
@@ -248,7 +260,13 @@ export function useSendMessage(conversationId: string, participantIds: string[])
           }
         }
       }
-      const envelope = await encryptForRecipients(body, recips);
+      // 1:1 DMs use Qwalla's native message format so they're cross-readable with
+      // Qwalla's Chats; group threads keep the v1 multi-recipient envelope.
+      const others = recips.filter((r) => r.id !== publicKey);
+      const envelope =
+        others.length === 1
+          ? await encryptMessage(body, others[0].kemPublicKeyHex, kem.publicKeyHex)
+          : await encryptForRecipients(body, recips);
       const res = isExtensionWallet
         ? await extSigner.messengerSendMessage(publicKey, conversationId, envelope)
         : await rc().messenger.sendMessage(wallet, conversationId, envelope, {

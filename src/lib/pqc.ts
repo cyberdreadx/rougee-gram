@@ -164,6 +164,98 @@ export async function decryptEnvelope(
   return new TextDecoder().decode(dataBuf);
 }
 
+// ── Qwalla-native messenger format (interop) ─────────────────────────────────
+// RouGee DMs now use Qwalla's exact `encryptMessage` scheme so messages are
+// cross-readable between RouGee and Qwalla's native Chats (same conversation on
+// chain). ML-KEM-768 → HKDF-SHA256(salt=zeros(32), info="pqc-msg") → AES-256-GCM,
+// with a dual recipient/sender copy. Verified interoperable both directions
+// against @qwalla/core/pq. (The v1 multi-recipient envelope above is kept for
+// group threads and to read pre-existing v1 messages.)
+const HKDF_SALT = new Uint8Array(32);
+const HKDF_INFO = new TextEncoder().encode("pqc-msg");
+
+async function deriveMsgKey(sharedSecret: Uint8Array): Promise<CryptoKey> {
+  const ikm = await crypto.subtle.importKey("raw", bs(sharedSecret), "HKDF", false, [
+    "deriveBits",
+  ]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "HKDF", hash: "SHA-256", salt: bs(HKDF_SALT), info: bs(HKDF_INFO) },
+    ikm,
+    256,
+  );
+  return crypto.subtle.importKey("raw", bits, "AES-GCM", false, ["encrypt", "decrypt"]);
+}
+
+/** Encrypt a 1:1 DM in Qwalla's native format (dual recipient + sender copy). */
+export async function encryptMessage(
+  plaintext: string,
+  recipientEncPubHex: string,
+  senderEncPubHex: string,
+): Promise<string> {
+  const pt = new TextEncoder().encode(plaintext);
+  const one = async (pubHex: string) => {
+    const { cipherText, sharedSecret } = ml_kem768.encapsulate(hexToBytes(pubHex));
+    const key = await deriveMsgKey(sharedSecret);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(
+      await crypto.subtle.encrypt({ name: "AES-GCM", iv: bs(iv) }, key, bs(pt)),
+    );
+    return { kem: bytesToHex(cipherText), iv: bytesToHex(iv), content: bytesToHex(ct) };
+  };
+  const r = await one(recipientEncPubHex);
+  const s = await one(senderEncPubHex);
+  return JSON.stringify({
+    kemCipherText: r.kem,
+    iv: r.iv,
+    encryptedContent: r.content,
+    senderKemCipherText: s.kem,
+    senderIv: s.iv,
+    senderEncryptedContent: s.content,
+  });
+}
+
+interface MsgPackage {
+  kemCipherText?: string;
+  iv?: string;
+  encryptedContent?: string;
+  senderKemCipherText?: string;
+  senderIv?: string;
+  senderEncryptedContent?: string;
+}
+
+/** Decrypt a Qwalla-format message with my KEM secret. Tries the recipient copy
+ *  then the sender copy, so it works whether I received or sent it. */
+export async function decryptMessage(json: string, mySecret: Uint8Array): Promise<string> {
+  const p = JSON.parse(json) as MsgPackage;
+  const one = async (kemHex?: string, ivHex?: string, contentHex?: string) => {
+    if (!kemHex || !ivHex || !contentHex) throw new Error("missing copy");
+    const ss = ml_kem768.decapsulate(hexToBytes(kemHex), mySecret);
+    const key = await deriveMsgKey(ss);
+    const dataBuf = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: bs(hexToBytes(ivHex)) },
+      key,
+      bs(hexToBytes(contentHex)),
+    );
+    return new TextDecoder().decode(dataBuf);
+  };
+  try {
+    return await one(p.kemCipherText, p.iv, p.encryptedContent);
+  } catch {
+    /* try sender copy */
+  }
+  return one(p.senderKemCipherText, p.senderIv, p.senderEncryptedContent);
+}
+
+/** True for the legacy v1 multi-recipient envelope (vs the Qwalla message format). */
+export function isV1Envelope(s: string): boolean {
+  try {
+    const o = JSON.parse(s);
+    return o && o.v === 1 && !!o.keys;
+  } catch {
+    return false;
+  }
+}
+
 /** Is this string one of our encrypted envelopes? */
 export function isEnvelope(s: string): boolean {
   const t = (s || "").trim();
