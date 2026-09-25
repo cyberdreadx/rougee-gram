@@ -34,6 +34,13 @@ const HEX_PUBKEY = /^[0-9a-f]+$/i;
 const isPubkey = (pk?: string): pk is string =>
   !!pk && pk.length >= 64 && pk.length % 2 === 0 && HEX_PUBKEY.test(pk);
 
+// RougeChain pubkeys are ~3904 hex chars — far over Cloudflare KV's 512-byte key
+// limit. Hash to a short, stable id for KV keys.
+async function keyId(pubkey: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pubkey));
+  return bytesToHex(new Uint8Array(buf));
+}
+
 function cors(env: Env, extra: Record<string, string> = {}): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": env.ALLOW_ORIGIN || "*",
@@ -171,8 +178,10 @@ async function handle(request: Request, env: Env): Promise<Response> {
         return json({ error: `Hold at least ${min.toLocaleString()} XRGE to verify.` }, 403, env);
       }
 
+      const id = await keyId(pubkey);
+
       // Rate-limit resends.
-      if (await env.VERIFY_CODES.get(`sent:${pubkey}`)) {
+      if (await env.VERIFY_CODES.get(`sent:${id}`)) {
         return json({ error: "A code was just sent — check your mail and wait a minute." }, 429, env);
       }
 
@@ -186,10 +195,10 @@ async function handle(request: Request, env: Env): Promise<Response> {
       }
 
       const code = sixDigitCode();
-      await env.VERIFY_CODES.put(`code:${pubkey}`, JSON.stringify({ code, attempts: 0 }), {
+      await env.VERIFY_CODES.put(`code:${id}`, JSON.stringify({ code, attempts: 0 }), {
         expirationTtl: CODE_TTL,
       });
-      await env.VERIFY_CODES.put(`sent:${pubkey}`, "1", { expirationTtl: RESEND_COOLDOWN });
+      await env.VERIFY_CODES.put(`sent:${id}`, "1", { expirationTtl: RESEND_COOLDOWN });
 
       try {
         const hq = getHq(env);
@@ -223,18 +232,19 @@ async function handle(request: Request, env: Env): Promise<Response> {
       if (!isPubkey(pubkey)) return json({ error: "invalid pubkey" }, 400, env);
       if (!code || !/^\d{6}$/.test(code)) return json({ error: "invalid code" }, 400, env);
 
-      const raw = await env.VERIFY_CODES.get(`code:${pubkey}`);
+      const id = await keyId(pubkey);
+      const raw = await env.VERIFY_CODES.get(`code:${id}`);
       if (!raw) return json({ error: "No pending code — request a new one." }, 400, env);
       const entry = JSON.parse(raw) as { code: string; attempts: number };
 
       if (entry.attempts >= MAX_ATTEMPTS) {
-        await env.VERIFY_CODES.delete(`code:${pubkey}`);
+        await env.VERIFY_CODES.delete(`code:${id}`);
         return json({ error: "Too many attempts — request a new code." }, 429, env);
       }
 
       if (entry.code !== code) {
         await env.VERIFY_CODES.put(
-          `code:${pubkey}`,
+          `code:${id}`,
           JSON.stringify({ code: entry.code, attempts: entry.attempts + 1 }),
           { expirationTtl: CODE_TTL },
         );
@@ -256,7 +266,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
         return json({ error: "Signing failed." }, 500, env);
       }
 
-      await env.VERIFY_CODES.delete(`code:${pubkey}`);
+      await env.VERIFY_CODES.delete(`code:${id}`);
       return json({ signature }, 200, env);
     }
 
