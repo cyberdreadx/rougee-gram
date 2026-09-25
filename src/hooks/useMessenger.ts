@@ -379,6 +379,18 @@ export function useStartConversation() {
       }
       const participants = [publicKey, ...recips];
       const isGroup = recips.length > 1;
+
+      // Reuse an existing thread with this exact participant set instead of
+      // minting another one — the node doesn't dedupe, so creating every time
+      // is what scatters a pair across many "Encrypted conversation" rows.
+      const want = [...participants].sort().join(",");
+      const existing = (
+        isExtensionWallet
+          ? ((await extSigner.messengerListConversations(publicKey)) as MessengerConversation[])
+          : await rc().messenger.getConversations(wallet)
+      ).find((c) => [...(c.participants ?? [])].sort().join(",") === want);
+      if (existing?.id) return existing.id;
+
       const res = isExtensionWallet
         ? await extSigner.messengerCreateConversation(publicKey, participants, isGroup)
         : await rc().messenger.createConversation(wallet, participants, { isGroup });
@@ -456,6 +468,44 @@ export function classifyConversation(
 }
 
 /** Split conversations into Primary and Requests using the follow graph + gate. */
+/** Stable key for a conversation's participant SET (self excluded), so repeated
+ *  1:1s (or identical groups) with the same people collapse to one row. */
+function participantKey(c: MessengerConversation, publicKey: string): string {
+  return (c.participants ?? [])
+    .filter((p) => p !== publicKey)
+    .sort()
+    .join(",");
+}
+
+const convoTime = (c: MessengerConversation): number =>
+  toMs(c.last_message_at ?? c.created_at);
+
+/**
+ * Collapse duplicate conversations with the same participant set into one row.
+ * The node mints a fresh conversation id on every "start" (from either side), so
+ * a pair can accumulate several 1:1 records; showing them all is the "glitch".
+ * We keep the most-recently-active as the representative and sum unread counts.
+ */
+function collapseConversations(
+  convos: MessengerConversation[],
+  publicKey: string,
+): MessengerConversation[] {
+  const groups = new Map<string, MessengerConversation[]>();
+  for (const c of convos) {
+    const k = participantKey(c, publicKey);
+    const arr = groups.get(k);
+    if (arr) arr.push(c);
+    else groups.set(k, [c]);
+  }
+  const out: MessengerConversation[] = [];
+  for (const arr of groups.values()) {
+    const rep = arr.reduce((a, b) => (convoTime(b) > convoTime(a) ? b : a));
+    const unread = arr.reduce((s, c) => s + (c.unread_count ?? 0), 0);
+    out.push(unread !== (rep.unread_count ?? 0) ? { ...rep, unread_count: unread } : rep);
+  }
+  return out.sort((a, b) => convoTime(b) - convoTime(a));
+}
+
 export function useConversationBuckets() {
   const { publicKey } = useAuth();
   const convos = useConversations();
@@ -466,15 +516,23 @@ export function useConversationBuckets() {
   const { primary, requests } = useMemo(() => {
     const primary: MessengerConversation[] = [];
     const requests: MessengerConversation[] = [];
-    for (const c of convos.data ?? []) {
-      const bucket = classifyConversation(c, {
-        publicKey,
-        following,
-        accepted: gate.accepted,
-        blocked: gate.blocked,
-      });
-      if (bucket === "primary") primary.push(c);
-      else if (bucket === "request") requests.push(c);
+    // Group first so a person's duplicate threads share one classification: if
+    // ANY duplicate was accepted/trusted, the whole group is primary (else a
+    // stray accepted dup would leave siblings stuck in Requests).
+    const raw = convos.data ?? [];
+    const byKey = new Map<string, MessengerConversation[]>();
+    for (const c of raw) {
+      const k = participantKey(c, publicKey);
+      (byKey.get(k) ?? byKey.set(k, []).get(k)!).push(c);
+    }
+    for (const rep of collapseConversations(raw, publicKey)) {
+      const group = byKey.get(participantKey(rep, publicKey)) ?? [rep];
+      const buckets = group.map((c) =>
+        classifyConversation(c, { publicKey, following, accepted: gate.accepted, blocked: gate.blocked }),
+      );
+      if (buckets.includes("blocked")) continue;
+      if (buckets.includes("primary")) primary.push(rep);
+      else requests.push(rep);
     }
     return { primary, requests };
   }, [convos.data, publicKey, following, gate.accepted, gate.blocked]);
