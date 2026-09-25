@@ -51,23 +51,56 @@ function nodeFor(env: Env, network: string): string | null {
   return null;
 }
 
+// The node returns snake_case fields, and a transfer's recipient is stored as a
+// rouge1 ADDRESS in `to_pub_key_hex` (not the recipient's raw public key).
 interface ChainTx {
-  txType?: string;
-  fromPubKey?: string;
-  payload?: { toPubKeyHex?: string; amount?: number; token?: string };
-  blockTime?: number;
+  tx_type?: string;
+  from_pub_key?: string;
+  payload?: { amount?: number; to_pub_key_hex?: string; token_name?: string };
 }
 
-/** Fetch a transaction by hash from the node (GET /api/tx/:hash). */
-async function fetchTx(nodeApi: string, hash: string): Promise<ChainTx | null> {
+/** Fetch a transaction by hash (GET /api/tx/:hash). Returns the tx + block time. */
+async function fetchTx(
+  nodeApi: string,
+  hash: string,
+): Promise<{ tx: ChainTx; blockTime: number } | null> {
   try {
     const res = await fetch(`${nodeApi}/tx/${hash}`);
     if (!res.ok) return null;
-    const data = (await res.json()) as { success?: boolean; tx?: ChainTx };
-    return data?.success && data.tx ? data.tx : null;
+    const data = (await res.json()) as {
+      success?: boolean;
+      tx?: ChainTx;
+      blockTime?: number;
+    };
+    return data?.success && data.tx
+      ? { tx: data.tx, blockTime: Number(data.blockTime) || 0 }
+      : null;
   } catch {
     return null;
   }
+}
+
+/** Resolve a rouge1 address to its public key (GET /api/resolve/:input). */
+async function resolveToPubkey(nodeApi: string, input: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${nodeApi}/resolve/${encodeURIComponent(input)}`);
+    if (!res.ok) return null;
+    const d = (await res.json()) as { publicKey?: string; public_key?: string };
+    return d.publicKey || d.public_key || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Whether a transfer recipient (address or pubkey) is the given post author. */
+async function recipientIsAuthor(
+  nodeApi: string,
+  recipient: string,
+  authorPubkey: string,
+): Promise<boolean> {
+  if (recipient === authorPubkey) return true; // already a raw pubkey
+  const resolved = await resolveToPubkey(nodeApi, recipient);
+  return resolved === authorPubkey;
 }
 
 interface StoredTip {
@@ -127,13 +160,14 @@ export default {
       }
 
       // Verify the transfer on-chain and confirm it went to THIS post's author.
-      const tx = await fetchTx(nodeApi, txId);
-      if (!tx) return json({ error: "transaction not found on chain" }, 404, env);
-      if (tx.txType !== "transfer") return json({ error: "not a transfer" }, 400, env);
+      const info = await fetchTx(nodeApi, txId);
+      if (!info) return json({ error: "transaction not found on chain" }, 404, env);
+      const { tx, blockTime } = info;
+      if (tx.tx_type !== "transfer") return json({ error: "not a transfer" }, 400, env);
       const amount = Number(tx.payload?.amount);
-      const to = tx.payload?.toPubKeyHex;
-      const from = tx.fromPubKey;
-      const token = tx.payload?.token ?? "XRGE";
+      const to = tx.payload?.to_pub_key_hex;
+      const from = tx.from_pub_key;
+      const token = tx.payload?.token_name ?? "XRGE";
       if (!(amount > 0) || !to || !from) return json({ error: "malformed transfer" }, 400, env);
       if (token !== "XRGE") return json({ error: "only XRGE tips are counted" }, 400, env);
 
@@ -146,11 +180,11 @@ export default {
         /* fall through to not-found */
       }
       if (!authorPubkey) return json({ error: "post not found" }, 404, env);
-      if (authorPubkey !== to) {
+      if (!(await recipientIsAuthor(nodeApi, to, authorPubkey))) {
         return json({ error: "transfer recipient is not the post's author" }, 400, env);
       }
 
-      const tip: StoredTip = { from, amount, at: Number(tx.blockTime) || Date.now() };
+      const tip: StoredTip = { from, amount, at: blockTime || Date.now() };
       await env.TIPS.put(`tip:${network}:${postId}:${txId}`, JSON.stringify(tip));
       await env.TIPS.put(guardKey, postId);
 
