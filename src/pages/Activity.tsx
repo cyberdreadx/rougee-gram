@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { Loader2, Heart, Users, Grid3x3, MessageCircle } from "lucide-react";
-import { useActivity, type ActivityComment } from "@/hooks/useSocial";
+import { Loader2, Heart, Users, Grid3x3, MessageCircle, Coins } from "lucide-react";
+import { useActivity, type ActivityComment, type ActivityTip } from "@/hooks/useSocial";
 import { useProfile } from "@/hooks/useProfile";
 import { decodeBody } from "@/lib/envelope";
 import { timeAgo, formatCount } from "@/lib/format";
@@ -33,7 +33,8 @@ export default function Activity() {
       {data && (
         <>
           {/* Aggregates */}
-          <div className="grid grid-cols-3 gap-2 p-4">
+          <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
+            <Stat icon={<Coins className="h-4 w-4" />} label="XRGE tipped" value={data.totalTips} />
             <Stat icon={<Heart className="h-4 w-4" />} label="Likes" value={data.totalLikes} />
             <Stat icon={<Users className="h-4 w-4" />} label="Followers" value={data.followers} />
             <Stat icon={<Grid3x3 className="h-4 w-4" />} label="Posts" value={data.postCount} />
@@ -43,8 +44,22 @@ export default function Activity() {
             not identities, for those.
           </p>
 
+          {/* Tips */}
+          {data.tips.length > 0 && (
+            <>
+              <h2 className="px-4 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                Recent tips
+              </h2>
+              <div className="divide-y divide-ink-border/60">
+                {data.tips.map((t) => (
+                  <TipRow key={t.from + t.at} item={t} />
+                ))}
+              </div>
+            </>
+          )}
+
           {/* Comments */}
-          <h2 className="px-4 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+          <h2 className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-ink-muted">
             Recent comments
           </h2>
           {data.comments.length === 0 ? (
@@ -83,17 +98,47 @@ function Stat({
   );
 }
 
+/** Thumbnail cid for a post, if it has visual media. */
+function postThumb(post: { body: string }): string | undefined {
+  const decoded = decodeBody(post.body);
+  return decoded.kind === "photo"
+    ? decoded.data.cid
+    : decoded.kind === "video"
+      ? decoded.data.poster
+      : decoded.kind === "carousel"
+        ? decoded.data.items[0]?.cid
+        : undefined;
+}
+
+function TipRow({ item }: { item: ActivityTip }) {
+  const { data: profile } = useProfile(item.from);
+  const thumb = postThumb(item.post);
+  return (
+    <Link
+      to={`/p/${item.post.id}`}
+      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
+    >
+      <Avatar refUri={profile?.avatarRef} seed={item.from} name={profile?.name} size={38} />
+      <div className="min-w-0 flex-1 leading-snug">
+        <p className="truncate text-sm">
+          <UserLink pubkey={item.from} className="font-semibold" />{" "}
+          <span className="text-ink-muted">tipped</span>{" "}
+          <span className="font-semibold text-amber-300">{formatCount(item.amount)} XRGE</span>
+        </p>
+        <span className="text-xs text-ink-muted">{timeAgo(item.at)}</span>
+      </div>
+      {thumb ? (
+        <MediaImage refUri={thumb} alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
+      ) : (
+        <div className="h-11 w-11 shrink-0 rounded bg-ink-soft" />
+      )}
+    </Link>
+  );
+}
+
 function CommentRow({ item }: { item: ActivityComment }) {
   const { data: profile } = useProfile(item.comment.author_pubkey);
-  const decoded = decodeBody(item.post.body);
-  const thumb =
-    decoded.kind === "photo"
-      ? decoded.data.cid
-      : decoded.kind === "video"
-        ? decoded.data.poster
-        : decoded.kind === "carousel"
-          ? decoded.data.items[0]?.cid
-          : undefined;
+  const thumb = postThumb(item.post);
 
   return (
     <Link

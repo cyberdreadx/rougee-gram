@@ -361,9 +361,19 @@ export interface ActivityComment {
   post: SocialPost;
   comment: SocialPost;
 }
+export interface ActivityTip {
+  post: SocialPost;
+  /** Tipper's public key. */
+  from: string;
+  amount: number;
+  /** Epoch ms (chain block time). */
+  at: number;
+}
 export interface ActivityData {
   comments: ActivityComment[];
+  tips: ActivityTip[];
   totalLikes: number;
+  totalTips: number;
   followers: number;
   postCount: number;
 }
@@ -386,26 +396,34 @@ export function useActivity() {
       });
       const results = await Promise.all(
         mine.map(async (p) => {
-          const [replies, stats] = await Promise.all([
+          const [replies, stats, tips] = await Promise.all([
             rc().social.getPostReplies(p.id, 30, 0).catch(() => [] as SocialPost[]),
             rc().social.getPostStats(p.id, publicKey).catch(() => null),
+            getPostTips(p.id),
           ]);
-          return { post: p, replies, stats };
+          return { post: p, replies, stats, tips };
         }),
       );
 
       const comments: ActivityComment[] = [];
+      const tips: ActivityTip[] = [];
       let totalLikes = 0;
+      let totalTips = 0;
       for (const r of results) {
         totalLikes += r.stats?.likes ?? 0;
         for (const c of r.replies) {
           if (c.author_pubkey !== publicKey) comments.push({ post: r.post, comment: c });
+        }
+        totalTips += r.tips.total;
+        for (const t of r.tips.tippers) {
+          tips.push({ post: r.post, from: t.from, amount: t.amount, at: t.at });
         }
       }
       comments.sort(
         (a, b) =>
           Date.parse(b.comment.created_at) - Date.parse(a.comment.created_at),
       );
+      tips.sort((a, b) => b.at - a.at);
 
       let followers = 0;
       try {
@@ -414,7 +432,7 @@ export function useActivity() {
         /* ignore */
       }
 
-      return { comments, totalLikes, followers, postCount: mine.length };
+      return { comments, tips, totalLikes, totalTips, followers, postCount: mine.length };
     },
   });
 }
