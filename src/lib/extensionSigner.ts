@@ -24,6 +24,9 @@ interface RougeChainProvider {
   isRougeChain?: boolean;
   connect(): Promise<{ publicKey: string }>;
   signTransaction(payload: Payload): Promise<ExtensionSignResult>;
+  /** Sign a READ-ONLY request without an approval popup (Qwalla enforces a strict
+   *  field allowlist + one-time site consent, so it can't sign a write). */
+  signRead?(payload: Payload): Promise<ExtensionSignResult>;
   /** KEM bridge (Qwalla/extension): the wallet's DM encryption public key. */
   getEncryptionPublicKey?(): Promise<{ encryptionPublicKey: string } | string>;
   /** KEM bridge: decrypt a RouGee DM envelope; returns plaintext only. */
@@ -221,7 +224,12 @@ async function signAndPost(
   const provider = getProvider();
   if (!provider) throw new Error("RougeChain wallet not available.");
   const payload: Payload = { ...fields, from: publicKey, timestamp: Date.now(), nonce: nonce() };
-  const result = await provider.signTransaction(payload);
+  // These are READ requests. If the wallet supports `signRead` (Qwalla), it signs
+  // read-only payloads silently (no approval popup) after a one-time consent —
+  // otherwise fall back to signTransaction (which prompts every time).
+  const result = provider.signRead
+    ? await provider.signRead(payload)
+    : await provider.signTransaction(payload);
   if (!result?.signature) throw new Error("Wallet did not return a signature.");
   const signedTx = {
     payload: result.payload ?? payload,
