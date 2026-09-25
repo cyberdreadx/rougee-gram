@@ -47,7 +47,8 @@ export function isValidAttestation(pubkey: string, vfy: string | undefined): boo
   if (HQ_PUBLIC_KEY.startsWith("__")) return false; // HQ key not configured yet
   try {
     const msg = new TextEncoder().encode(verifyMessage(pubkey));
-    return ml_dsa65.verify(hexToBytes(HQ_PUBLIC_KEY), msg, hexToBytes(vfy));
+    // noble ml-dsa: verify(signature, message, publicKey) — order matters.
+    return ml_dsa65.verify(hexToBytes(vfy), msg, hexToBytes(HQ_PUBLIC_KEY));
   } catch {
     return false;
   }
