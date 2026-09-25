@@ -181,6 +181,10 @@ export function useConversations(opts?: { background?: boolean }) {
     // Never background-poll provider wallets (each poll = an approval prompt);
     // fetch once on open. Local wallets sign silently, so keep them live.
     refetchInterval: isExtensionWallet ? false : 15_000,
+    // Reading the list is a SIGNED request → a wallet popup for provider wallets.
+    // Cache it long so re-opening the inbox doesn't re-prompt every time (local
+    // wallets sign silently, so keep them fresh).
+    staleTime: isExtensionWallet ? 10 * 60_000 : 15_000,
     // Don't retry-storm the wallet with sign prompts if a signed read fails.
     retry: false,
     queryFn: () =>
@@ -218,6 +222,9 @@ export function useMessages(
     // See useConversations: don't background-poll provider wallets (each poll is
     // a wallet signature prompt). Fetch on open; local wallets stay live.
     refetchInterval: isExtensionWallet ? false : 8000,
+    // Signed read → provider-wallet popup; cache long so re-opening a chat within
+    // a session doesn't re-prompt. Optimistic append keeps sent messages visible.
+    staleTime: isExtensionWallet ? 10 * 60_000 : 8000,
     retry: false,
     queryFn: async (): Promise<DecryptedMessage[]> => {
       const msgs = isExtensionWallet
