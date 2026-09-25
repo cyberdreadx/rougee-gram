@@ -56,11 +56,26 @@ const defaults: RuntimeConfig = {
   storyWorkerUrl: import.meta.env.VITE_STORY_WORKER_URL || "",
 };
 
+// One-time migration key: users who ran the app when the default was testnet may
+// have that persisted, which would shadow the new mainnet default. On first load
+// after launch, drop a persisted testnet endpoint so the mainnet default applies.
+// Provider wallets (Qwalla) still re-follow their actual network on connect, so a
+// genuine testnet user is switched right back.
+const MIGRATION_KEY = "rougee-gram:cfg-migrated-mainnet";
+const OLD_TESTNET_API = "https://testnet.rougechain.io/api";
+
 function load(): RuntimeConfig {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return { ...defaults };
     const parsed = JSON.parse(raw) as Partial<RuntimeConfig>;
+    if (!localStorage.getItem(MIGRATION_KEY)) {
+      localStorage.setItem(MIGRATION_KEY, "1");
+      if (parsed.apiUrl === OLD_TESTNET_API) {
+        delete parsed.apiUrl;
+        delete parsed.network;
+      }
+    }
     return { ...defaults, ...parsed };
   } catch {
     return { ...defaults };
