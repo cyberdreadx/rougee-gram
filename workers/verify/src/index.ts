@@ -210,14 +210,30 @@ async function handle(request: Request, env: Env): Promise<Response> {
             `If you didn't request this, ignore this message.`,
           recipEnc,
         );
-        await rc.mail.send(hq, {
+        const sent = (await rc.mail.send(hq, {
           from: hq.publicKey,
           to: pubkey,
           encrypted_subject: subjectEnc,
           encrypted_body: bodyEnc,
-        });
-      } catch {
-        return json({ error: "Could not send the code to your mail. Try again." }, 502, env);
+        })) as { success?: boolean; error?: string };
+        // mail.send RESOLVES on a node-level failure (doesn't throw), so we must
+        // check success — otherwise a failed send is reported as ok.
+        if (!sent?.success) {
+          // Let them retry immediately — the code was never delivered.
+          await env.VERIFY_CODES.delete(`sent:${id}`);
+          return json(
+            { error: `Could not send the code to your mail: ${sent?.error || "unknown error"}` },
+            502,
+            env,
+          );
+        }
+      } catch (e) {
+        await env.VERIFY_CODES.delete(`sent:${id}`);
+        return json(
+          { error: `Could not send the code to your mail: ${e instanceof Error ? e.message : String(e)}` },
+          502,
+          env,
+        );
       }
 
       return json({ ok: true }, 200, env);
