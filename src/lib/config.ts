@@ -64,6 +64,16 @@ const defaults: RuntimeConfig = {
 const MIGRATION_KEY = "rougee-gram:cfg-migrated-mainnet";
 const OLD_TESTNET_API = "https://testnet.rougechain.io/api";
 
+// Worker URLs come from build env and are NEVER user-settable in the UI, so they
+// must always be taken from the current build — never a shadowing persisted
+// value. (A past bug persisted the whole config, so an empty verifyWorkerUrl got
+// saved before the worker existed and then hid it after we deployed it.)
+const DEPLOY_ONLY: (keyof RuntimeConfig)[] = [
+  "verifyWorkerUrl",
+  "tipsWorkerUrl",
+  "storyWorkerUrl",
+];
+
 function load(): RuntimeConfig {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -76,6 +86,8 @@ function load(): RuntimeConfig {
         delete parsed.network;
       }
     }
+    // Deploy-only fields always come from the build, never a persisted override.
+    for (const k of DEPLOY_ONLY) delete parsed[k];
     return { ...defaults, ...parsed };
   } catch {
     return { ...defaults };
@@ -91,8 +103,15 @@ export function getConfig(): RuntimeConfig {
 export function updateConfig(patch: Partial<RuntimeConfig>): RuntimeConfig {
   current = { ...current, ...patch };
   try {
-    // Only persist the deltas that differ from build-time defaults.
-    localStorage.setItem(LS_KEY, JSON.stringify(current));
+    // Persist ONLY user deltas (fields differing from build defaults), and never
+    // deploy-only worker URLs — otherwise a future default change is shadowed by
+    // whatever was baked in when the config was last written.
+    const delta: Record<string, unknown> = {};
+    for (const key of Object.keys(current) as (keyof RuntimeConfig)[]) {
+      if (DEPLOY_ONLY.includes(key)) continue;
+      if (current[key] !== defaults[key]) delta[key] = current[key];
+    }
+    localStorage.setItem(LS_KEY, JSON.stringify(delta));
   } catch {
     /* storage may be unavailable; keep in-memory */
   }
