@@ -30,6 +30,10 @@
   # chain and serves per-post totals. See workers/tips/wrangler.toml.
   VITE_TIPS_WORKER_URL = "https://rougee-tips.rougee.workers.dev"
 
+  # Story-engagement Worker (off-chain views + reactions for ephemeral stories).
+  # See workers/story/wrangler.toml.
+  VITE_STORY_WORKER_URL = "https://rougee-story.rougee.workers.dev"
+
 # Never cache the HTML entry, so a new deploy is picked up on the next load
 # instead of a stale index.html pointing at an old (or purged) JS bundle — the
 # classic cause of a post-deploy white screen. Fingerprinted assets (Vite puts a

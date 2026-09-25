@@ -14,3 +14,6 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
+
+# Local wrangler dev state/cache
+.wrangler/

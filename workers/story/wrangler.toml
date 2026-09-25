@@ -1,0 +1,23 @@
+# Cloudflare Worker: RouGee story engagement (views + reactions).
+#
+# Stories are ephemeral on-chain posts; viewing/reacting must be free and silent
+# (no per-view tx or wallet popup), so engagement lives off-chain here. KV keyed
+# by network+storyId+viewer, with a 48h TTL so it self-cleans after a story
+# expires. Replies are NOT here — they go through the E2E DM messenger.
+#
+# Setup:
+#   npx wrangler kv namespace create STORY
+#     -> put the returned id below under [[kv_namespaces]]
+#   npx wrangler deploy --config workers/story/wrangler.toml
+#   # then set VITE_STORY_WORKER_URL to the deployed URL (netlify.toml / .env).
+name = "rougee-story"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "STORY"
+id = "afd2f582c66f4b9c86f860ff09505e67"
+
+[vars]
+ALLOW_ORIGIN = "*"

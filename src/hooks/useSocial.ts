@@ -372,10 +372,38 @@ export interface ActivityTip {
 export interface ActivityData {
   comments: ActivityComment[];
   tips: ActivityTip[];
+  /** Pubkeys that followed since the last time Activity was opened. */
+  newFollowers: string[];
   totalLikes: number;
   totalTips: number;
   followers: number;
   postCount: number;
+}
+
+// Followers you'd already seen, per account, so we can surface only NEW ones as
+// notifications. Device-local (a snapshot, not truth) — the follow graph itself
+// lives on-chain. First run seeds the baseline silently so existing followers
+// don't all flash as "new".
+const FOLLOWERS_SEEN_KEY = "rougee-gram:followers-seen";
+
+function readSeenFollowers(pubkey: string): Set<string> | null {
+  try {
+    const all = JSON.parse(localStorage.getItem(FOLLOWERS_SEEN_KEY) || "{}");
+    const arr = all?.[pubkey];
+    return Array.isArray(arr) ? new Set(arr) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSeenFollowers(pubkey: string, followers: string[]): void {
+  try {
+    const all = JSON.parse(localStorage.getItem(FOLLOWERS_SEEN_KEY) || "{}");
+    all[pubkey] = followers;
+    localStorage.setItem(FOLLOWERS_SEEN_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Your activity: comments on your posts + aggregate like/follower counts.
@@ -432,7 +460,34 @@ export function useActivity() {
         /* ignore */
       }
 
-      return { comments, tips, totalLikes, totalTips, followers, postCount: mine.length };
+      // New followers since last visit (identities come from the on-chain follow
+      // graph; getUserFollowers is paginated, so page through up to ~600).
+      let newFollowers: string[] = [];
+      try {
+        const current: string[] = [];
+        for (let off = 0; off < 600; off += 200) {
+          const page = await rc().social.getUserFollowers(publicKey, 200, off);
+          if (!page.length) break;
+          current.push(...page);
+          if (page.length < 200) break;
+        }
+        const seen = readSeenFollowers(publicKey);
+        // First run: seed the baseline silently (don't flash existing followers).
+        newFollowers = seen ? current.filter((f) => !seen.has(f)) : [];
+        writeSeenFollowers(publicKey, current);
+      } catch {
+        /* ignore — no follow notifications this run */
+      }
+
+      return {
+        comments,
+        tips,
+        newFollowers,
+        totalLikes,
+        totalTips,
+        followers,
+        postCount: mine.length,
+      };
     },
   });
 }

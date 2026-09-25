@@ -1,15 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X, Volume2, VolumeX } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { X, Volume2, VolumeX, Send, Eye, Loader2 } from "lucide-react";
 import { decodeBody, type StoryEnvelope } from "@/lib/envelope";
 import { markStoriesSeen, type StoryGroup } from "@/hooks/useStories";
 import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/store/auth";
+import { useDmCapable, useSendStoryReply } from "@/hooks/useMessenger";
+import { useToast } from "./Toast";
 import { displayName } from "@/lib/profile";
-import { timeAgo } from "@/lib/format";
+import { timeAgo, formatCount } from "@/lib/format";
+import { shortAddress } from "@/lib/format";
+import {
+  recordStoryView,
+  reactToStory,
+  getStoryEngagement,
+  storyEngageEnabled,
+} from "@/lib/storyEngage";
+import { VerifiedName } from "./UserLink";
 import Avatar from "./Avatar";
 import MediaImage from "./MediaImage";
 import MediaVideo from "./MediaVideo";
 
 const IMAGE_MS = 5000;
+const REACTIONS = ["❤️", "🔥", "😂", "😮", "😢", "👏"];
 
 export default function StoryViewer({
   groups,
@@ -25,14 +38,53 @@ export default function StoryViewer({
   const [progress, setProgress] = useState(0);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [reactions, setReactions] = useState<Record<string, string>>({});
+  const [reply, setReply] = useState("");
+  const [seenOpen, setSeenOpen] = useState(false);
+
+  const { publicKey } = useAuth();
+  const dmCapable = useDmCapable();
+  const sendReply = useSendStoryReply();
+  const { toast } = useToast();
 
   const group = groups[gi];
   const story = group?.stories[si];
   const decoded = story ? decodeBody(story.body) : null;
   const data = decoded?.kind === "story" ? (decoded.data as StoryEnvelope) : null;
   const isVideo = (data?.mime || "").startsWith("video/");
+  const isMine = !!group && group.pubkey === publicKey;
+  const myReaction = story ? reactions[story.id] : undefined;
 
   const { data: profile } = useProfile(group?.pubkey);
+
+  // Record a view (others' stories only) whenever the visible segment changes.
+  useEffect(() => {
+    if (story && !isMine && publicKey && storyEngageEnabled()) {
+      recordStoryView(story.id, publicKey);
+    }
+  }, [story, isMine, publicKey]);
+
+  function react(emoji: string) {
+    if (!story || !publicKey) return;
+    const nextVal = myReaction === emoji ? "" : emoji;
+    setReactions((m) => ({ ...m, [story.id]: nextVal }));
+    void reactToStory(story.id, publicKey, nextVal);
+  }
+
+  function submitReply() {
+    const text = reply.trim();
+    if (!text || !group) return;
+    sendReply.mutate(
+      { authorPubkey: group.pubkey, text },
+      {
+        onSuccess: () => {
+          setReply("");
+          toast("Reply sent", "success");
+        },
+        onError: (e) => toast(e instanceof Error ? e.message : "Couldn't send reply", "error"),
+      },
+    );
+  }
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const downAt = useRef(0);
   const downPos = useRef({ x: 0, y: 0 });
@@ -216,13 +268,126 @@ export default function StoryViewer({
           )}
         </div>
 
-        {/* caption */}
-        {data.cap && (
-          <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/70 to-transparent p-4 pb-8 text-center text-sm text-white">
-            {data.cap}
-          </div>
+        {/* caption + engagement (higher z than the tap layer; own handlers) */}
+        <div
+          className="absolute inset-x-0 bottom-0 z-30 flex flex-col gap-2 bg-gradient-to-t from-black/80 to-transparent px-3 pb-4 pt-8"
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+        >
+          {data.cap && <p className="px-1 text-center text-sm text-white">{data.cap}</p>}
+
+          {isMine ? (
+            storyEngageEnabled() && (
+              <button
+                onClick={() => setSeenOpen(true)}
+                className="mx-auto flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white"
+              >
+                <Eye className="h-4 w-4" /> Seen by — tap to see
+              </button>
+            )
+          ) : (
+            <>
+              {storyEngageEnabled() && (
+                <div className="flex items-center justify-center gap-2">
+                  {REACTIONS.map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => react(e)}
+                      className={
+                        "text-2xl transition-transform active:scale-90 " +
+                        (myReaction === e ? "scale-110" : "opacity-80 hover:opacity-100")
+                      }
+                      aria-label={`React ${e}`}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {dmCapable && (
+                <div className="flex items-center gap-2">
+                  <input
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    onFocus={() => setPaused(true)}
+                    onBlur={() => setPaused(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") submitReply();
+                    }}
+                    placeholder={`Reply to ${profile ? displayName(profile) : "story"}…`}
+                    className="flex-1 rounded-full border border-white/30 bg-black/40 px-4 py-2 text-sm text-white placeholder:text-white/50 focus:outline-none"
+                  />
+                  <button
+                    onClick={submitReply}
+                    disabled={!reply.trim() || sendReply.isPending}
+                    className="rounded-full bg-rouge-600 p-2 text-white disabled:opacity-40"
+                    aria-label="Send reply"
+                  >
+                    {sendReply.isPending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Send className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {seenOpen && story && (
+        <SeenBySheet storyId={story.id} onClose={() => setSeenOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+/** Author-only viewer/reaction list for one of your own stories. */
+function SeenBySheet({ storyId, onClose }: { storyId: string; onClose: () => void }) {
+  const { data } = useQuery({
+    queryKey: ["storyEngage", storyId],
+    queryFn: () => getStoryEngagement(storyId),
+    staleTime: 15_000,
+  });
+  // reactions keyed by viewer, so we can show an emoji next to each name.
+  const reactionByViewer = new Map((data?.reactions ?? []).map((r) => [r.from, r.emoji]));
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60" onClick={onClose}>
+      <div
+        className="w-full max-w-[440px] rounded-t-2xl border-t border-ink-border bg-ink-card p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+          <Eye className="h-4 w-4" /> Seen by {formatCount(data?.viewCount ?? 0)}
+        </div>
+        {!data || data.views.length === 0 ? (
+          <p className="py-8 text-center text-sm text-ink-muted">No views yet.</p>
+        ) : (
+          <ul className="max-h-[55vh] space-y-1 overflow-y-auto">
+            {data.views.map((v) => (
+              <SeenByRow key={v.viewer} viewer={v.viewer} at={v.at} emoji={reactionByViewer.get(v.viewer)} />
+            ))}
+          </ul>
         )}
       </div>
     </div>
+  );
+}
+
+function SeenByRow({ viewer, at, emoji }: { viewer: string; at: number; emoji?: string }) {
+  const { data: profile } = useProfile(viewer);
+  return (
+    <li className="flex items-center gap-3 rounded-xl px-2 py-2">
+      <Avatar refUri={profile?.avatarRef} seed={viewer} name={profile?.name} size={36} />
+      <div className="min-w-0 flex-1 leading-tight">
+        <VerifiedName pubkey={viewer} className="truncate text-sm font-semibold" />
+        <div className="truncate text-xs text-ink-muted">
+          <span className="font-mono">{shortAddress(profile?.address ?? "", 8, 4)}</span> · {timeAgo(at)}
+        </div>
+      </div>
+      {emoji && <span className="shrink-0 text-lg">{emoji}</span>}
+    </li>
   );
 }

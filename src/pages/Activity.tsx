@@ -1,6 +1,10 @@
 import { Link } from "react-router-dom";
 import { Loader2, Heart, Users, Grid3x3, MessageCircle, Coins } from "lucide-react";
-import { useActivity, type ActivityComment, type ActivityTip } from "@/hooks/useSocial";
+import {
+  useActivity,
+  type ActivityComment,
+  type ActivityTip,
+} from "@/hooks/useSocial";
 import { useProfile } from "@/hooks/useProfile";
 import { decodeBody } from "@/lib/envelope";
 import { timeAgo, formatCount } from "@/lib/format";
@@ -40,9 +44,23 @@ export default function Activity() {
             <Stat icon={<Grid3x3 className="h-4 w-4" />} label="Posts" value={data.postCount} />
           </div>
           <p className="px-4 pb-2 text-xs text-ink-muted">
-            Likes &amp; followers are shown as totals — RougeChain exposes counts,
-            not identities, for those.
+            Likes are shown as a total — RougeChain exposes counts, not
+            identities, for likes.
           </p>
+
+          {/* New followers */}
+          {data.newFollowers.length > 0 && (
+            <>
+              <h2 className="px-4 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                New followers
+              </h2>
+              <div className="divide-y divide-ink-border/60">
+                {data.newFollowers.map((pk) => (
+                  <FollowerRow key={pk} pubkey={pk} />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Tips */}
           {data.tips.length > 0 && (
@@ -108,6 +126,24 @@ function postThumb(post: { body: string }): string | undefined {
       : decoded.kind === "carousel"
         ? decoded.data.items[0]?.cid
         : undefined;
+}
+
+function FollowerRow({ pubkey }: { pubkey: string }) {
+  const { data: profile } = useProfile(pubkey);
+  return (
+    <Link
+      to={profile?.address ? `/u/${profile.address}` : "#"}
+      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
+    >
+      <Avatar refUri={profile?.avatarRef} seed={pubkey} name={profile?.name} size={38} />
+      <div className="min-w-0 flex-1 leading-snug">
+        <p className="truncate text-sm">
+          <UserLink pubkey={pubkey} className="font-semibold" />{" "}
+          <span className="text-ink-muted">started following you</span>
+        </p>
+      </div>
+    </Link>
+  );
 }
 
 function TipRow({ item }: { item: ActivityTip }) {

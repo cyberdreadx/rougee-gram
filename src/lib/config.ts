@@ -22,6 +22,8 @@ export interface RuntimeConfig {
   verifyWorkerUrl: string;
   /** RouGee tips-ledger Worker base URL (per-post tip attribution). */
   tipsWorkerUrl: string;
+  /** RouGee story-engagement Worker base URL (off-chain views + reactions). */
+  storyWorkerUrl: string;
 }
 
 /** Well-known RougeChain networks selectable at runtime in Settings. */
@@ -51,6 +53,7 @@ const defaults: RuntimeConfig = {
   cfStream: (import.meta.env.VITE_CF_STREAM || "") === "true",
   verifyWorkerUrl: import.meta.env.VITE_VERIFY_WORKER_URL || "",
   tipsWorkerUrl: import.meta.env.VITE_TIPS_WORKER_URL || "",
+  storyWorkerUrl: import.meta.env.VITE_STORY_WORKER_URL || "",
 };
 
 function load(): RuntimeConfig {

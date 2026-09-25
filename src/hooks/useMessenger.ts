@@ -286,6 +286,80 @@ export function useDeleteMessage(conversationId: string) {
   });
 }
 
+/**
+ * Reply to a story as a private E2E DM to its author. Finds or creates the 1:1
+ * conversation, encrypts to both parties, and sends — the same machinery as the
+ * Messages composer, but callable in one shot from the story viewer.
+ */
+export function useSendStoryReply() {
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const { data: kem } = useMyKem();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ authorPubkey, text }: { authorPubkey: string; text: string }) => {
+      if (!wallet || !kem) throw new Error("Messaging isn't available on this wallet.");
+      const body = text.trim();
+      if (!body) throw new Error("Empty message");
+      if (authorPubkey === publicKey) throw new Error("That's your own story.");
+
+      const dir = (await rc().messenger.getWallets().catch(() => [] as MessengerWallet[])).map(
+        normWallet,
+      );
+      const author = dir.find((w) => w.id === authorPubkey);
+      if (!author?.encryptionPublicKey) {
+        throw new Error("They haven't enabled messaging yet.");
+      }
+
+      // Find an existing 1:1 conversation, else create one (mirrors
+      // useStartConversation: the node may return the id or dedupe existing).
+      const participants = [publicKey, authorPubkey];
+      const existing = (
+        isExtensionWallet
+          ? ((await extSigner.messengerListConversations(publicKey)) as MessengerConversation[])
+          : await rc().messenger.getConversations(wallet)
+      ).find(
+        (c) =>
+          participants.every((p) => c.participants?.includes(p)) &&
+          (c.participants?.length ?? 0) === 2,
+      );
+
+      let conversationId = existing?.id;
+      if (!conversationId) {
+        const res = isExtensionWallet
+          ? await extSigner.messengerCreateConversation(publicKey, participants, false)
+          : await rc().messenger.createConversation(wallet, participants, { isGroup: false });
+        if (!res.success) throw new Error(res.error || "Could not start conversation");
+        const data = (res.data ?? {}) as {
+          conversationId?: string;
+          id?: string;
+          conversation?: { id?: string };
+        };
+        conversationId = data.conversationId || data.id || data.conversation?.id;
+        if (!conversationId) {
+          const convos = isExtensionWallet
+            ? ((await extSigner.messengerListConversations(publicKey)) as MessengerConversation[])
+            : await rc().messenger.getConversations(wallet);
+          conversationId = convos.find((c) => participants.every((p) => c.participants?.includes(p)))?.id;
+        }
+        if (!conversationId) throw new Error("Conversation created, but no id was returned.");
+      }
+
+      const envelope = await encryptForRecipients(body, [
+        { id: publicKey, kemPublicKeyHex: kem.publicKeyHex },
+        { id: authorPubkey, kemPublicKeyHex: author.encryptionPublicKey },
+      ]);
+      const send = isExtensionWallet
+        ? await extSigner.messengerSendMessage(publicKey, conversationId, envelope)
+        : await rc().messenger.sendMessage(wallet, conversationId, envelope, { messageType: "text" });
+      if (!send.success) throw new Error(send.error || "Send failed");
+      return { conversationId };
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["conversations", publicKey] });
+    },
+  });
+}
+
 export function useStartConversation() {
   const { wallet, publicKey, address, isExtensionWallet } = useAuth();
   const client = useQueryClient();

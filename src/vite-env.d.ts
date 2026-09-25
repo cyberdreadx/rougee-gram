@@ -10,6 +10,7 @@ interface ImportMetaEnv {
   readonly VITE_CF_STREAM?: string;
   readonly VITE_VERIFY_WORKER_URL?: string;
   readonly VITE_TIPS_WORKER_URL?: string;
+  readonly VITE_STORY_WORKER_URL?: string;
   /** "true" reveals operator-only Settings (media backend, network switcher). */
   readonly VITE_SHOW_ADVANCED?: string;
 }
