@@ -16,6 +16,7 @@ import {
   RefreshCw,
   KeyRound,
   Lock,
+  AtSign,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
@@ -39,6 +40,8 @@ import { useVerified } from "@/hooks/useVerified";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { startVerify, confirmVerify } from "@/lib/verifyApi";
 import { VERIFY_MIN_XRGE } from "@/lib/verify";
+import { useMyUsername, useRegisterUsername, useReleaseUsername } from "@/hooks/useUsername";
+import { validateUsername, normalizeUsername, isUsernameAvailable, USERNAME_MAX } from "@/lib/username";
 
 /** Operator-only sections (media backend config, network switcher) are hidden
  *  from consumers. They show in local dev, or in any build with
@@ -74,6 +77,8 @@ export default function Settings() {
           onRefresh={refreshBalance}
         />
 
+        <UsernameSection />
+
         <SecuritySection address={address} isExtensionWallet={isExtensionWallet} />
 
         <VerifySection publicKey={publicKey} balance={balance} />
@@ -98,6 +103,128 @@ export default function Settings() {
         </p>
       </div>
     </div>
+  );
+}
+
+function UsernameSection() {
+  const { toast } = useToast();
+  const { data: current, isLoading } = useMyUsername();
+  const register = useRegisterUsername();
+  const release = useReleaseUsername();
+  const [value, setValue] = useState("");
+  const [status, setStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">(
+    "idle",
+  );
+
+  const normalized = normalizeUsername(value);
+  const error = value ? validateUsername(value) : null;
+
+  // Debounced availability check as the user types.
+  useEffect(() => {
+    if (!value) return setStatus("idle");
+    if (error) return setStatus("invalid");
+    setStatus("checking");
+    let active = true;
+    const t = setTimeout(async () => {
+      const ok = await isUsernameAvailable(normalized);
+      if (active) setStatus(ok ? "available" : "taken");
+    }, 450);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, [value, normalized, error]);
+
+  function claim() {
+    register.mutate(normalized, {
+      onSuccess: () => {
+        toast(`@${normalized} is yours 🎉`, "success");
+        setValue("");
+        setStatus("idle");
+      },
+      onError: (e) => toast(e instanceof Error ? e.message : "Couldn't claim it.", "error"),
+    });
+  }
+
+  function giveUp() {
+    if (!current) return;
+    release.mutate(current, {
+      onSuccess: () => toast("Username released.", "success"),
+      onError: (e) => toast(e instanceof Error ? e.message : "Couldn't release it.", "error"),
+    });
+  }
+
+  return (
+    <Section icon={<AtSign className="h-4 w-4" />} title="Username">
+      {isLoading ? (
+        <div className="flex justify-center py-2">
+          <Loader2 className="h-4 w-4 animate-spin text-ink-muted" />
+        </div>
+      ) : current ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-xl bg-ink-soft px-3 py-2.5">
+            <span className="font-semibold">@{current}</span>
+            <span className="text-xs text-emerald-400">Claimed</span>
+          </div>
+          <p className="text-xs text-ink-muted">
+            Your unique handle on RougeChain — separate from your display name, and
+            reserved to your key. People can find you at <span className="font-mono">@{current}</span>.
+          </p>
+          <button
+            className="btn-ghost w-full text-xs text-rouge-400"
+            disabled={release.isPending}
+            onClick={giveUp}
+          >
+            {release.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Release username"}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-sm text-ink-muted">
+            Claim a unique <span className="font-medium text-white">@username</span> — a
+            permanent handle bound to your key, separate from your display name.
+          </p>
+          <div className="flex items-center gap-2 rounded-xl bg-ink-soft px-3">
+            <span className="text-ink-muted">@</span>
+            <input
+              className="flex-1 bg-transparent py-2.5 text-sm outline-none"
+              placeholder="username"
+              value={value}
+              maxLength={USERNAME_MAX + 1}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              onChange={(e) => setValue(e.target.value)}
+            />
+            {status === "checking" && <Loader2 className="h-4 w-4 animate-spin text-ink-muted" />}
+            {status === "available" && <Check className="h-4 w-4 text-emerald-400" />}
+          </div>
+          <div className="min-h-[1rem] text-xs">
+            {error ? (
+              <span className="text-rouge-400">{error}</span>
+            ) : status === "taken" ? (
+              <span className="text-rouge-400">@{normalized} is taken.</span>
+            ) : status === "available" ? (
+              <span className="text-emerald-400">@{normalized} is available.</span>
+            ) : null}
+          </div>
+          <button
+            className="btn-primary w-full py-2.5"
+            disabled={status !== "available" || register.isPending}
+            onClick={claim}
+          >
+            {register.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              `Claim @${normalized || "username"}`
+            )}
+          </button>
+          <p className="text-[11px] text-ink-muted">
+            Registered on-chain (a tiny XRGE fee). Letters, numbers, and underscores.
+          </p>
+        </div>
+      )}
+    </Section>
   );
 }
 

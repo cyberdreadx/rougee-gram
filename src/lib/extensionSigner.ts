@@ -169,6 +169,13 @@ export const socialToggleFollow = (pk: string, artistPubkey: string) =>
 export const socialDeletePost = (pk: string, postId: string) =>
   signAndSubmit("/v2/social/post/delete", { postId }, pk);
 
+// ── Username registry (mirrors @rougechain/sdk registerName/releaseName) ──
+export const registerName = (pk: string, name: string) =>
+  signAndSubmit("/v2/names/register", { name, walletId: pk }, pk);
+
+export const releaseName = (pk: string, name: string) =>
+  signAndSubmit("/v2/names/release", { name }, pk);
+
 // ── Value transfer (tips) ──
 export const transfer = (pk: string, to: string, amount: number, token = "XRGE") =>
   signAndSubmit("/v2/transfer", { type: "transfer", to, amount, fee: 1, token }, pk);

@@ -14,6 +14,7 @@ import PostDetail from "./pages/PostDetail";
 import Settings from "./pages/Settings";
 import Splash from "./components/Splash";
 import Tutorial from "./components/Tutorial";
+import HandleRoute from "./components/HandleRoute";
 
 export default function App() {
   const { status } = useAuth();
@@ -34,6 +35,9 @@ export default function App() {
         <Route path="/p/:postId" element={<PostDetail />} />
         <Route path="/u/:address" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
+        {/* Single-segment fallback: @username deep-links resolve here (static
+            routes above rank higher); everything else redirects home. */}
+        <Route path="/:handle" element={<HandleRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Tutorial />

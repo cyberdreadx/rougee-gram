@@ -31,6 +31,7 @@ import Carousel from "./Carousel";
 import { VerifiedName } from "./UserLink";
 import SaveButton from "./SaveButton";
 import TipButton from "./TipButton";
+import Handle from "./Handle";
 import Caption from "./Caption";
 import FeedVideo from "./FeedVideo";
 import { Film, MapPin } from "lucide-react";
@@ -126,10 +127,13 @@ export default function PostCard({ post }: { post: SocialPost }) {
           />
         </button>
         <div className="min-w-0 flex-1 leading-tight">
-          <VerifiedName
-            pubkey={post.author_pubkey}
-            className="truncate text-sm font-semibold"
-          />
+          <span className="flex items-center gap-1.5 truncate">
+            <VerifiedName
+              pubkey={post.author_pubkey}
+              className="truncate text-sm font-semibold"
+            />
+            <Handle pubkey={post.author_pubkey} className="shrink-0 text-xs" />
+          </span>
           {location ? (
             <div className="flex items-center gap-1 truncate text-xs text-white/90">
               <MapPin className="h-3 w-3 shrink-0 text-rouge-400" />
@@ -303,10 +307,13 @@ function TextPostCard({
           />
         </button>
         <div className="min-w-0 flex-1 leading-tight">
-          <VerifiedName
-            pubkey={post.author_pubkey}
-            className="truncate text-sm font-semibold"
-          />
+          <span className="flex items-center gap-1.5 truncate">
+            <VerifiedName
+              pubkey={post.author_pubkey}
+              className="truncate text-sm font-semibold"
+            />
+            <Handle pubkey={post.author_pubkey} className="shrink-0 text-xs" />
+          </span>
           <div className="truncate text-xs text-ink-muted">
             <span className="font-mono">{shortAddress(profile?.address ?? "", 10, 5)}</span> ·{" "}
             {timeAgo(post.created_at)}

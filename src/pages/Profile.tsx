@@ -33,6 +33,7 @@ import { FollowingModal, FollowersModal } from "@/components/FollowListModal";
 import { latestActiveNote, type Note } from "@/hooks/useNotes";
 import { useVerified } from "@/hooks/useVerified";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import Handle from "@/components/Handle";
 import { Plus } from "lucide-react";
 
 /** Display host for a link chip (drops the www. and scheme). */
@@ -138,6 +139,7 @@ export default function Profile() {
             <span>{profile ? displayName(profile) : shortAddress(address ?? "")}</span>
             {verified && <VerifiedBadge size={18} />}
           </div>
+          <Handle pubkey={pubkey} className="text-sm" />
           <div className="font-mono text-sm text-ink-muted">
             {shortAddress(profile?.address ?? address ?? "", 14, 8)}
           </div>
