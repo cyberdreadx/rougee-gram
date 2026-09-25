@@ -1,5 +1,6 @@
 import { useState } from "react";
 import UserLink from "./UserLink";
+import RichText from "./RichText";
 
 export default function Caption({
   authorPubkey,
@@ -17,7 +18,7 @@ export default function Caption({
   return (
     <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
       <UserLink pubkey={authorPubkey} className="mr-1.5 font-semibold" />
-      {shown}
+      <RichText text={shown} />
       {isLong && !expanded && (
         <>
           …{" "}

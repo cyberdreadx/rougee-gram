@@ -32,6 +32,7 @@ import { VerifiedName } from "./UserLink";
 import SaveButton from "./SaveButton";
 import TipButton from "./TipButton";
 import Handle from "./Handle";
+import RichText from "./RichText";
 import Caption from "./Caption";
 import FeedVideo from "./FeedVideo";
 import { Film, MapPin } from "lucide-react";
@@ -135,10 +136,13 @@ export default function PostCard({ post }: { post: SocialPost }) {
             <Handle pubkey={post.author_pubkey} className="shrink-0 text-xs" />
           </span>
           {location ? (
-            <div className="flex items-center gap-1 truncate text-xs text-white/90">
+            <button
+              onClick={() => navigate(`/location/${encodeURIComponent(location)}`)}
+              className="flex items-center gap-1 truncate text-xs text-white/90 hover:underline"
+            >
               <MapPin className="h-3 w-3 shrink-0 text-rouge-400" />
               <span className="truncate">{location}</span>
-            </div>
+            </button>
           ) : null}
           <div className="truncate text-xs text-ink-muted">
             <span className="font-mono">{shortAddress(profile?.address ?? "", 10, 5)}</span> · {timeAgo(post.created_at)}
@@ -327,7 +331,7 @@ function TextPostCard({
         onClick={() => navigate(`/p/${post.id}`)}
       >
         <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-          {shown}
+          <RichText text={shown} />
           {isLong && !expanded && (
             <>
               …{" "}

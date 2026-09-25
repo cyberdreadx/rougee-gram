@@ -15,6 +15,8 @@ import Settings from "./pages/Settings";
 import Splash from "./components/Splash";
 import Tutorial from "./components/Tutorial";
 import HandleRoute from "./components/HandleRoute";
+import TagPage from "./pages/TagPage";
+import LocationPage from "./pages/LocationPage";
 
 export default function App() {
   const { status } = useAuth();
@@ -34,6 +36,8 @@ export default function App() {
         <Route path="/messages/:id" element={<Chat />} />
         <Route path="/p/:postId" element={<PostDetail />} />
         <Route path="/u/:address" element={<Profile />} />
+        <Route path="/tag/:tag" element={<TagPage />} />
+        <Route path="/location/:loc" element={<LocationPage />} />
         <Route path="/settings" element={<Settings />} />
         {/* Single-segment fallback: @username deep-links resolve here (static
             routes above rank higher); everything else redirects home. */}

@@ -22,7 +22,6 @@ import {
   ChevronDown,
   Music2,
   Wand2,
-  MapPin,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -56,6 +55,7 @@ import type { Sound } from "@/hooks/useSounds";
 import * as write from "@/lib/write";
 import SoundPicker from "./SoundPicker";
 import PhotoEditor from "./PhotoEditor";
+import LocationAutocomplete from "./LocationAutocomplete";
 import { cn } from "@/lib/utils";
 
 type CreateMode = "post" | "text" | "story" | "reel";
@@ -748,17 +748,7 @@ function CreatePostDialog({
           </div>
 
           {!isStory && (
-            <div className="flex items-center gap-2 rounded-lg bg-ink-soft px-3">
-              <MapPin className="h-4 w-4 shrink-0 text-ink-muted" />
-              <input
-                className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-ink-muted"
-                placeholder="Add location"
-                value={location}
-                maxLength={80}
-                onChange={(e) => setLocation(e.target.value)}
-                disabled={busy}
-              />
-            </div>
+            <LocationAutocomplete value={location} onChange={setLocation} disabled={busy} />
           )}
 
           {kind === "video" && !isStory && (
