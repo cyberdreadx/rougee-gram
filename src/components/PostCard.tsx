@@ -8,16 +8,20 @@ import {
   MoreHorizontal,
   Trash2,
   Check,
+  Coins,
 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { decodeBody, postOptions } from "@/lib/envelope";
 import { useProfile } from "@/hooks/useProfile";
 import {
   usePostStats,
+  usePostTips,
   useToggleLike,
   useToggleRepost,
   useDeletePost,
 } from "@/hooks/useSocial";
+import Modal from "./Modal";
+import type { Tipper } from "@/lib/tips";
 import { useAuth } from "@/store/auth";
 import { useToast } from "./Toast";
 import { shortAddress, timeAgo, formatCount } from "@/lib/format";
@@ -208,13 +212,14 @@ export default function PostCard({ post }: { post: SocialPost }) {
         >
           <Repeat2 className="h-6 w-6" />
         </button>
-        <TipButton toAddress={profile?.address} toName={profile?.name} />
+        <TipButton toAddress={profile?.address} toName={profile?.name} postId={post.id} />
         <ShareButton postId={post.id} />
         <SaveButton postId={post.id} className="ml-auto" />
       </div>
 
       {/* meta */}
       <div className="space-y-1 px-3 pt-2 sm:px-0">
+        <TipsRow postId={post.id} />
         {(((stats?.likes ?? 0) > 0 && !hideLikes) || (stats?.reposts ?? 0) > 0) && (
           <div className="flex items-center gap-3 text-sm">
             {(stats?.likes ?? 0) > 0 && !hideLikes && (
@@ -362,13 +367,14 @@ function TextPostCard({
         >
           <Repeat2 className="h-6 w-6" />
         </button>
-        <TipButton toAddress={profile?.address} toName={profile?.name} />
+        <TipButton toAddress={profile?.address} toName={profile?.name} postId={post.id} />
         <ShareButton postId={post.id} />
         <SaveButton postId={post.id} className="ml-auto" />
       </div>
 
       {/* meta */}
       <div className="space-y-1 pt-2">
+        <TipsRow postId={post.id} />
         {(((stats?.likes ?? 0) > 0) || (stats?.reposts ?? 0) > 0) && (
           <div className="flex items-center gap-3 text-sm">
             {(stats?.likes ?? 0) > 0 && (
@@ -397,6 +403,97 @@ function TextPostCard({
 }
 
 export { TextPostCard };
+
+/**
+ * Tip total + who tipped, shown under a post. Renders nothing until at least one
+ * verified tip exists. Tapping it opens the full tipper list. Tips come from the
+ * off-chain tips-ledger Worker (amounts are chain-verified there).
+ */
+function TipsRow({ postId }: { postId: string }) {
+  const { data } = usePostTips(postId);
+  const [open, setOpen] = useState(false);
+  if (!data || data.total <= 0) return null;
+
+  const preview = data.tippers.slice(0, 3);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-2 text-sm text-amber-300 transition-opacity hover:opacity-80"
+      >
+        <Coins className="h-4 w-4" />
+        <span className="font-semibold">{formatCount(data.total)} XRGE</span>
+        {preview.length > 0 && (
+          <span className="flex -space-x-2">
+            {preview.map((t) => (
+              <span key={t.from} className="rounded-full ring-2 ring-ink">
+                <Avatar seed={t.from} size={18} />
+              </span>
+            ))}
+          </span>
+        )}
+        <span className="text-ink-muted">
+          from {data.count} {data.count === 1 ? "tip" : "tips"}
+        </span>
+      </button>
+      {open && (
+        <TippersModal total={data.total} tippers={data.tippers} onClose={() => setOpen(false)} />
+      )}
+    </>
+  );
+}
+
+function TippersModal({
+  total,
+  tippers,
+  onClose,
+}: {
+  total: number;
+  tippers: Tipper[];
+  onClose: () => void;
+}) {
+  return (
+    <Modal onClose={onClose} title="Tips">
+      <div className="mb-3 flex items-center gap-2 text-amber-300">
+        <Coins className="h-5 w-5" />
+        <span className="text-lg font-semibold">{formatCount(total)} XRGE</span>
+        <span className="text-sm text-ink-muted">
+          · {tippers.length} {tippers.length === 1 ? "tip" : "tips"}
+        </span>
+      </div>
+      <ul className="max-h-[50vh] space-y-1 overflow-y-auto">
+        {tippers.map((t) => (
+          <TipperItem key={t.from + t.at} tipper={t} />
+        ))}
+      </ul>
+    </Modal>
+  );
+}
+
+function TipperItem({ tipper }: { tipper: Tipper }) {
+  const navigate = useNavigate();
+  const { data: profile } = useProfile(tipper.from);
+  return (
+    <li>
+      <button
+        onClick={() => profile?.address && navigate(`/u/${profile.address}`)}
+        className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/5"
+      >
+        <Avatar refUri={profile?.avatarRef} seed={tipper.from} name={profile?.name} size={36} />
+        <div className="min-w-0 flex-1 leading-tight">
+          <VerifiedName pubkey={tipper.from} className="truncate text-sm font-semibold" />
+          <div className="truncate text-xs text-ink-muted">
+            <span className="font-mono">{shortAddress(profile?.address ?? "", 8, 4)}</span> ·{" "}
+            {timeAgo(tipper.at)}
+          </div>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-amber-300">
+          {formatCount(tipper.amount)} XRGE
+        </span>
+      </button>
+    </li>
+  );
+}
 
 function ShareButton({ postId }: { postId: string }) {
   const { toast } = useToast();

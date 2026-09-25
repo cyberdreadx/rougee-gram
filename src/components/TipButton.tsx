@@ -17,6 +17,7 @@ const TIP_FEE = 1; // XRGE network fee per transfer
 export default function TipButton({
   toAddress,
   toName,
+  postId,
   variant = "icon",
   className,
   iconClassName = "h-6 w-6",
@@ -25,6 +26,8 @@ export default function TipButton({
   toAddress?: string;
   /** Display name for the recipient (falls back to the address). */
   toName?: string;
+  /** When set, the tip is attributed to this post so its total updates. */
+  postId?: string;
   variant?: "icon" | "button";
   className?: string;
   iconClassName?: string;
@@ -49,7 +52,14 @@ export default function TipButton({
           <Coins className="h-4 w-4" /> Tip
         </button>
       )}
-      {open && <TipModal toAddress={toAddress} toName={toName} onClose={() => setOpen(false)} />}
+      {open && (
+        <TipModal
+          toAddress={toAddress}
+          toName={toName}
+          postId={postId}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </>
   );
 }
@@ -57,10 +67,12 @@ export default function TipButton({
 function TipModal({
   toAddress,
   toName,
+  postId,
   onClose,
 }: {
   toAddress: string;
   toName?: string;
+  postId?: string;
   onClose: () => void;
 }) {
   const { balance, refreshBalance } = useAuth();
@@ -73,7 +85,7 @@ function TipModal({
 
   function send() {
     tip.mutate(
-      { to: toAddress, amount },
+      { to: toAddress, amount, postId },
       {
         onSuccess: () => {
           toast(`Tipped ${amount} XRGE 🎉`, "success");

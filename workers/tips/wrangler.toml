@@ -1,0 +1,29 @@
+# Cloudflare Worker: RouGee tips ledger (per-post tip attribution).
+#
+# A RougeChain transfer carries no memo, so nothing on-chain links a tip to a
+# post. This Worker records that link: the client POSTs {network, postId, txId}
+# after a successful tip, and the Worker VERIFIES the transfer on-chain (fetching
+# the tx and the post) — a tip only counts when the transfer's recipient is the
+# post's author. Amounts/senders are read from the chain, never trusted from the
+# client. Reads return the total + tippers for a post.
+#
+# Setup:
+#   npx wrangler kv namespace create TIPS
+#     -> put the returned id below under [[kv_namespaces]]
+#   npx wrangler deploy --config workers/tips/wrangler.toml
+#   # then set VITE_TIPS_WORKER_URL to the deployed URL (netlify.toml / .env).
+name = "rougee-tips"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "TIPS"
+id = "76afb85e27674b40b4e409af7977a2f5"
+
+[vars]
+# RougeChain node API bases (WITH the /api suffix) the Worker verifies against,
+# one per network the app can follow. Must match the app's apiUrl values.
+NODE_TESTNET = "https://testnet.rougechain.io/api"
+NODE_MAINNET = "https://api.rougechain.io/api"
+ALLOW_ORIGIN = "*"

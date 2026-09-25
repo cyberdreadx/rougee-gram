@@ -10,6 +10,7 @@ import { useAuth } from "@/store/auth";
 import { invalidateProfile } from "@/lib/profile";
 import { decodeBody } from "@/lib/envelope";
 import * as write from "@/lib/write";
+import { recordTip, getPostTips } from "@/lib/tips";
 
 export const qk = {
   timeline: ["timeline"] as const,
@@ -20,6 +21,7 @@ export const qk = {
   replies: (id: string) => ["replies", id] as const,
   artistStats: (pubkey: string, viewer: string) =>
     ["artistStats", pubkey, viewer] as const,
+  postTips: (id: string) => ["postTips", id] as const,
 };
 
 const PAGE = 50;
@@ -215,18 +217,50 @@ export function useToggleFollow(pubkey: string) {
   });
 }
 
-/** Tip XRGE to a rouge address (on-chain transfer). */
+/** Tip XRGE to a rouge address (on-chain transfer). When `postId` is given, the
+ *  resulting transfer is recorded as a tip on that post (best-effort, verified
+ *  server-side) so the post can show its tip total. */
 export function useTip() {
   const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const client = useQueryClient();
   return useMutation({
-    mutationFn: async ({ to, amount }: { to: string; amount: number }) => {
+    mutationFn: async ({
+      to,
+      amount,
+      postId,
+    }: {
+      to: string;
+      amount: number;
+      postId?: string;
+    }) => {
       if (!wallet) throw new Error("Locked");
       if (!to) throw new Error("No recipient address");
       if (!(amount > 0)) throw new Error("Enter an amount");
       const res = await write.tip({ wallet, publicKey, isExtensionWallet }, to, amount);
       if (!res.success) throw new Error(res.error || "Tip failed");
+      // Attribute the transfer to the post so its tip total reflects it. The
+      // node nests the id under `data` for signed writes; tolerate both shapes.
+      // Fire-and-forget: the on-chain transfer already succeeded, so recording
+      // must not block the UI — refresh the post's total once it lands.
+      const txId =
+        (res as { txId?: string }).txId ??
+        (res as { data?: { txId?: string } }).data?.txId;
+      if (postId && txId) {
+        void recordTip(postId, txId).then((ok) => {
+          if (ok) client.invalidateQueries({ queryKey: qk.postTips(postId) });
+        });
+      }
       return res;
     },
+  });
+}
+
+/** Per-post tip total + tippers (from the tips-ledger Worker). */
+export function usePostTips(postId: string) {
+  return useQuery({
+    queryKey: qk.postTips(postId),
+    queryFn: () => getPostTips(postId),
+    staleTime: 60_000,
   });
 }
 

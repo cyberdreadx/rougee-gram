@@ -20,6 +20,8 @@ export interface RuntimeConfig {
   cfStream: boolean;
   /** RouGee HQ verification Worker base URL (issues verified-badge attestations). */
   verifyWorkerUrl: string;
+  /** RouGee tips-ledger Worker base URL (per-post tip attribution). */
+  tipsWorkerUrl: string;
 }
 
 /** Well-known RougeChain networks selectable at runtime in Settings. */
@@ -48,6 +50,7 @@ const defaults: RuntimeConfig = {
   cfUploadSecret: import.meta.env.VITE_CF_UPLOAD_SECRET || "",
   cfStream: (import.meta.env.VITE_CF_STREAM || "") === "true",
   verifyWorkerUrl: import.meta.env.VITE_VERIFY_WORKER_URL || "",
+  tipsWorkerUrl: import.meta.env.VITE_TIPS_WORKER_URL || "",
 };
 
 function load(): RuntimeConfig {
