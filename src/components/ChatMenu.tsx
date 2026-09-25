@@ -8,8 +8,10 @@ import { useToast } from "./Toast";
  * Per-conversation actions: block the other party, or delete the thread.
  *
  * Blocking is client-side (there is no on-chain block): it hides their DMs on
- * this device. Deleting removes the conversation for you; the other participant
- * keeps their copy — the copy reflects both limits honestly.
+ * this device. Deleting is server-side for your ACCOUNT — the node drops it from
+ * this wallet's inbox, so it disappears from every app signed into the same
+ * wallet (RouGee AND Qwalla share one inbox); the other participant keeps their
+ * copy, and there's no undo. The confirm copy reflects this honestly.
  */
 export default function ChatMenu({
   conversationId,
@@ -99,7 +101,7 @@ export default function ChatMenu({
             <p className="mt-1.5 text-sm text-ink-muted">
               {confirm === "block"
                 ? "Their messages stop showing up for you on this device. You can undo this from the blocked list."
-                : "This removes the conversation for you. The other person keeps their own copy."}
+                : "This deletes it from your account everywhere you're signed in — RouGee AND Qwalla share one inbox — and can't be undone. The other person keeps their own copy."}
             </p>
             <div className="mt-4 flex gap-2">
               <button className="btn-soft flex-1 py-2.5" onClick={() => setConfirm(null)}>
