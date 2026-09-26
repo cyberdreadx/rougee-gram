@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Play, Film, Copy, Rocket } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
@@ -75,6 +76,7 @@ function Grid({ cells, showSponsored }: { cells: Cell[]; showSponsored?: boolean
 }
 
 function GridTile({ cell, sponsored, i }: { cell: Cell; sponsored: boolean; i: number }) {
+  const { t } = useTranslation();
   const { post, thumbRef, videoRef, isVideo, isReel, isCarousel } = cell;
   const { publicKey } = useAuth();
   const { toast } = useToast();
@@ -128,7 +130,7 @@ function GridTile({ cell, sponsored, i }: { cell: Cell; sponsored: boolean; i: n
       )}
       {sponsored && (
         <span className="pointer-events-none absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded bg-black/55 px-1 py-0.5 text-[9px] font-semibold uppercase text-white backdrop-blur">
-          <Rocket className="h-2.5 w-2.5" /> Ad
+          <Rocket className="h-2.5 w-2.5" /> {t("ads.ad")}
         </span>
       )}
       {(isVideo || isCarousel) && (

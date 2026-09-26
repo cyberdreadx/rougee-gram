@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Rocket, Loader2 } from "lucide-react";
 import { useBoostPost } from "@/hooks/usePromote";
 import { useAuth } from "@/store/auth";
@@ -20,6 +21,7 @@ const FEE = 1; // XRGE network fee
  * "Sponsored" in feeds, and viewers who see it earn a slice of your spend.
  */
 export default function BoostModal({ postId, onClose }: { postId: string; onClose: () => void }) {
+  const { t } = useTranslation();
   const { balance, refreshBalance } = useAuth();
   const { toast } = useToast();
   const boost = useBoostPost();
@@ -44,13 +46,10 @@ export default function BoostModal({ postId, onClose }: { postId: string; onClos
   }
 
   return (
-    <Modal onClose={boost.isPending ? () => {} : onClose} title="Boost this post">
-      <p className="text-sm text-ink-muted">
-        Promote this post across RouGee. Most of your spend becomes a reward pool —
-        people who view it earn XRGE, so you reach real, paid-attention viewers.
-      </p>
+    <Modal onClose={boost.isPending ? () => {} : onClose} title={t("ads.boostTitle")}>
+      <p className="text-sm text-ink-muted">{t("ads.boostIntro")}</p>
 
-      <label className="label mt-4">Budget (XRGE)</label>
+      <label className="label mt-4">{t("ads.budget")}</label>
       <div className="grid grid-cols-4 gap-2">
         {AMOUNTS.map((v) => (
           <button
@@ -76,7 +75,7 @@ export default function BoostModal({ postId, onClose }: { postId: string; onClos
         disabled={boost.isPending}
       />
 
-      <label className="label mt-4">Duration</label>
+      <label className="label mt-4">{t("ads.duration")}</label>
       <div className="grid grid-cols-3 gap-2">
         {DURATIONS.map((d) => (
           <button
@@ -97,7 +96,7 @@ export default function BoostModal({ postId, onClose }: { postId: string; onClos
         <span className="text-ink-muted">
           Balance: {formatCount(balance)} XRGE · fee {FEE}
         </span>
-        {insufficient && <span className="text-rouge-400">Insufficient balance</span>}
+        {insufficient && <span className="text-rouge-400">{t("ads.insufficient")}</span>}
       </div>
 
       <button className="btn-primary mt-4 w-full py-3" onClick={submit} disabled={!canBoost}>
@@ -105,7 +104,7 @@ export default function BoostModal({ postId, onClose }: { postId: string; onClos
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <>
-            <Rocket className="h-4 w-4" /> Boost for {formatCount(amount)} XRGE
+            <Rocket className="h-4 w-4" /> {t("ads.boostFor", { amount: formatCount(amount) })}
           </>
         )}
       </button>

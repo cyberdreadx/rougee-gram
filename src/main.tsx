@@ -6,6 +6,7 @@ import App from "./App";
 import { AuthProvider } from "./store/auth";
 import { ToastProvider } from "./components/Toast";
 import ErrorBoundary from "./components/ErrorBoundary";
+import "./i18n";
 import "./index.css";
 
 // Native-app feel: block iOS Safari pinch-zoom. Safari ignores the viewport's

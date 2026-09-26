@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Copy,
@@ -17,6 +18,8 @@ import {
   KeyRound,
   Lock,
   AtSign,
+  Languages,
+  ChevronDown,
 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { useAuth } from "@/store/auth";
@@ -51,6 +54,7 @@ import {
 } from "@/hooks/usePromote";
 import { promoteEnabled } from "@/lib/promote";
 import { Rocket } from "lucide-react";
+import { LANGUAGES } from "@/i18n";
 import BoostModal from "@/components/BoostModal";
 import MediaImage from "@/components/MediaImage";
 import { toMediaCells } from "@/components/PhotoGrid";
@@ -68,11 +72,12 @@ export default function Settings() {
   const { wallet, address, balance, publicKey, lock, logout, refreshBalance, isExtensionWallet } =
     useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   return (
     <div className="pb-10">
       <header className="sticky top-[var(--top-bar-h)] z-20 border-b border-ink-border bg-ink/80 px-4 py-3.5 backdrop-blur md:top-0">
-        <h1 className="text-base font-semibold">Settings</h1>
+        <h1 className="text-base font-semibold">{t("settings.title")}</h1>
       </header>
 
       <div className="space-y-6 p-4">
@@ -92,6 +97,8 @@ export default function Settings() {
         />
 
         <UsernameSection />
+
+        <LanguageSection />
 
         <SecuritySection address={address} isExtensionWallet={isExtensionWallet} />
 
@@ -117,7 +124,7 @@ export default function Settings() {
         />
 
         <p className="pt-2 text-center text-xs text-ink-muted">
-          RouGee · built on RougeChain · your keys, your photos
+          {t("settings.tagline")}
         </p>
       </div>
     </div>
@@ -125,6 +132,7 @@ export default function Settings() {
 }
 
 function UsernameSection() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { data: current, isLoading } = useMyUsername();
   const register = useRegisterUsername();
@@ -173,7 +181,7 @@ function UsernameSection() {
   }
 
   return (
-    <Section icon={<AtSign className="h-4 w-4" />} title="Username">
+    <Section icon={<AtSign className="h-4 w-4" />} title={t("settings.username")}>
       {isLoading ? (
         <div className="flex justify-center py-2">
           <Loader2 className="h-4 w-4 animate-spin text-ink-muted" />
@@ -246,7 +254,33 @@ function UsernameSection() {
   );
 }
 
+function LanguageSection() {
+  const { t, i18n } = useTranslation();
+  const current = (i18n.resolvedLanguage || i18n.language || "en").split("-")[0];
+  return (
+    <Section icon={<Languages className="h-4 w-4" />} title={t("settings.language")}>
+      <p className="text-sm text-ink-muted">{t("settings.languageDesc")}</p>
+      <div className="relative">
+        <select
+          className="input w-full appearance-none pr-9"
+          value={current}
+          onChange={(e) => void i18n.changeLanguage(e.target.value)}
+          aria-label={t("settings.language")}
+        >
+          {LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+      </div>
+    </Section>
+  );
+}
+
 function RewardsSection() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { refreshBalance } = useAuth();
   const { data, isLoading } = useEarnings();
@@ -258,7 +292,7 @@ function RewardsSection() {
   const canClaim = balance >= claimMin && claimMin > 0 && !claim.isPending;
 
   return (
-    <Section icon={<Rocket className="h-4 w-4" />} title="Ad rewards">
+    <Section icon={<Rocket className="h-4 w-4" />} title={t("settings.adRewards")}>
       <p className="text-sm text-ink-muted">
         Earn XRGE for viewing sponsored posts in your feed. Earnings accrue here and
         pay out to your wallet when you claim.
@@ -298,6 +332,7 @@ function RewardsSection() {
 }
 
 function MyAdsSection() {
+  const { t } = useTranslation();
   const { data: ads, isLoading } = useMyAds();
   const { data: promoted } = usePromoted();
   const [boostId, setBoostId] = useState<string | null>(null);
@@ -307,11 +342,8 @@ function MyAdsSection() {
   const list = ads ?? [];
 
   return (
-    <Section icon={<Rocket className="h-4 w-4" />} title="Your ads">
-      <p className="text-sm text-ink-muted">
-        Ad creatives are hidden from your profile and organic feeds — they only
-        run as Sponsored posts while boosted. Manage them here.
-      </p>
+    <Section icon={<Rocket className="h-4 w-4" />} title={t("settings.yourAds")}>
+      <p className="text-sm text-ink-muted">{t("ads.yourAdsDesc")}</p>
 
       {isLoading ? (
         <div className="flex justify-center py-3">
@@ -319,7 +351,7 @@ function MyAdsSection() {
         </div>
       ) : list.length === 0 ? (
         <p className="rounded-xl bg-ink-soft px-3 py-3 text-sm text-ink-muted">
-          No ads yet. Toggle “Run as an ad” when creating a post to make one.
+          {t("ads.noAds")}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -348,6 +380,7 @@ function AdRow({
   active: boolean;
   onBoost: () => void;
 }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [cell] = toMediaCells([post]);
   const decoded = decodeBody(post.body);
@@ -376,20 +409,20 @@ function AdRow({
               )}
             />
             <span className={active ? "text-emerald-400" : "text-ink-muted"}>
-              {active ? "Running" : "Not running"}
+              {active ? t("ads.running") : t("ads.notRunning")}
             </span>
           </div>
         </div>
         <button className="btn-soft shrink-0 px-3 py-1.5 text-sm" onClick={onBoost}>
-          {active ? "Add budget" : "Boost"}
+          {active ? t("ads.addBudget") : t("ads.boost")}
         </button>
       </div>
 
       {stats && (stats.spend > 0 || stats.views > 0) && (
         <div className="mt-2 grid grid-cols-3 gap-2 border-t border-ink-border/60 pt-2 text-center text-xs">
-          <Stat label="Spent" value={`${fmt(stats.spend)}`} />
-          <Stat label="Views" value={fmt(stats.views)} />
-          <Stat label="Pool left" value={`${fmt(stats.poolBalance)}`} />
+          <Stat label={t("ads.spent")} value={`${fmt(stats.spend)}`} />
+          <Stat label={t("ads.views")} value={fmt(stats.views)} />
+          <Stat label={t("ads.poolLeft")} value={`${fmt(stats.poolBalance)}`} />
         </div>
       )}
 
@@ -398,15 +431,14 @@ function AdRow({
           {confirming ? (
             <div className="flex items-center gap-2">
               <span className="flex-1 text-xs text-ink-muted">
-                End this campaign now? Unspent pool ({fmt(stats?.poolBalance ?? 0)} XRGE) stays
-                reserved for viewers who already earned it.
+                {t("ads.endConfirm", { amount: fmt(stats?.poolBalance ?? 0) })}
               </span>
               <button
                 className="btn-soft shrink-0 px-2.5 py-1 text-xs"
                 onClick={() => setConfirming(false)}
                 disabled={end.isPending}
               >
-                Keep
+                {t("ads.keep")}
               </button>
               <button
                 className="shrink-0 rounded-lg bg-red-500/15 px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/25 disabled:opacity-50"
@@ -422,7 +454,7 @@ function AdRow({
                   })
                 }
               >
-                {end.isPending ? "Ending…" : "End now"}
+                {end.isPending ? t("ads.ending") : t("ads.endNow")}
               </button>
             </div>
           ) : (
@@ -430,7 +462,7 @@ function AdRow({
               className="text-xs text-ink-muted hover:text-red-400"
               onClick={() => setConfirming(true)}
             >
-              End campaign
+              {t("ads.endCampaign")}
             </button>
           )}
         </div>
@@ -449,6 +481,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function VerifySection({ publicKey, balance }: { publicKey: string; balance: number }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const client = useQueryClient();
   const verified = useVerified(publicKey || undefined);
@@ -491,7 +524,7 @@ function VerifySection({ publicKey, balance }: { publicKey: string; balance: num
   }
 
   return (
-    <Section icon={<ShieldCheck className="h-4 w-4" />} title="Verification">
+    <Section icon={<ShieldCheck className="h-4 w-4" />} title={t("settings.verification")}>
       {verified ? (
         <div className="flex items-center gap-2 text-sm">
           <VerifiedBadge size={20} />
@@ -617,6 +650,7 @@ function AccountSection({
   onFaucet: () => void;
   onRefresh: () => void;
 }) {
+  const { t } = useTranslation();
   const [revealPhrase, setRevealPhrase] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
   const [fauceting, setFauceting] = useState(false);
@@ -626,7 +660,7 @@ function AccountSection({
   const isTestnet = networkIdForUrl(getConfig().apiUrl) === "testnet";
 
   return (
-    <Section icon={<ShieldCheck className="h-4 w-4" />} title="Account">
+    <Section icon={<ShieldCheck className="h-4 w-4" />} title={t("settings.account")}>
       <CopyRow label="Address" value={address} />
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-ink-soft px-3 py-2.5">
@@ -943,6 +977,7 @@ function NetworkSection() {
 
 /** Read-only network indicator for consumers (the switcher is operator-only). */
 function ConsumerNetworkBadge() {
+  const { t } = useTranslation();
   const cfg = getConfig();
   const [health, setHealth] = useState<"online" | "offline" | "checking">("checking");
   useEffect(() => {
@@ -959,7 +994,7 @@ function ConsumerNetworkBadge() {
     ? cfg.network.charAt(0).toUpperCase() + cfg.network.slice(1)
     : "RougeChain";
   return (
-    <Section icon={<Globe className="h-4 w-4" />} title="Network">
+    <Section icon={<Globe className="h-4 w-4" />} title={t("settings.network")}>
       <div className="flex items-center justify-between text-sm">
         <span className="text-ink-muted">Connected to</span>
         <span className="flex items-center gap-2 font-medium">
@@ -996,6 +1031,7 @@ function SecuritySection({
   address: string;
   isExtensionWallet: boolean;
 }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [cur, setCur] = useState("");
@@ -1008,7 +1044,7 @@ function SecuritySection({
   // there's no local password for RouGee to change. Say so rather than hiding it.
   if (isExtensionWallet) {
     return (
-      <Section icon={<KeyRound className="h-4 w-4" />} title="Security">
+      <Section icon={<KeyRound className="h-4 w-4" />} title={t("settings.security")}>
         <p className="text-xs text-ink-muted">
           Your key is managed by your connected wallet (Qwalla or the RougeChain
           extension). Change your password or biometrics there — RouGee never
@@ -1044,7 +1080,7 @@ function SecuritySection({
   }
 
   return (
-    <Section icon={<KeyRound className="h-4 w-4" />} title="Security">
+    <Section icon={<KeyRound className="h-4 w-4" />} title={t("settings.security")}>
       <button className="btn-soft w-full" onClick={() => setOpen(true)}>
         <Lock className="h-4 w-4" /> Change password
       </button>

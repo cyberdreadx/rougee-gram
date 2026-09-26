@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Heart, MessageCircle, Repeat2, Volume2, VolumeX, Pause, Film, Music2, Rocket } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
@@ -87,6 +88,7 @@ export default function Reels() {
 }
 
 function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }) {
+  const { t } = useTranslation();
   const decoded = decodeBody(post.body);
   const { publicKey } = useAuth();
   const { toast } = useToast();
@@ -192,7 +194,7 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
     >
       {sponsored && (
         <span className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur">
-          <Rocket className="h-3 w-3" /> Sponsored
+          <Rocket className="h-3 w-3" /> {t("ads.sponsored")}
         </span>
       )}
       <MediaVideo

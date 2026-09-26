@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
   Heart,
@@ -541,6 +542,7 @@ function PostMenu({
   postId: string;
   authorPubkey: string;
 }) {
+  const { t } = useTranslation();
   const { publicKey } = useAuth();
   const { toast } = useToast();
   const del = useDeletePost();
@@ -579,7 +581,7 @@ function PostMenu({
                   setOpen(false);
                 }}
               >
-                <Rocket className="h-4 w-4 text-rouge-400" /> Boost post
+                <Rocket className="h-4 w-4 text-rouge-400" /> {t("ads.boostPost")}
               </button>
             )}
             <button

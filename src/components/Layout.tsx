@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Home, Compass, Search, PlusSquare, Settings, LogOut, Film, Heart, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -39,12 +40,13 @@ export default function Layout({ children }: { children: ReactNode }) {
 }
 
 const navItems = [
-  { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/explore", label: "Explore", icon: Compass, end: false },
-  { to: "/reels", label: "Reels", icon: Film, end: false },
+  { to: "/", labelKey: "nav.home", icon: Home, end: true },
+  { to: "/explore", labelKey: "nav.explore", icon: Compass, end: false },
+  { to: "/reels", labelKey: "nav.reels", icon: Film, end: false },
 ];
 
 function DesktopSidebar() {
+  const { t } = useTranslation();
   const { address } = useAuth();
   const { open } = useCreatePost();
   const profile = useMyProfile();
@@ -56,22 +58,22 @@ function DesktopSidebar() {
         <Logo size={32} withWordmark />
       </div>
       {navItems.map((item) => (
-        <SideLink key={item.to} {...item} />
+        <SideLink key={item.to} to={item.to} icon={item.icon} end={item.end} label={t(item.labelKey)} />
       ))}
       <button
         onClick={() => open()}
         className="mt-1 flex items-center gap-4 rounded-xl px-3 py-2.5 text-[15px] font-medium text-white transition-colors hover:bg-white/5"
       >
         <PlusSquare className="h-6 w-6" />
-        Create
+        {t("nav.create")}
       </button>
-      <SideLink to="/activity" label="Activity" icon={Heart} end={false} />
+      <SideLink to="/activity" label={t("nav.activity")} icon={Heart} end={false} />
       {DMS_ENABLED && (
-        <SideLink to="/messages" label="Messages" icon={Send} end={false} badge={unread} />
+        <SideLink to="/messages" label={t("nav.messages")} icon={Send} end={false} badge={unread} />
       )}
       <SideLink
         to={`/u/${address}`}
-        label="Profile"
+        label={t("nav.profile")}
         end={false}
         renderIcon={() => (
           <Avatar
@@ -82,7 +84,7 @@ function DesktopSidebar() {
           />
         )}
       />
-      <SideLink to="/settings" label="Settings" icon={Settings} end={false} />
+      <SideLink to="/settings" label={t("nav.settings")} icon={Settings} end={false} />
     </aside>
   );
 }
@@ -166,6 +168,7 @@ function RightRail() {
 }
 
 function MobileTopBar() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const unread = useUnreadCount();
   return (
@@ -175,7 +178,7 @@ function MobileTopBar() {
         <button
           onClick={() => navigate("/activity")}
           className="btn-ghost h-9 w-9 p-0"
-          aria-label="Activity"
+          aria-label={t("nav.activity")}
         >
           <Heart className="h-6 w-6" />
         </button>
@@ -183,7 +186,7 @@ function MobileTopBar() {
           <button
             onClick={() => navigate("/messages")}
             className="btn-ghost relative h-9 w-9 p-0"
-            aria-label="Messages"
+            aria-label={t("nav.messages")}
           >
             <Send className="h-6 w-6" />
             {unread > 0 && (
@@ -197,6 +200,7 @@ function MobileTopBar() {
 }
 
 function MobileBottomNav() {
+  const { t } = useTranslation();
   const { address } = useAuth();
   const { open } = useCreatePost();
   const profile = useMyProfile();
@@ -204,20 +208,20 @@ function MobileBottomNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around bg-gradient-to-t from-ink via-ink/80 to-transparent px-2 pt-6 pb-[calc(0.375rem+env(safe-area-inset-bottom))] md:hidden">
       {/* Home fills solid when active — Instagram's signature tab behavior. */}
-      <BottomLink to="/" end icon={Home} label="Home" fillOnActive />
-      <BottomLink to="/explore" icon={Search} label="Explore" />
+      <BottomLink to="/" end icon={Home} label={t("nav.home")} fillOnActive />
+      <BottomLink to="/explore" icon={Search} label={t("nav.explore")} />
       <button
         onClick={() => open()}
         className="flex min-h-[44px] items-center justify-center px-4 py-1 text-white"
-        aria-label="Create"
+        aria-label={t("nav.create")}
       >
         <PlusSquare className="h-7 w-7" strokeWidth={1.75} />
       </button>
-      <BottomLink to="/reels" icon={Film} label="Reels" />
+      <BottomLink to="/reels" icon={Film} label={t("nav.reels")} />
       <NavLink
         to={`/u/${address}`}
         className="flex min-h-[44px] items-center justify-center px-4 py-1"
-        aria-label="Profile"
+        aria-label={t("nav.profile")}
       >
         {({ isActive }) => (
           <span className={cn("rounded-full", isActive && "ring-2 ring-white")}>

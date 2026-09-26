@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   ImagePlus,
   Loader2,
@@ -113,6 +114,7 @@ function CreatePostDialog({
   onClose: () => void;
   onAdCreated: (postId: string) => void;
 }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<CreateMode>(initialMode);
   const isStory = mode === "story";
   const isReelMode = mode === "reel";
@@ -560,14 +562,14 @@ function CreatePostDialog({
   const tooBig = kind === "video" && file ? file.size > VIDEO_WARN_BYTES : false;
 
   const title = isStory
-    ? "New story"
+    ? t("create.newStory")
     : isReelMode
-      ? "New reel"
+      ? t("create.newReel")
       : isTextMode
         ? segments.length > 1
-          ? "New thread"
-          : "New post"
-        : "New post";
+          ? t("create.newThread")
+          : t("create.newPost")
+        : t("create.newPost");
 
   return (
     <Modal onClose={busy ? () => {} : onClose} title={title} maxWidth="max-w-lg">
@@ -772,7 +774,7 @@ function CreatePostDialog({
           <div>
             <textarea
               className="input h-24 resize-none"
-              placeholder="Write a caption…"
+              placeholder={t("create.writeCaption")}
               value={caption}
               maxLength={CAPTION_LIMIT}
               onChange={(e) => setCaption(e.target.value)}
@@ -801,7 +803,7 @@ function CreatePostDialog({
                   <span className="text-ink-muted"> · {sound.artist || "Unknown"}</span>
                 </span>
               ) : (
-                <span className="flex-1">Add a sound</span>
+                <span className="flex-1">{t("create.addSound")}</span>
               )}
               <span className="shrink-0 text-xs font-medium text-rouge-400">
                 {sound ? "Change" : "Browse"}
@@ -820,11 +822,8 @@ function CreatePostDialog({
                 <div className="flex min-w-0 items-start gap-2.5">
                   <Rocket className="mt-0.5 h-4 w-4 shrink-0 text-rouge-400" />
                   <div className="min-w-0">
-                    <div className="text-sm font-medium">Run as an ad</div>
-                    <div className="text-xs text-ink-muted">
-                      Hidden from your profile &amp; feeds — it only appears as a
-                      Sponsored post. You'll set a budget after posting.
-                    </div>
+                    <div className="text-sm font-medium">{t("create.runAsAd")}</div>
+                    <div className="text-xs text-ink-muted">{t("create.runAsAdDesc")}</div>
                   </div>
                 </div>
                 <button
@@ -840,8 +839,8 @@ function CreatePostDialog({
                 >
                   <span
                     className={cn(
-                      "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-                      isAd ? "translate-x-[22px]" : "translate-x-0.5",
+                      "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                      isAd ? "translate-x-5" : "translate-x-0",
                     )}
                   />
                 </button>
@@ -856,7 +855,7 @@ function CreatePostDialog({
                 onClick={() => setShowAdvanced((s) => !s)}
                 className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-medium"
               >
-                Advanced settings
+                {t("create.advanced")}
                 <ChevronDown
                   className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")}
                 />
@@ -864,14 +863,14 @@ function CreatePostDialog({
               {showAdvanced && (
                 <div className="border-t border-ink-border/60 px-1 pb-1">
                   <OptionToggle
-                    label="Hide like count"
+                    label={t("create.hideLikes")}
                     desc="Only you will see the total number of likes."
                     checked={hideLikes}
                     onChange={setHideLikes}
                     disabled={busy}
                   />
                   <OptionToggle
-                    label="Turn off commenting"
+                    label={t("create.turnOffComments")}
                     desc="No one will be able to comment on this post."
                     checked={noComments}
                     onChange={setNoComments}
@@ -921,14 +920,14 @@ function CreatePostDialog({
               {busy ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {stage || "Posting…"}
+                  {stage || t("common.posting")}
                 </>
               ) : isAd ? (
                 <>
-                  <Rocket className="h-4 w-4" /> Create ad
+                  <Rocket className="h-4 w-4" /> {t("create.createAd")}
                 </>
               ) : (
-                "Share"
+                t("common.share")
               )}
             </button>
           </div>
@@ -992,8 +991,8 @@ function OptionToggle({
       >
         <span
           className={cn(
-            "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-            checked ? "translate-x-[22px]" : "translate-x-0.5",
+            "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+            checked ? "translate-x-5" : "translate-x-0",
           )}
         />
       </button>

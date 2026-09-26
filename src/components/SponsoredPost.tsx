@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Rocket } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import PostCard from "./PostCard";
@@ -12,6 +13,7 @@ import { recordImpression } from "@/lib/promote";
  * micro-reward from the ad's pool and see a "+X XRGE" toast.
  */
 export default function SponsoredPost({ post }: { post: SocialPost }) {
+  const { t } = useTranslation();
   const { publicKey } = useAuth();
   const { toast } = useToast();
   const ref = useRef<HTMLDivElement | null>(null);
@@ -39,7 +41,7 @@ export default function SponsoredPost({ post }: { post: SocialPost }) {
   return (
     <div ref={ref}>
       <div className="flex items-center gap-1 px-3 pb-0.5 pt-3 text-[11px] font-semibold uppercase tracking-wide text-rouge-400 sm:px-0">
-        <Rocket className="h-3 w-3" /> Sponsored
+        <Rocket className="h-3 w-3" /> {t("ads.sponsored")}
       </div>
       <PostCard post={post} />
     </div>
