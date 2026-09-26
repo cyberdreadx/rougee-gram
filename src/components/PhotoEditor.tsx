@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Type, Trash2, Loader2, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -116,6 +117,7 @@ export default function PhotoEditor({
   onSave: (blob: Blob) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<Filter>(FILTERS[0]);
   const [overlays, setOverlays] = useState<Overlay[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -203,17 +205,17 @@ export default function PhotoEditor({
     <div className="fixed inset-0 z-[70] flex flex-col bg-black pt-[env(safe-area-inset-top)]">
       {/* top bar */}
       <div className="flex items-center justify-between px-4 py-3">
-        <button onClick={onClose} className="rounded-full p-1 text-white" aria-label="Cancel">
+        <button onClick={onClose} className="rounded-full p-1 text-white" aria-label={t("common.cancel")}>
           <X className="h-6 w-6" />
         </button>
-        <span className="text-sm font-semibold text-white">Edit</span>
+        <span className="text-sm font-semibold text-white">{t("editor.edit")}</span>
         <button
           onClick={save}
           disabled={saving}
           className="flex items-center gap-1.5 rounded-full bg-rouge-600 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-          Done
+          {t("common.done")}
         </button>
       </div>
 
@@ -230,7 +232,7 @@ export default function PhotoEditor({
           <img
             ref={imgRef}
             src={src}
-            alt="edit preview"
+            alt={t("editor.preview")}
             className="max-h-[calc(100dvh-14rem)] max-w-full object-contain"
             style={{ filter: cssOf(filter.ops) }}
             draggable={false}
@@ -263,7 +265,7 @@ export default function PhotoEditor({
                     : "0 1px 3px rgba(0,0,0,.4)",
                 }}
               >
-                {o.text || "Type…"}
+                {o.text || t("editor.typePlaceholder")}
               </div>
             );
           })}
@@ -302,7 +304,7 @@ export default function PhotoEditor({
                       filter.id === f.id ? "text-white" : "text-ink-muted",
                     )}
                   >
-                    {f.label}
+                    {t(`editor.f_${f.id}`)}
                   </span>
                 </button>
               ))}
@@ -311,7 +313,7 @@ export default function PhotoEditor({
               onClick={addText}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 py-2.5 text-sm font-semibold text-white"
             >
-              <Type className="h-4 w-4" /> Add text
+              <Type className="h-4 w-4" /> {t("editor.addText")}
             </button>
           </>
         )}
@@ -330,17 +332,18 @@ function TextControls({
   onChange: (patch: Partial<Overlay>) => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <input
           className="input flex-1"
           value={overlay.text}
-          placeholder="Your text"
+          placeholder={t("editor.yourText")}
           onChange={(e) => onChange({ text: e.target.value })}
           autoFocus
         />
-        <button onClick={onDelete} className="btn-soft h-10 w-10 shrink-0 p-0 text-rouge-400" aria-label="Delete text">
+        <button onClick={onDelete} className="btn-soft h-10 w-10 shrink-0 p-0 text-rouge-400" aria-label={t("editor.deleteText")}>
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
@@ -357,7 +360,7 @@ function TextControls({
             )}
             style={{ fontFamily: f.family, fontWeight: f.weight }}
           >
-            {f.label}
+            {t(`editor.font_${f.id}`)}
           </button>
         ))}
       </div>
@@ -374,7 +377,7 @@ function TextControls({
                 overlay.color === c ? "ring-white" : "ring-white/20",
               )}
               style={{ background: c }}
-              aria-label={`Color ${c}`}
+              aria-label={t("editor.color", { color: c })}
             />
           ))}
         </div>
@@ -387,7 +390,7 @@ function TextControls({
         value={overlay.size}
         onChange={(e) => onChange({ size: Number(e.target.value) })}
         className="w-full accent-rouge-500"
-        aria-label="Text size"
+        aria-label={t("editor.textSize")}
       />
     </div>
   );

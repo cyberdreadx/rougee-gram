@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Heart, Pause, Volume2, VolumeX } from "lucide-react";
 import { useTapGestures } from "@/hooks/useTapGestures";
 import MediaVideo from "./MediaVideo";
@@ -30,6 +31,7 @@ export default function FeedVideo({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const { t } = useTranslation();
   const [muted, setMuted] = useState(true);
   const [burst, setBurst] = useState(false);
   const [holding, setHolding] = useState(false);
@@ -128,7 +130,7 @@ export default function FeedVideo({
       <button
         onClick={() => setMuted((m) => !m)}
         className="absolute bottom-2 right-2 z-10 rounded-full bg-black/50 p-2 text-white backdrop-blur"
-        aria-label={muted ? "Unmute" : "Mute"}
+        aria-label={muted ? t("common.unmute") : t("common.mute")}
       >
         {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
       </button>

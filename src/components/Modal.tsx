@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ export default function Modal({
   maxWidth = "max-w-md",
   hideClose,
 }: Props) {
+  const { t } = useTranslation();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
@@ -50,7 +52,7 @@ export default function Modal({
               <button
                 onClick={onClose}
                 className="-mr-1 flex items-center justify-center rounded-lg p-2 text-ink-muted hover:bg-white/5 hover:text-white"
-                aria-label="Close"
+                aria-label={t("common.close")}
               >
                 <X className="h-5 w-5" />
               </button>

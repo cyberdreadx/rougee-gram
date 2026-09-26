@@ -3,15 +3,19 @@
  * (pink → purple → blue) and a white tick. Shown next to a verified account's
  * name. Purely presentational; gate rendering on `useVerified`.
  */
+import { useTranslation } from "react-i18next";
+
 export default function VerifiedBadge({
   size = 16,
   className = "",
-  title = "Verified",
+  title,
 }: {
   size?: number;
   className?: string;
   title?: string;
 }) {
+  const { t } = useTranslation();
+  const label = title ?? t("common.verified");
   // Unique gradient id per size so multiple badges on a page don't collide.
   const gid = `rougee-verified-${size}`;
   return (
@@ -21,9 +25,9 @@ export default function VerifiedBadge({
       viewBox="0 0 24 24"
       className={className}
       role="img"
-      aria-label={title}
+      aria-label={label}
     >
-      <title>{title}</title>
+      <title>{label}</title>
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#ec4899" />

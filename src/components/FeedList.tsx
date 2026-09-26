@@ -1,4 +1,5 @@
 import type { SocialPost } from "@rougechain/sdk";
+import { useTranslation } from "react-i18next";
 import PostCard from "./PostCard";
 import PostSkeleton from "./PostSkeleton";
 import { isRenderablePost } from "@/hooks/useSocial";
@@ -29,6 +30,7 @@ export default function FeedList({
   textOnly,
   showSponsored,
 }: Props) {
+  const { t } = useTranslation();
   if (isLoading) {
     return (
       <div>
@@ -42,7 +44,7 @@ export default function FeedList({
   if (isError) {
     return (
       <div className="px-4 py-16 text-center text-sm text-ink-muted">
-        Couldn't reach RougeChain. Check your connection and try again.
+        {t("feed.connError")}
       </div>
     );
   }
@@ -95,9 +97,10 @@ function FeedBody({ visible, showSponsored }: { visible: SocialPost[]; showSpons
 }
 
 function DefaultEmpty() {
+  const { t } = useTranslation();
   return (
     <div className="px-4 py-16 text-center text-sm text-ink-muted">
-      Nothing here yet.
+      {t("feed.empty")}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import {
   Camera,
   PlusSquare,
@@ -16,36 +17,16 @@ const SEEN_KEY = "rougee-gram:tutorial-seen";
 
 interface Slide {
   icon: LucideIcon;
-  title: string;
-  body: string;
+  /** i18n key suffix — titles/bodies are `tutorial.s{n}t` / `tutorial.s{n}b`. */
+  n: number;
 }
 
 const SLIDES: Slide[] = [
-  {
-    icon: Camera,
-    title: "Welcome to RouGee",
-    body: "An un-deplatformable photo network on RougeChain. Your account is a key you hold — no one can shadowban or disable it.",
-  },
-  {
-    icon: PlusSquare,
-    title: "Share anything",
-    body: "Tap + to post photos and carousels, write text posts and X-style threads, drop a 24h story, or shoot a reel.",
-  },
-  {
-    icon: Compass,
-    title: "Find your feed",
-    body: "Home has Following and Discover. Explore surfaces trending posts and people, and Reels is a full-screen vertical feed.",
-  },
-  {
-    icon: Heart,
-    title: "Connect privately",
-    body: "Follow, like, comment, and tip XRGE. DMs are end-to-end encrypted (ML-KEM-768) — not even the network can read them.",
-  },
-  {
-    icon: KeyRound,
-    title: "You own it all",
-    body: "Your photos and identity live on-chain, signed by your key. Back up your recovery phrase in Settings — it's the only way in.",
-  },
+  { icon: Camera, n: 1 },
+  { icon: PlusSquare, n: 2 },
+  { icon: Compass, n: 3 },
+  { icon: Heart, n: 4 },
+  { icon: KeyRound, n: 5 },
 ];
 
 /**
@@ -53,6 +34,7 @@ const SLIDES: Slide[] = [
  * the app after the user reaches the signed-in state. Skippable.
  */
 export default function Tutorial() {
+  const { t } = useTranslation();
   const [seen, setSeen] = useState(() => {
     try {
       return localStorage.getItem(SEEN_KEY) === "1";
@@ -87,7 +69,7 @@ export default function Tutorial() {
               onClick={finish}
               className="text-sm font-medium text-ink-muted hover:text-white"
             >
-              Skip
+              {t("tutorial.skip")}
             </button>
           )}
         </div>
@@ -99,8 +81,8 @@ export default function Tutorial() {
           <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-rouge-600/15 text-rouge-400">
             <Icon className="h-10 w-10" />
           </span>
-          <h2 className="text-xl font-bold">{slide.title}</h2>
-          <p className="max-w-xs text-sm leading-relaxed text-ink-muted">{slide.body}</p>
+          <h2 className="text-xl font-bold">{t(`tutorial.s${slide.n}t`)}</h2>
+          <p className="max-w-xs text-sm leading-relaxed text-ink-muted">{t(`tutorial.s${slide.n}b`)}</p>
         </div>
 
         {/* dots */}
@@ -109,7 +91,7 @@ export default function Tutorial() {
             <button
               key={idx}
               onClick={() => setI(idx)}
-              aria-label={`Slide ${idx + 1}`}
+              aria-label={t("tutorial.slide", { n: idx + 1 })}
               className={cn(
                 "h-1.5 rounded-full transition-all",
                 idx === i ? "w-5 bg-rouge-500" : "w-1.5 bg-white/20 hover:bg-white/40",
@@ -123,10 +105,10 @@ export default function Tutorial() {
           onClick={() => (last ? finish() : setI((n) => n + 1))}
         >
           {last ? (
-            "Get started"
+            t("tutorial.getStarted")
           ) : (
             <>
-              Next <ArrowRight className="h-4 w-4" />
+              {t("tutorial.next")} <ArrowRight className="h-4 w-4" />
             </>
           )}
         </button>

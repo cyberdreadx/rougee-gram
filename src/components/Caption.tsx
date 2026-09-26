@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import UserLink from "./UserLink";
 import RichText from "./RichText";
 
@@ -11,6 +12,7 @@ export default function Caption({
   text: string;
   clamp?: number;
 }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const isLong = text.length > clamp;
   const shown = expanded || !isLong ? text : text.slice(0, clamp).trimEnd();
@@ -26,7 +28,7 @@ export default function Caption({
             className="text-ink-muted hover:underline"
             onClick={() => setExpanded(true)}
           >
-            more
+            {t("common.more")}
           </button>
         </>
       )}

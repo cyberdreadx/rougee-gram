@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { useGlobalTimeline } from "@/hooks/useSocial";
 import { postLocation, locationMatches } from "@/lib/discover";
@@ -9,6 +10,7 @@ import FeedList from "@/components/FeedList";
  * this filters the recent global timeline client-side (recent matches only).
  */
 export default function LocationPage() {
+  const { t } = useTranslation();
   const { loc = "" } = useParams<{ loc: string }>();
   const navigate = useNavigate();
   const place = decodeURIComponent(loc);
@@ -19,7 +21,7 @@ export default function LocationPage() {
   return (
     <div>
       <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center gap-3 border-b border-ink-border bg-ink/55 px-4 py-3 backdrop-blur md:top-0">
-        <button onClick={() => navigate(-1)} aria-label="Back">
+        <button onClick={() => navigate(-1)} aria-label={t("common.back")}>
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex min-w-0 items-center gap-2">
@@ -29,7 +31,7 @@ export default function LocationPage() {
           <div className="min-w-0 leading-tight">
             <h1 className="truncate text-base font-semibold">{place}</h1>
             <p className="text-xs text-ink-muted">
-              {isLoading ? "…" : `${posts.length} recent post${posts.length === 1 ? "" : "s"}`}
+              {isLoading ? "…" : t("location.recentPosts", { count: posts.length })}
             </p>
           </div>
         </div>
@@ -41,7 +43,7 @@ export default function LocationPage() {
         isError={isError}
         emptyState={
           <div className="px-6 py-16 text-center text-sm text-ink-muted">
-            No recent posts from <span className="font-semibold text-white">{place}</span>.
+            {t("location.noPosts", { place })}
           </div>
         }
       />

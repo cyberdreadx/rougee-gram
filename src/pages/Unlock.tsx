@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Loader2, Lock, ChevronDown, Plus } from "lucide-react";
 import { useAuth, getLastAddress } from "@/store/auth";
 import { useToast } from "@/components/Toast";
@@ -8,6 +9,7 @@ import { shortAddress } from "@/lib/format";
 import Onboarding from "./Onboarding";
 
 export default function Unlock() {
+  const { t } = useTranslation();
   const { wallets, unlock } = useAuth();
   const { toast } = useToast();
   const [selected, setSelected] = useState("");
@@ -31,7 +33,7 @@ export default function Unlock() {
     try {
       await unlock(selected, password);
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Unlock failed.", "error");
+      toast(err instanceof Error ? err.message : t("unlock.unlockFailed"), "error");
       setBusy(false);
     }
   }
@@ -46,9 +48,9 @@ export default function Unlock() {
         </div>
 
         <div className="card p-6">
-          <h1 className="mb-1 text-xl font-bold">Welcome back</h1>
+          <h1 className="mb-1 text-xl font-bold">{t("unlock.welcomeBack")}</h1>
           <p className="mb-5 text-sm text-ink-muted">
-            Unlock your account to continue.
+            {t("unlock.subtitle")}
           </p>
 
           {/* Account picker */}
@@ -63,7 +65,7 @@ export default function Unlock() {
                 <div className="truncate text-sm font-medium">
                   {shortAddress(active?.address ?? "")}
                 </div>
-                <div className="text-xs text-ink-muted">RougeChain account</div>
+                <div className="text-xs text-ink-muted">{t("unlock.account")}</div>
               </div>
               {wallets.length > 1 && (
                 <ChevronDown className="h-4 w-4 text-ink-muted" />
@@ -96,7 +98,7 @@ export default function Unlock() {
             <input
               type="password"
               className="input"
-              placeholder="Password"
+              placeholder={t("unlock.password")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoFocus
@@ -110,7 +112,7 @@ export default function Unlock() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <Lock className="h-4 w-4" /> Unlock
+                  <Lock className="h-4 w-4" /> {t("unlock.unlock")}
                 </>
               )}
             </button>
@@ -121,7 +123,7 @@ export default function Unlock() {
           className="btn-ghost mt-4 w-full"
           onClick={() => setAddNew(true)}
         >
-          <Plus className="h-4 w-4" /> Create or import another account
+          <Plus className="h-4 w-4" /> {t("unlock.createOther")}
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import type { UseQueryResult } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Loader2, Users } from "lucide-react";
 import { useFollowing, useFollowers } from "@/hooks/useSocial";
 import Modal from "./Modal";
@@ -18,6 +19,7 @@ function FollowList({
   query: UseQueryResult<string[]>;
   emptyText: string;
 }) {
+  const { t } = useTranslation();
   const list = (query.data ?? []).filter(
     (x): x is string => typeof x === "string" && x.length > 0,
   );
@@ -32,7 +34,7 @@ function FollowList({
   if (query.isError) {
     return (
       <p className="py-12 text-center text-sm text-ink-muted">
-        Couldn&apos;t load this list.
+        {t("follows.loadError")}
       </p>
     );
   }
@@ -62,10 +64,11 @@ export function FollowingModal({
   pubkey: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const query = useFollowing(pubkey);
   return (
-    <Modal onClose={onClose} title="Following" maxWidth="max-w-md">
-      <FollowList query={query} emptyText="Not following anyone yet." />
+    <Modal onClose={onClose} title={t("common.following")} maxWidth="max-w-md">
+      <FollowList query={query} emptyText={t("follows.emptyFollowing")} />
     </Modal>
   );
 }
@@ -77,10 +80,11 @@ export function FollowersModal({
   pubkey: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const query = useFollowers(pubkey);
   return (
-    <Modal onClose={onClose} title="Followers" maxWidth="max-w-md">
-      <FollowList query={query} emptyText="No followers yet." />
+    <Modal onClose={onClose} title={t("profile.followers")} maxWidth="max-w-md">
+      <FollowList query={query} emptyText={t("follows.emptyFollowers")} />
     </Modal>
   );
 }

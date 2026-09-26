@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from "react";
+import i18n from "@/i18n";
 
 /**
  * Catches render/runtime errors anywhere in the tree so a single component
@@ -43,11 +44,9 @@ export default class ErrorBoundary extends Component<
         }}
       >
         <div style={{ fontSize: 40 }}>🛠️</div>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Something went wrong</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{i18n.t("errors.title")}</h1>
         <p style={{ maxWidth: 360, fontSize: 14, color: "#8b95a7", margin: 0 }}>
-          The app hit an unexpected error. A reload usually fixes it. If not,
-          resetting local data will clear caches and settings — your wallet stays
-          safe (you'll just re-enter your password).
+          {i18n.t("errors.body")}
         </p>
         <pre
           style={{
@@ -70,7 +69,7 @@ export default class ErrorBoundary extends Component<
             onClick={() => location.reload()}
             style={btn("#a855f7", "#ffffff")}
           >
-            Reload
+            {i18n.t("errors.reload")}
           </button>
           <button
             onClick={() => {
@@ -84,7 +83,7 @@ export default class ErrorBoundary extends Component<
             }}
             style={btn("rgba(255,255,255,.08)", "#eafffe")}
           >
-            Reset data &amp; reload
+            {i18n.t("errors.resetReload")}
           </button>
         </div>
       </div>

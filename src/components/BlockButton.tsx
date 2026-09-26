@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Ban } from "lucide-react";
 import { useDmGate } from "@/hooks/useMessenger";
 import { useToast } from "./Toast";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
  * seeing your public posts — the confirm copy says so rather than implying more.
  */
 export default function BlockButton({ pubkey }: { pubkey: string }) {
+  const { t } = useTranslation();
   const gate = useDmGate();
   const { toast } = useToast();
   const [confirm, setConfirm] = useState(false);
@@ -20,7 +22,7 @@ export default function BlockButton({ pubkey }: { pubkey: string }) {
   function toggle() {
     if (blocked) {
       gate.unblock(pubkey);
-      toast("Unblocked", "success");
+      toast(t("block.unblocked"), "success");
       return;
     }
     setConfirm(true);
@@ -34,8 +36,8 @@ export default function BlockButton({ pubkey }: { pubkey: string }) {
           blocked ? "btn-primary" : "btn-soft",
         )}
         onClick={toggle}
-        aria-label={blocked ? "Unblock account" : "Block account"}
-        title={blocked ? "Unblock" : "Block"}
+        aria-label={blocked ? t("block.unblockAccount") : t("block.blockAccount")}
+        title={blocked ? t("block.unblock") : t("block.block")}
       >
         <Ban className="h-4 w-4" />
       </button>
@@ -49,24 +51,23 @@ export default function BlockButton({ pubkey }: { pubkey: string }) {
             className="glass w-full max-w-xs rounded-2xl p-5 text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-semibold">Block this account?</h3>
+            <h3 className="text-base font-semibold">{t("block.confirmTitle")}</h3>
             <p className="mt-1.5 text-sm text-ink-muted">
-              Their messages stop showing up in your inbox on this device. They can
-              still see your public posts. You can undo this any time.
+              {t("block.confirmBody")}
             </p>
             <div className="mt-4 flex gap-2">
               <button className="btn-soft flex-1 py-2.5" onClick={() => setConfirm(false)}>
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 className="btn-primary flex-1 py-2.5"
                 onClick={() => {
                   gate.block(pubkey);
                   setConfirm(false);
-                  toast("Blocked", "success");
+                  toast(t("block.blocked"), "success");
                 }}
               >
-                Block
+                {t("block.block")}
               </button>
             </div>
           </div>

@@ -182,11 +182,11 @@ function CreatePostDialog({
       const isImg = first.type.startsWith("image/");
       const isVid = first.type.startsWith("video/");
       if (!isImg && !isVid) {
-        toast("Choose an image or video file.", "error");
+        toast(t("create.chooseFile"), "error");
         return;
       }
       if (isReelMode && !isVid) {
-        toast("Reels are videos — pick a video file.", "error");
+        toast(t("create.reelsAreVideos"), "error");
         return;
       }
       setVinfo(null);
@@ -216,7 +216,7 @@ function CreatePostDialog({
           // Frame non-vertical footage to 9:16 automatically in reel mode.
           setCrop916(isReelMode && !info.isPortrait);
         } catch (e) {
-          toast(e instanceof Error ? e.message : "Could not read video.", "error");
+          toast(e instanceof Error ? e.message : t("create.couldNotReadVideo"), "error");
           setFile(null);
           setPreviewUrl((prev) => {
             if (prev) URL.revokeObjectURL(prev);
@@ -290,16 +290,16 @@ function CreatePostDialog({
   }
 
   function uploadStage() {
-    return backend === "local" ? "Saving locally…" : "Uploading…";
+    return backend === "local" ? t("create.savingLocally") : t("create.uploadingGeneric");
   }
 
   async function shareImage() {
     if (!file || !wallet) return;
-    setStage("Processing image…");
+    setStage(t("create.processingImage"));
     const img = await processImage(file, { square, maxSize: 1440, quality: 0.82 });
     setStage(uploadStage());
     const media = await putImage(img.blob, "photo");
-    setStage("Signing & posting on-chain…");
+    setStage(t("create.signingPosting"));
     const body = encodePhoto({
       cid: media.ref,
       mime: img.mime,
@@ -321,14 +321,14 @@ function CreatePostDialog({
 
     // Cloudflare Stream path — adaptive HLS + auto thumbnail.
     if (streamEnabled()) {
-      setStage("Uploading video…");
+      setStage(t("create.uploadingVideo"));
       const s = await putStream(vinfo.blob);
       let poster = s.thumbnail;
       if (!poster && vinfo.poster) {
-        setStage("Uploading thumbnail…");
+        setStage(t("create.uploadingThumbnail"));
         poster = (await putImage(vinfo.poster, "poster")).ref;
       }
-      setStage("Signing & posting on-chain…");
+      setStage(t("create.signingPosting"));
       await submit(
         encodeVideo({
           t: isReel && reelAllowed ? "reel" : "video",
@@ -359,12 +359,12 @@ function CreatePostDialog({
 
     let posterRef: string | undefined;
     if (vinfo.poster) {
-      setStage("Uploading thumbnail…");
+      setStage(t("create.uploadingThumbnail"));
       posterRef = (await putImage(vinfo.poster, "poster")).ref;
     }
     setStage(uploadStage());
     const media = await putImage(vinfo.blob, "video");
-    setStage("Signing & posting on-chain…");
+    setStage(t("create.signingPosting"));
     const body = encodeVideo({
       t: isReel && reelAllowed ? "reel" : "video",
       cid: media.ref,
@@ -397,12 +397,12 @@ function CreatePostDialog({
       if (!vinfo) return;
       let posterRef: string | undefined;
       if (vinfo.poster) {
-        setStage("Uploading thumbnail…");
+        setStage(t("create.uploadingThumbnail"));
         posterRef = (await putImage(vinfo.poster, "poster")).ref;
       }
       setStage(uploadStage());
       const media = await putImage(vinfo.blob, "story");
-      setStage("Signing & posting on-chain…");
+      setStage(t("create.signingPosting"));
       await submit(
         encodeStory({
           cid: media.ref,
@@ -415,11 +415,11 @@ function CreatePostDialog({
         }),
       );
     } else {
-      setStage("Processing image…");
+      setStage(t("create.processingImage"));
       const img = await processImage(file, { maxSize: 1440, quality: 0.85 });
       setStage(uploadStage());
       const media = await putImage(img.blob, "story");
-      setStage("Signing & posting on-chain…");
+      setStage(t("create.signingPosting"));
       await submit(
         encodeStory({
           cid: media.ref,
@@ -437,13 +437,13 @@ function CreatePostDialog({
     const all = [file, ...moreImages].slice(0, CAROUSEL_MAX);
     const items: { cid: string; mime: string; w: number; h: number }[] = [];
     for (let i = 0; i < all.length; i++) {
-      setStage(`Processing ${i + 1}/${all.length}…`);
+      setStage(t("create.processingN", { current: i + 1, total: all.length }));
       const img = await processImage(all[i], { maxSize: 1440, quality: 0.82 });
-      setStage(`Uploading ${i + 1}/${all.length}…`);
+      setStage(t("create.uploadingN", { current: i + 1, total: all.length }));
       const media = await putImage(img.blob, "photo");
       items.push({ cid: media.ref, mime: img.mime, w: img.width, h: img.height });
     }
-    setStage("Signing & posting on-chain…");
+    setStage(t("create.signingPosting"));
     await submit(
       encodeCarousel({
         items,
@@ -469,40 +469,44 @@ function CreatePostDialog({
     const writer = { wallet, publicKey, isExtensionWallet };
     const parts = segments.map((s) => s.trim()).filter(Boolean);
     if (!parts.length) {
-      toast("Write something first.", "error");
+      toast(t("create.writeSomething"), "error");
       return;
     }
     let rootId: string | undefined;
     for (let i = 0; i < parts.length; i++) {
       setStage(
         parts.length > 1
-          ? `Posting ${i + 1}/${parts.length}…`
-          : "Signing & posting on-chain…",
+          ? t("create.postingN", { current: i + 1, total: parts.length })
+          : t("create.signingPosting"),
       );
       const parentId = i === 0 ? undefined : rootId;
       let res = await write.createPost(writer, parts[i], parentId);
       if (!res.success && needsFunds(res.error) && !isExtensionWallet) {
-        setStage("Funding account via faucet…");
+        setStage(t("create.fundingFaucet"));
         await requestFaucet(wallet);
         res = await write.createPost(writer, parts[i], parentId);
       }
       if (!res.success) {
         throw new Error(
           i === 0
-            ? res.error || "Post failed"
-            : `Posted ${i}/${parts.length}, then failed: ${res.error || "unknown error"}`,
+            ? res.error || t("create.postFailed")
+            : t("create.threadFailed", {
+                done: i,
+                total: parts.length,
+                error: res.error || t("create.unknownError"),
+              }),
         );
       }
       if (i === 0) {
         rootId = write.newPostId(res);
         // Without the root's id we can't attach the continuation — stop cleanly.
         if (!rootId && parts.length > 1) {
-          throw new Error("Posted the first part, but couldn't link the rest of the thread.");
+          throw new Error(t("create.threadLinkFailed"));
         }
       }
     }
     invalidateFeeds(client, publicKey);
-    toast(parts.length > 1 ? "Thread posted 🧵" : "Posted! 🎉", "success");
+    toast(parts.length > 1 ? t("create.threadPosted") : t("create.posted"), "success");
     reset();
     onClose();
   }
@@ -512,11 +516,11 @@ function CreatePostDialog({
     const writer = { wallet, publicKey, isExtensionWallet };
     let res = await write.createPost(writer, body);
     if (!res.success && needsFunds(res.error) && !isExtensionWallet) {
-      setStage("Funding account via faucet…");
+      setStage(t("create.fundingFaucet"));
       await requestFaucet(wallet);
       res = await write.createPost(writer, body);
     }
-    if (!res.success) throw new Error(res.error || "Post failed");
+    if (!res.success) throw new Error(res.error || t("create.postFailed"));
     invalidateFeeds(client, publicKey);
 
     // A "dark post" ad lives on-chain but is hidden from the author's profile
@@ -527,23 +531,20 @@ function CreatePostDialog({
       reset();
       onClose();
       if (newId) {
-        toast("Ad created — set a budget to launch it 🚀", "success");
+        toast(t("create.adCreated"), "success");
         onAdCreated(newId);
       } else {
-        toast(
-          "Ad created, but we couldn't open Boost automatically. It's hidden until you boost it.",
-          "error",
-        );
+        toast(t("create.adCreatedNoBoost"), "error");
       }
       return;
     }
 
     toast(
       isStory
-        ? "Story posted ✨"
+        ? t("create.storyPosted")
         : isReel && kind === "video"
-          ? "Reel posted! 🎬"
-          : "Posted! 🎉",
+          ? t("create.reelPosted")
+          : t("create.posted"),
       "success",
     );
     reset();
@@ -561,7 +562,7 @@ function CreatePostDialog({
       else if (kind === "carousel") await shareCarousel();
       else await shareImage();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not post.", "error");
+      toast(e instanceof Error ? e.message : t("create.couldNotPost"), "error");
     } finally {
       setBusy(false);
       setStage("");
@@ -594,7 +595,7 @@ function CreatePostDialog({
               mode === m ? "bg-white text-black" : "text-ink-muted hover:text-white",
             )}
           >
-            {m}
+            {t(`create.${m}`)}
           </button>
         ))}
       </div>
@@ -625,7 +626,7 @@ function CreatePostDialog({
                 ))}
               </div>
               <span className="absolute left-2 top-2 rounded-md bg-black/60 px-2 py-1 text-xs font-medium text-white backdrop-blur">
-                {carouselUrls.length} photos
+                {t("create.photosCount", { count: carouselUrls.length })}
               </span>
               <button
                 onClick={() => reset()}
@@ -650,7 +651,7 @@ function CreatePostDialog({
               {kind === "image" ? (
                 <img
                   src={previewUrl}
-                  alt="preview"
+                  alt={t("create.previewAlt")}
                   className={cn("h-full w-full", square ? "object-cover" : "object-contain")}
                 />
               ) : (
@@ -682,7 +683,7 @@ function CreatePostDialog({
                 onClick={() => setEditing(true)}
                 className="absolute right-2 top-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2.5 py-2 text-xs font-medium text-white backdrop-blur"
               >
-                <Wand2 className="h-3.5 w-3.5" /> Edit
+                <Wand2 className="h-3.5 w-3.5" /> {t("create.editPhoto")}
               </button>
             )}
 
@@ -697,20 +698,20 @@ function CreatePostDialog({
                   )}
                 >
                   <Crop className="h-3.5 w-3.5" />
-                  {square ? "1:1" : "Original"}
+                  {square ? t("create.ratio11") : t("create.ratioOriginal")}
                 </button>
               ) : (
                 <button
                   onClick={() => reelAllowed && setIsReel((r) => !r)}
                   disabled={!reelAllowed}
-                  title={reelAllowed ? "" : `Reels must be ${REEL_MAX_SECONDS}s or shorter`}
+                  title={reelAllowed ? "" : t("create.reelMaxTitle", { seconds: REEL_MAX_SECONDS })}
                   className={cn(
                     "flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium backdrop-blur disabled:opacity-50",
                     isReel ? "bg-rouge-600 text-white" : "bg-black/60 text-white",
                   )}
                 >
                   <Film className="h-3.5 w-3.5" />
-                  {isReel ? "Reel" : "Video"}
+                  {isReel ? t("create.reel") : t("create.video")}
                 </button>
               )}
             </div>
@@ -734,7 +735,7 @@ function CreatePostDialog({
           {tooBig && (
             <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              Large file ({formatBytes(file.size)}) — upload may be slow.
+              {t("create.largeFile", { size: formatBytes(file.size) })}
             </div>
           )}
 
@@ -742,7 +743,7 @@ function CreatePostDialog({
             <div className="space-y-2 rounded-lg bg-ink-soft p-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-1.5 font-medium">
-                  <Scissors className="h-3.5 w-3.5" /> Trim
+                  <Scissors className="h-3.5 w-3.5" /> {t("create.trim")}
                 </span>
                 <span className="text-ink-muted">
                   {formatDur(trimStart)} – {formatDur(trimEnd)}
@@ -756,7 +757,7 @@ function CreatePostDialog({
                 value={trimStart}
                 onChange={(e) => setTrimStart(Math.min(Number(e.target.value), trimEnd - 0.5))}
                 className="w-full accent-rouge-500"
-                aria-label="Trim start"
+                aria-label={t("create.trimStart")}
               />
               <input
                 type="range"
@@ -766,7 +767,7 @@ function CreatePostDialog({
                 value={trimEnd}
                 onChange={(e) => setTrimEnd(Math.max(Number(e.target.value), trimStart + 0.5))}
                 className="w-full accent-rouge-500"
-                aria-label="Trim end"
+                aria-label={t("create.trimEnd")}
               />
               <button
                 onClick={() => setCrop916((c) => !c)}
@@ -775,7 +776,7 @@ function CreatePostDialog({
                   crop916 ? "bg-rouge-600 text-white" : "bg-white/5 text-white hover:bg-white/10",
                 )}
               >
-                <Crop className="h-3.5 w-3.5" /> {crop916 ? "9:16 crop on" : "Crop to 9:16"}
+                <Crop className="h-3.5 w-3.5" /> {crop916 ? t("create.crop916On") : t("create.cropTo916")}
               </button>
             </div>
           ) : null}
@@ -812,13 +813,13 @@ function CreatePostDialog({
               {sound ? (
                 <span className="min-w-0 flex-1 truncate">
                   <span className="font-medium">{sound.title}</span>
-                  <span className="text-ink-muted"> · {sound.artist || "Unknown"}</span>
+                  <span className="text-ink-muted"> · {sound.artist || t("create.unknownArtist")}</span>
                 </span>
               ) : (
                 <span className="flex-1">{t("create.addSound")}</span>
               )}
               <span className="shrink-0 text-xs font-medium text-rouge-400">
-                {sound ? "Change" : "Browse"}
+                {sound ? t("create.changeSound") : t("create.browseSound")}
               </span>
             </button>
           )}
@@ -914,21 +915,21 @@ function CreatePostDialog({
                 <div className="border-t border-ink-border/60 px-1 pb-1">
                   <OptionToggle
                     label={t("create.hideLikes")}
-                    desc="Only you will see the total number of likes."
+                    desc={t("create.descHideLikes")}
                     checked={hideLikes}
                     onChange={setHideLikes}
                     disabled={busy}
                   />
                   <OptionToggle
                     label={t("create.turnOffComments")}
-                    desc="No one will be able to comment on this post."
+                    desc={t("create.descNoComments")}
                     checked={noComments}
                     onChange={setNoComments}
                     disabled={busy}
                   />
                   <OptionToggle
-                    label="Turn off photo & GIF comments"
-                    desc="People can still leave text comments — just no images or GIFs."
+                    label={t("create.turnOffMediaComments")}
+                    desc={t("create.descNoMediaComments")}
                     checked={noMediaComments}
                     onChange={setNoMediaComments}
                     disabled={busy || noComments}
@@ -1051,6 +1052,7 @@ function ThreadComposer({
   stage: string;
   onShare: () => void;
 }) {
+  const { t } = useTranslation();
   const { address, publicKey } = useAuth();
   const profile = useMyProfile();
 
@@ -1090,14 +1092,14 @@ function ThreadComposer({
             <div className="min-w-0 flex-1 pb-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">
-                  {profile?.name || "You"}
+                  {profile?.name || t("create.you")}
                 </span>
                 {isThread && (
                   <button
                     onClick={() => remove(i)}
                     disabled={busy}
                     className="text-ink-muted hover:text-rouge-400 disabled:opacity-50"
-                    aria-label="Remove from thread"
+                    aria-label={t("create.removeFromThread")}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -1110,9 +1112,9 @@ function ThreadComposer({
                 placeholder={
                   i === 0
                     ? isThread
-                      ? "Start your thread…"
-                      : "What's happening?"
-                    : "Add another post…"
+                      ? t("create.startThread")
+                      : t("create.whatsHappening")
+                    : t("create.addAnotherPost")
                 }
                 value={seg}
                 maxLength={POST_BODY_LIMIT}
@@ -1140,7 +1142,7 @@ function ThreadComposer({
           <span className="flex h-6 w-6 items-center justify-center rounded-full border border-ink-border">
             <Plus className="h-3.5 w-3.5" />
           </span>
-          Add to thread
+          {t("create.addToThread")}
         </button>
       )}
 
@@ -1153,12 +1155,12 @@ function ThreadComposer({
           {busy ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              {stage || "Posting…"}
+              {stage || t("common.posting")}
             </>
           ) : isThread ? (
-            `Post thread (${filled})`
+            t("create.postThread", { count: filled })
           ) : (
-            "Post"
+            t("create.postBtn")
           )}
         </button>
       </div>
@@ -1175,16 +1177,17 @@ function DropZone({
   onBrowse: () => void;
   mode: CreateMode;
 }) {
+  const { t } = useTranslation();
   const [drag, setDrag] = useState(false);
   const copy =
     mode === "story"
-      ? { icon: ImagePlus, title: "Add to your story", sub: "photo or video" }
+      ? { icon: ImagePlus, title: t("create.dropStoryTitle"), sub: t("create.dropStorySub") }
       : mode === "reel"
-        ? { icon: Film, title: "Add a reel", sub: "a vertical video works best" }
+        ? { icon: Film, title: t("create.dropReelTitle"), sub: t("create.dropReelSub") }
         : {
             icon: ImagePlus,
-            title: "Drag photos or a video here",
-            sub: "click to browse · up to 10 photos · reels",
+            title: t("create.dropDefaultTitle"),
+            sub: t("create.dropDefaultSub"),
           };
   const Icon = copy.icon;
   return (

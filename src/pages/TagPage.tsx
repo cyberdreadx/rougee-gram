@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, Hash } from "lucide-react";
 import { useGlobalTimeline } from "@/hooks/useSocial";
 import { postHashtags } from "@/lib/discover";
@@ -10,17 +11,18 @@ import FeedList from "@/components/FeedList";
  * history (that needs a node index).
  */
 export default function TagPage() {
+  const { t } = useTranslation();
   const { tag = "" } = useParams<{ tag: string }>();
   const navigate = useNavigate();
-  const t = decodeURIComponent(tag).toLowerCase();
+  const slug = decodeURIComponent(tag).toLowerCase();
   const { data, isLoading, isError } = useGlobalTimeline();
 
-  const posts = (data ?? []).filter((p) => postHashtags(p).includes(t));
+  const posts = (data ?? []).filter((p) => postHashtags(p).includes(slug));
 
   return (
     <div>
       <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center gap-3 border-b border-ink-border bg-ink/55 px-4 py-3 backdrop-blur md:top-0">
-        <button onClick={() => navigate(-1)} aria-label="Back">
+        <button onClick={() => navigate(-1)} aria-label={t("common.back")}>
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex min-w-0 items-center gap-2">
@@ -28,9 +30,9 @@ export default function TagPage() {
             <Hash className="h-4 w-4 text-rouge-400" />
           </span>
           <div className="min-w-0 leading-tight">
-            <h1 className="truncate text-base font-semibold">#{t}</h1>
+            <h1 className="truncate text-base font-semibold">#{slug}</h1>
             <p className="text-xs text-ink-muted">
-              {isLoading ? "…" : `${posts.length} recent post${posts.length === 1 ? "" : "s"}`}
+              {isLoading ? "…" : t("tag.recentPosts", { count: posts.length })}
             </p>
           </div>
         </div>
@@ -42,7 +44,7 @@ export default function TagPage() {
         isError={isError}
         emptyState={
           <div className="px-6 py-16 text-center text-sm text-ink-muted">
-            No recent posts tagged <span className="font-semibold text-white">#{t}</span>.
+            {t("tag.noPosts", { tag: slug })}
           </div>
         }
       />

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Heart, Play, Film, Copy } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { decodeBody } from "@/lib/envelope";
@@ -52,7 +53,7 @@ export default function PhotoGrid({
   posts,
   isLoading,
   only,
-  emptyLabel = "Nothing here yet.",
+  emptyLabel,
 }: {
   posts: SocialPost[] | undefined;
   isLoading?: boolean;
@@ -60,6 +61,7 @@ export default function PhotoGrid({
   only?: "reels";
   emptyLabel?: string;
 }) {
+  const { t } = useTranslation();
   if (isLoading) {
     return (
       <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
@@ -75,7 +77,7 @@ export default function PhotoGrid({
   if (cells.length === 0) {
     return (
       <div className="px-4 py-16 text-center text-sm text-ink-muted">
-        {emptyLabel}
+        {emptyLabel ?? t("feed.empty")}
       </div>
     );
   }

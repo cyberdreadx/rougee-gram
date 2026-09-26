@@ -1,5 +1,6 @@
 import { useParams, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { resolveUsername, normalizeUsername } from "@/lib/username";
 import { pubkeyToAddress } from "@rougechain/sdk";
@@ -12,6 +13,7 @@ import { pubkeyToAddress } from "@rougechain/sdk";
  * else falls through to home (unchanged from the old catch-all).
  */
 export default function HandleRoute() {
+  const { t } = useTranslation();
   const { handle } = useParams<{ handle: string }>();
   const isHandle = !!handle && handle.startsWith("@");
   const name = isHandle ? normalizeUsername(handle) : "";
@@ -37,8 +39,8 @@ export default function HandleRoute() {
   }
   if (!data?.address) {
     return (
-      <div className="py-20 text-center text-sm text-ink-muted">
-        No one owns <span className="font-mono">@{name}</span> yet.
+      <div className="py-20 text-center font-mono text-sm text-ink-muted">
+        {t("handle.unclaimed", { name })}
       </div>
     );
   }

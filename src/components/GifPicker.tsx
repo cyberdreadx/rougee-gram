@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, Loader2 } from "lucide-react";
 import Modal from "./Modal";
 
@@ -36,6 +37,7 @@ export default function GifPicker({
   onSelect: (url: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [gifs, setGifs] = useState<Gif[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +45,7 @@ export default function GifPicker({
 
   useEffect(() => {
     let active = true;
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       setLoading(true);
       setError(null);
       try {
@@ -60,11 +62,11 @@ export default function GifPicker({
           full: g.images?.original?.url || "",
         }));
         setGifs(items.filter((g) => g.full));
-        if (items.length === 0 && q.trim()) setError("No GIFs found");
+        if (items.length === 0 && q.trim()) setError(t("gif.noResults"));
       } catch {
         if (active) {
           setGifs([]);
-          setError("Couldn't load GIFs");
+          setError(t("gif.loadError"));
         }
       } finally {
         if (active) setLoading(false);
@@ -72,17 +74,17 @@ export default function GifPicker({
     }, q ? 400 : 0);
     return () => {
       active = false;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
-  }, [q]);
+  }, [q, t]);
 
   return (
-    <Modal onClose={onClose} title="Add a GIF">
+    <Modal onClose={onClose} title={t("gif.title")}>
       <div className="mb-3 flex items-center gap-2 rounded-xl bg-ink-soft px-3">
         <Search className="h-4 w-4 shrink-0 text-ink-muted" />
         <input
           className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-ink-muted"
-          placeholder="Search GIPHY…"
+          placeholder={t("gif.search")}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           autoFocus
@@ -114,7 +116,7 @@ export default function GifPicker({
         )}
       </div>
 
-      <p className="mt-2 text-center text-[11px] text-ink-muted">Powered by GIPHY</p>
+      <p className="mt-2 text-center text-[11px] text-ink-muted">{t("gif.powered")}</p>
     </Modal>
   );
 }

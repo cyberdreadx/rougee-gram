@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ImageOff } from "lucide-react";
 import { resolveMediaUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ interface Props {
 /** Resolves a media reference (ipfs://… / local://…) and renders it with a
  *  loading skeleton and a graceful "unavailable" fallback. */
 export default function MediaImage({ refUri, alt, className, rounded }: Props) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
 
@@ -44,7 +46,7 @@ export default function MediaImage({ refUri, alt, className, rounded }: Props) {
       >
         <div className="flex flex-col items-center gap-1.5 p-4 text-center text-xs">
           <ImageOff className="h-6 w-6" />
-          <span>Image unavailable</span>
+          <span>{t("feed.imageUnavailable")}</span>
         </div>
       </div>
     );

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MapPin, X } from "lucide-react";
 import { searchPlaces, type PlaceSuggestion } from "@/lib/photon";
 
@@ -16,6 +17,7 @@ export default function LocationAutocomplete({
   onChange: (v: string) => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -55,7 +57,7 @@ export default function LocationAutocomplete({
         <MapPin className="h-4 w-4 shrink-0 text-ink-muted" />
         <input
           className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-ink-muted"
-          placeholder="Add location"
+          placeholder={t("location.add")}
           value={value}
           maxLength={80}
           disabled={disabled}
@@ -75,7 +77,7 @@ export default function LocationAutocomplete({
               setSuggestions([]);
             }}
             className="shrink-0 text-ink-muted hover:text-white"
-            aria-label="Clear location"
+            aria-label={t("location.clear")}
           >
             <X className="h-4 w-4" />
           </button>

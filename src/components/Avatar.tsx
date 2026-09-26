@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { resolveMediaUrl } from "@/lib/media";
 import { cn, colorFromString } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ export default function Avatar({
   className,
   ring,
 }: Props) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export default function Avatar({
       {url ? (
         <img
           src={url}
-          alt={name ?? "avatar"}
+          alt={name ?? t("common.avatar")}
           className="h-full w-full object-cover"
         />
       ) : (

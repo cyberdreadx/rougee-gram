@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, Play, Pause, Loader2, Music2, Check } from "lucide-react";
 import { useSounds, type Sound } from "@/hooks/useSounds";
 import Modal from "./Modal";
@@ -17,6 +18,7 @@ export default function SoundPicker({
   onSelect: (sound: Sound | null) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const { data: sounds, isLoading, isError } = useSounds();
   const [q, setQ] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -47,14 +49,14 @@ export default function SoundPicker({
   }
 
   return (
-    <Modal onClose={onClose} title="Add a sound">
+    <Modal onClose={onClose} title={t("sound.title")}>
       <audio ref={audioRef} className="hidden" onEnded={() => setPreviewId(null)} />
 
       <div className="mb-3 flex items-center gap-2 rounded-xl bg-ink-soft px-3">
         <Search className="h-4 w-4 shrink-0 text-ink-muted" />
         <input
           className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-ink-muted"
-          placeholder="Search tracks or artists"
+          placeholder={t("sound.search")}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -65,7 +67,7 @@ export default function SoundPicker({
           className="mb-2 w-full rounded-lg bg-ink-soft py-2 text-xs font-medium text-ink-muted hover:text-white"
           onClick={() => choose(null)}
         >
-          Remove sound
+          {t("sound.remove")}
         </button>
       )}
 
@@ -76,14 +78,14 @@ export default function SoundPicker({
           </div>
         ) : isError ? (
           <p className="py-10 text-center text-sm text-ink-muted">
-            Couldn't load sounds. Try again.
+            {t("sound.loadError")}
           </p>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-ink-muted">
             <Music2 className="h-6 w-6" />
             {sounds && sounds.length === 0
-              ? "No tracks on RougeChain yet — add some on music.rougee.app."
-              : "No tracks match that search."}
+              ? t("sound.emptyNone")
+              : t("sound.emptyNoMatch")}
           </div>
         ) : (
           filtered.map((s) => (
@@ -97,7 +99,7 @@ export default function SoundPicker({
               <button
                 onClick={() => togglePreview(s)}
                 className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-ink-soft"
-                aria-label={previewId === s.id ? "Pause" : "Preview"}
+                aria-label={previewId === s.id ? t("sound.pause") : t("sound.preview")}
               >
                 {s.coverUrl ? (
                   <img src={s.coverUrl} alt="" className="h-full w-full object-cover" />
@@ -111,7 +113,7 @@ export default function SoundPicker({
 
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{s.title}</div>
-                <div className="truncate text-xs text-ink-muted">{s.artist || "Unknown artist"}</div>
+                <div className="truncate text-xs text-ink-muted">{s.artist || t("sound.unknownArtist")}</div>
               </div>
 
               <button
@@ -123,7 +125,7 @@ export default function SoundPicker({
                     : "bg-white/5 text-white hover:bg-white/10",
                 )}
               >
-                {selectedId === s.id ? <Check className="h-3.5 w-3.5" /> : "Use"}
+                {selectedId === s.id ? <Check className="h-3.5 w-3.5" /> : t("sound.use")}
               </button>
             </div>
           ))
@@ -131,7 +133,7 @@ export default function SoundPicker({
       </div>
 
       <p className="mt-3 text-center text-[11px] text-ink-muted">
-        Sounds from <span className="text-white">qRougee</span> · music.rougee.app
+        {t("sound.soundsFrom")} <span className="text-white">qRougee</span> · music.rougee.app
       </p>
     </Modal>
   );
