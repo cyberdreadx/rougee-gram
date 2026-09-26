@@ -37,7 +37,7 @@ import TipButton from "./TipButton";
 import Handle from "./Handle";
 import RichText from "./RichText";
 import BoostModal from "./BoostModal";
-import { promoteEnabled } from "@/lib/promote";
+import { promoteEnabled, recordClick } from "@/lib/promote";
 import Caption from "./Caption";
 import FeedVideo from "./FeedVideo";
 import { Film, MapPin } from "lucide-react";
@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 
 export default function PostCard({ post }: { post: SocialPost }) {
   const { t } = useTranslation();
+  const { publicKey } = useAuth();
   const decoded = decodeBody(post.body);
   const cta = postCta(post);
   const { data: profile } = useProfile(post.author_pubkey);
@@ -202,6 +203,7 @@ export default function PostCard({ post }: { post: SocialPost }) {
           href={cta.url}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => recordClick(post.id, publicKey || undefined)}
           className="mx-3 mt-2 flex items-center justify-center gap-1 rounded-lg bg-ink-soft py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 sm:mx-0"
         >
           {t(`cta.${cta.action}`)}

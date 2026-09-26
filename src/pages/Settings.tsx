@@ -418,11 +418,14 @@ function AdRow({
         </button>
       </div>
 
-      {stats && (stats.spend > 0 || stats.views > 0) && (
-        <div className="mt-2 grid grid-cols-3 gap-2 border-t border-ink-border/60 pt-2 text-center text-xs">
-          <Stat label={t("ads.spent")} value={`${fmt(stats.spend)}`} />
-          <Stat label={t("ads.views")} value={fmt(stats.views)} />
-          <Stat label={t("ads.poolLeft")} value={`${fmt(stats.poolBalance)}`} />
+      {stats && (stats.spend > 0 || stats.impressions > 0) && (
+        <div className="mt-2 grid grid-cols-3 gap-y-2 border-t border-ink-border/60 pt-2 text-center text-xs">
+          <Stat label={t("ads.spent")} value={fmt(stats.spend)} />
+          <Stat label={t("ads.impressions")} value={fmt(stats.impressions)} />
+          <Stat label={t("ads.clicks")} value={fmt(stats.clicks)} />
+          <Stat label={t("ads.ctr")} value={`${(stats.ctr * 100).toFixed(1)}%`} />
+          <Stat label={t("ads.rewarded")} value={fmt(stats.views)} />
+          <Stat label={t("ads.poolLeft")} value={fmt(stats.poolBalance)} />
         </div>
       )}
 

@@ -114,8 +114,12 @@ interface Ad {
   weight: number;
   until: number;
   rewardPerView: number;
-  /** Count of rewarded impressions (for advertiser stats). */
+  /** Count of rewarded impressions (eligible viewers who earned). */
   viewsPaid?: number;
+  /** Unique viewers who saw the ad (all viewers, rewarded or not). */
+  impressions?: number;
+  /** Unique viewers who clicked the ad's call-to-action. */
+  clicks?: number;
 }
 
 async function activeAds(env: Env, network: string): Promise<Ad[]> {
@@ -166,6 +170,8 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const ad = (await env.PROMOTE.get(`ad:${network}:${postId}`, "json")) as Ad | null;
     if (!ad) return json({ found: false }, 200, env);
     const views = ad.viewsPaid || 0;
+    const impressions = ad.impressions || 0;
+    const clicks = ad.clicks || 0;
     return json(
       {
         found: true,
@@ -174,6 +180,9 @@ async function handle(request: Request, env: Env): Promise<Response> {
         poolBalance: ad.poolBalance,
         rewardsPaid: views * ad.rewardPerView,
         views,
+        impressions,
+        clicks,
+        ctr: impressions > 0 ? clicks / impressions : 0,
         rewardPerView: ad.rewardPerView,
         until: ad.until,
       },
@@ -266,9 +275,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
     // Reserve the impression first so a double-tap can't double-reward.
     const ttl = Math.max(60, Math.ceil((ad.until - Date.now()) / 1000));
     await env.PROMOTE.put(impKey, "1", { expirationTtl: ttl });
+    // Count the unique impression (every viewer who saw it, rewarded or not).
+    ad.impressions = (ad.impressions || 0) + 1;
 
     // Sybil blunt: only accounts holding >= EARN_MIN earn. Ad still "shown".
     if ((await balanceOf(nodeApi, viewer)) < earnMin(env)) {
+      await env.PROMOTE.put(`ad:${network}:${postId}`, JSON.stringify(ad));
       return json({ ok: true, earned: 0, ineligible: true }, 200, env);
     }
 
@@ -280,6 +292,32 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const bal = Number((await env.PROMOTE.get(balKey)) || 0) + reward;
     await env.PROMOTE.put(balKey, String(bal));
     return json({ ok: true, earned: reward, balance: bal }, 200, env);
+  }
+
+  // ── Click: count a unique CTA click (for click-through-rate stats) ──
+  if (request.method === "POST" && url.pathname === "/click") {
+    const { network, postId, viewer } = (await request.json().catch(() => ({}))) as {
+      network?: string;
+      postId?: string;
+      viewer?: string;
+    };
+    if (!network || !nodeFor(env, network)) return json({ error: "unsupported network" }, 400, env);
+    if (!postId) return json({ error: "missing postId" }, 400, env);
+
+    const ad = (await env.PROMOTE.get(`ad:${network}:${postId}`, "json")) as Ad | null;
+    if (!ad) return json({ ok: true, counted: false }, 200, env);
+    if (viewer && viewer === ad.author) return json({ ok: true, counted: false, self: true }, 200, env);
+
+    // Dedupe per viewer when we can identify them, so CTR reflects unique clicks.
+    if (viewer) {
+      const clkKey = `clk:${network}:${postId}:${await keyId(viewer)}`;
+      if (await env.PROMOTE.get(clkKey)) return json({ ok: true, counted: false, alreadyClicked: true }, 200, env);
+      const ttl = Math.max(60, Math.ceil((ad.until - Date.now()) / 1000));
+      await env.PROMOTE.put(clkKey, "1", { expirationTtl: ttl });
+    }
+    ad.clicks = (ad.clicks || 0) + 1;
+    await env.PROMOTE.put(`ad:${network}:${postId}`, JSON.stringify(ad));
+    return json({ ok: true, counted: true }, 200, env);
   }
 
   // ── Claim: pay out accrued earnings in one transfer ──

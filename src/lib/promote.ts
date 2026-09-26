@@ -58,6 +58,9 @@ export interface AdStats {
   poolBalance: number;
   rewardsPaid: number;
   views: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
   rewardPerView: number;
   until: number;
 }
@@ -78,11 +81,29 @@ export async function getAdStats(postId: string): Promise<AdStats | null> {
       poolBalance: Number(d.poolBalance) || 0,
       rewardsPaid: Number(d.rewardsPaid) || 0,
       views: Number(d.views) || 0,
+      impressions: Number(d.impressions) || 0,
+      clicks: Number(d.clicks) || 0,
+      ctr: Number(d.ctr) || 0,
       rewardPerView: Number(d.rewardPerView) || 0,
       until: Number(d.until) || 0,
     };
   } catch {
     return null;
+  }
+}
+
+/** Record a unique CTA click (fire-and-forget) for click-through-rate stats. */
+export async function recordClick(postId: string, viewer?: string): Promise<void> {
+  if (!promoteEnabled() || !postId) return;
+  try {
+    await fetch(`${base()}/click`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ network: getConfig().network, postId, viewer }),
+      keepalive: true,
+    });
+  } catch {
+    // best-effort — a missed click stat is not worth surfacing.
   }
 }
 
