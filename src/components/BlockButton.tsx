@@ -46,7 +46,7 @@ export default function BlockButton({ pubkey }: { pubkey: string }) {
           onClick={() => setConfirm(false)}
         >
           <div
-            className="w-full max-w-xs rounded-2xl border border-ink-border bg-ink-card p-5 text-center"
+            className="glass w-full max-w-xs rounded-2xl p-5 text-center"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-semibold">Block this account?</h3>

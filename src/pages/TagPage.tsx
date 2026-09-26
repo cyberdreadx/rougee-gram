@@ -19,7 +19,7 @@ export default function TagPage() {
 
   return (
     <div>
-      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center gap-3 border-b border-ink-border bg-ink/80 px-4 py-3 backdrop-blur md:top-0">
+      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center gap-3 border-b border-ink-border bg-ink/55 px-4 py-3 backdrop-blur md:top-0">
         <button onClick={() => navigate(-1)} aria-label="Back">
           <ArrowLeft className="h-5 w-5" />
         </button>

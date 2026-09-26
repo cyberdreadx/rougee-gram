@@ -81,7 +81,7 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col pb-[calc(var(--bottom-nav-h)+4.5rem)] md:h-[calc(100dvh-1rem)] md:pb-0">
-      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center gap-3 border-b border-ink-border bg-ink/80 px-3 py-2.5 backdrop-blur md:top-0">
+      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center gap-3 border-b border-ink-border bg-ink/55 px-3 py-2.5 backdrop-blur md:top-0">
         <button className="btn-ghost h-9 w-9 p-0" onClick={() => navigate("/messages")}>
           <ArrowLeft className="h-5 w-5" />
         </button>

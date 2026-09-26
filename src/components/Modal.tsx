@@ -34,12 +34,12 @@ export default function Modal({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
+        className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in"
         onClick={onClose}
       />
       <div
         className={cn(
-          "relative z-10 max-h-[90dvh] w-full animate-slide-up overflow-y-auto overscroll-contain rounded-t-2xl border border-ink-border bg-ink-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:animate-scale-in sm:rounded-2xl sm:pb-5",
+          "glass relative z-10 max-h-[90dvh] w-full animate-slide-up overflow-y-auto overscroll-contain rounded-t-2xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-h-[85vh] sm:animate-scale-in sm:rounded-2xl sm:pb-5",
           maxWidth,
         )}
       >

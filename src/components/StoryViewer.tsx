@@ -360,7 +360,7 @@ function SeenBySheet({ storyId, onClose }: { storyId: string; onClose: () => voi
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div
-        className="w-full max-w-[440px] rounded-t-2xl border-t border-ink-border bg-ink-card p-4"
+        className="glass w-full max-w-[440px] rounded-t-2xl p-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">

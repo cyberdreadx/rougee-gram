@@ -69,6 +69,31 @@
     @apply rounded-2xl border border-ink-border bg-ink-card;
   }
 
+  /* iOS-style frosted glass. Translucent surface + heavy backdrop blur +
+     saturation boost, with a faint top highlight so edges read as glass.
+     Use `.glass` for panels/modals and `.glass-soft` for lighter chrome
+     (headers, nav). Tailwind emits the -webkit-backdrop-filter prefix that
+     iOS Safari/WebView needs. */
+  .glass {
+    @apply border border-white/10 bg-ink-card/70 backdrop-blur-2xl backdrop-saturate-150;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+      0 12px 40px -8px rgba(0, 0, 0, 0.6);
+  }
+  .glass-soft {
+    @apply border-white/10 bg-ink/60 backdrop-blur-xl backdrop-saturate-150;
+  }
+  /* Fallback for engines without backdrop-filter: fall back to a solid-ish
+     surface so text stays legible. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      @apply bg-ink-card;
+    }
+    .glass-soft {
+      @apply bg-ink;
+    }
+  }
+
   .btn {
     @apply inline-flex select-none items-center justify-center gap-2 rounded-xl px-4 py-2
       text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;

@@ -33,7 +33,7 @@ export default function Messages() {
 
   return (
     <div>
-      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center justify-between border-b border-ink-border bg-ink/80 px-4 py-3.5 backdrop-blur md:top-0">
+      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center justify-between border-b border-ink-border bg-ink/55 px-4 py-3.5 backdrop-blur md:top-0">
         <div>
           <h1 className="text-base font-semibold">Messages</h1>
           <p className="flex items-center gap-1 text-xs text-ink-muted">

@@ -19,7 +19,7 @@ export default function Explore() {
 
   return (
     <div>
-      <header className="sticky top-[var(--top-bar-h)] z-20 border-b border-ink-border bg-ink/80 p-3 backdrop-blur md:top-0">
+      <header className="sticky top-[var(--top-bar-h)] z-20 border-b border-ink-border bg-ink/55 p-3 backdrop-blur md:top-0">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
           <input

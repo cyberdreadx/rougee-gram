@@ -91,7 +91,7 @@ export default function PostDetail() {
 
   return (
     <div className="pb-[calc(var(--bottom-nav-h)+5.5rem)] md:pb-0">
-      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center gap-3 border-b border-ink-border bg-ink/80 px-3 py-3 backdrop-blur md:top-0">
+      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center gap-3 border-b border-ink-border bg-ink/55 px-3 py-3 backdrop-blur md:top-0">
         <button className="btn-ghost h-9 w-9 p-0" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </button>

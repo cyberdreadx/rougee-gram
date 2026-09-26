@@ -590,7 +590,7 @@ function PostMenu({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-ink-border bg-ink-card shadow-xl">
+          <div className="glass absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl">
             {promoteEnabled() && (
               <button
                 className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5"

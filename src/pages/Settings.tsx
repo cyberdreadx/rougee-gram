@@ -76,7 +76,7 @@ export default function Settings() {
 
   return (
     <div className="pb-10">
-      <header className="sticky top-[var(--top-bar-h)] z-20 border-b border-ink-border bg-ink/80 px-4 py-3.5 backdrop-blur md:top-0">
+      <header className="sticky top-[var(--top-bar-h)] z-20 border-b border-ink-border bg-ink/55 px-4 py-3.5 backdrop-blur md:top-0">
         <h1 className="text-base font-semibold">{t("settings.title")}</h1>
       </header>
 

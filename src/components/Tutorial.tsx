@@ -79,7 +79,7 @@ export default function Tutorial() {
 
   return createPortal(
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center">
-      <div className="animate-slide-up w-full max-w-md rounded-t-3xl border border-ink-border bg-ink-card p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl sm:animate-scale-in sm:rounded-3xl sm:pb-6">
+      <div className="glass animate-slide-up w-full max-w-md rounded-t-3xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:animate-scale-in sm:rounded-3xl sm:pb-6">
         <div className="mb-6 flex items-center justify-between">
           <Logo size={28} withWordmark />
           {!last && (

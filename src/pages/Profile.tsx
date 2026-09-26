@@ -95,7 +95,7 @@ export default function Profile() {
 
   return (
     <div className="pb-8">
-      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center justify-between border-b border-ink-border bg-ink/80 px-4 py-3 backdrop-blur md:top-0">
+      <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center justify-between border-b border-ink-border bg-ink/55 px-4 py-3 backdrop-blur md:top-0">
         <h1 className="truncate text-base font-semibold">
           {profile ? displayName(profile) : shortAddress(address ?? "")}
         </h1>
