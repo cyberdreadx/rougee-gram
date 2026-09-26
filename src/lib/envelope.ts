@@ -35,6 +35,9 @@ export interface PostOptions {
   nmc?: boolean;
   /** Free-text location label shown on the post (e.g. "Miami, FL"). */
   loc?: string;
+  /** This is an AD creative ("dark post"): it's hidden from the author's profile
+   *  and all organic feeds, and only surfaces as a boosted "Sponsored" item. */
+  ad?: boolean;
 }
 
 export interface PhotoEnvelope extends PostOptions {
@@ -226,6 +229,18 @@ export function postOptions(d: Decoded): {
     };
   }
   return { hideLikes: false, noComments: false, noMediaComments: false };
+}
+
+/** True for an ad "dark post": exclude it from the author's profile and all
+ *  organic feeds/grids (it only appears as a boosted "Sponsored" item). Takes a
+ *  SocialPost-like {body} so callers don't have to decode first. */
+export function isAdPost(post: { body: string } | undefined | null): boolean {
+  if (!post) return false;
+  const d = decodeBody(post.body);
+  return (
+    (d.kind === "photo" || d.kind === "video" || d.kind === "carousel") &&
+    !!(d.data as PostOptions).ad
+  );
 }
 
 /** Stories are ephemeral by convention: shown only within this window. The

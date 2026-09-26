@@ -24,6 +24,7 @@ import {
   Wand2,
   Plus,
   Trash2,
+  Rocket,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useMyProfile } from "@/hooks/useProfile";
@@ -56,6 +57,8 @@ import * as write from "@/lib/write";
 import SoundPicker from "./SoundPicker";
 import PhotoEditor from "./PhotoEditor";
 import LocationAutocomplete from "./LocationAutocomplete";
+import BoostModal from "./BoostModal";
+import { promoteEnabled } from "@/lib/promote";
 import { cn } from "@/lib/utils";
 
 type CreateMode = "post" | "text" | "story" | "reel";
@@ -79,6 +82,9 @@ export function CreatePostProvider({ children }: { children: ReactNode }) {
     open: false,
     mode: "post",
   });
+  // A freshly-created "dark post" ad: after posting we jump straight into the
+  // boost flow, since the creative is otherwise invisible until it's funded.
+  const [boostId, setBoostId] = useState<string | null>(null);
   const value = useMemo(
     () => ({ open: (mode: CreateMode = "post") => setState({ open: true, mode }) }),
     [],
@@ -90,8 +96,10 @@ export function CreatePostProvider({ children }: { children: ReactNode }) {
         <CreatePostDialog
           initialMode={state.mode}
           onClose={() => setState((s) => ({ ...s, open: false }))}
+          onAdCreated={setBoostId}
         />
       )}
+      {boostId && <BoostModal postId={boostId} onClose={() => setBoostId(null)} />}
     </Ctx.Provider>
   );
 }
@@ -99,9 +107,11 @@ export function CreatePostProvider({ children }: { children: ReactNode }) {
 function CreatePostDialog({
   initialMode,
   onClose,
+  onAdCreated,
 }: {
   initialMode: CreateMode;
   onClose: () => void;
+  onAdCreated: (postId: string) => void;
 }) {
   const [mode, setMode] = useState<CreateMode>(initialMode);
   const isStory = mode === "story";
@@ -128,6 +138,7 @@ function CreatePostDialog({
   const [noComments, setNoComments] = useState(false);
   const [noMediaComments, setNoMediaComments] = useState(false);
   const [location, setLocation] = useState("");
+  const [isAd, setIsAd] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [sound, setSound] = useState<Sound | null>(null);
   const [showSounds, setShowSounds] = useState(false);
@@ -237,6 +248,7 @@ function CreatePostDialog({
     setCaption("");
     setHideLikes(false);
     setNoComments(false);
+    setIsAd(false);
     setNoMediaComments(false);
     setLocation("");
     setShowAdvanced(false);
@@ -291,6 +303,7 @@ function CreatePostDialog({
       nc: noComments || undefined,
       nmc: noMediaComments || undefined,
       loc: location.trim() || undefined,
+      ad: isAd || undefined,
     });
     await submit(body);
   }
@@ -328,6 +341,7 @@ function CreatePostDialog({
           nc: noComments || undefined,
           nmc: noMediaComments || undefined,
           loc: location.trim() || undefined,
+          ad: isAd || undefined,
           audio: audioEnv,
         }),
       );
@@ -361,6 +375,7 @@ function CreatePostDialog({
       nc: noComments || undefined,
       nmc: noMediaComments || undefined,
       loc: location.trim() || undefined,
+      ad: isAd || undefined,
       audio: audioEnv,
     });
     await submit(body);
@@ -427,6 +442,7 @@ function CreatePostDialog({
         nc: noComments || undefined,
         nmc: noMediaComments || undefined,
         loc: location.trim() || undefined,
+        ad: isAd || undefined,
       }),
     );
   }
@@ -491,6 +507,26 @@ function CreatePostDialog({
     }
     if (!res.success) throw new Error(res.error || "Post failed");
     invalidateFeeds(client, publicKey);
+
+    // A "dark post" ad lives on-chain but is hidden from the author's profile
+    // and every organic feed — it only surfaces once it's boosted. Jump the
+    // author straight into the boost flow so the creative doesn't vanish.
+    if (isAd) {
+      const newId = write.newPostId(res);
+      reset();
+      onClose();
+      if (newId) {
+        toast("Ad created — set a budget to launch it 🚀", "success");
+        onAdCreated(newId);
+      } else {
+        toast(
+          "Ad created, but we couldn't open Boost automatically. It's hidden until you boost it.",
+          "error",
+        );
+      }
+      return;
+    }
+
     toast(
       isStory
         ? "Story posted ✨"
@@ -773,6 +809,46 @@ function CreatePostDialog({
             </button>
           )}
 
+          {!isStory && promoteEnabled() && (
+            <div
+              className={cn(
+                "overflow-hidden rounded-lg border transition-colors",
+                isAd ? "border-rouge-600/60 bg-rouge-600/10" : "border-transparent bg-ink-soft",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3 px-3 py-2.5">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <Rocket className="mt-0.5 h-4 w-4 shrink-0 text-rouge-400" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Run as an ad</div>
+                    <div className="text-xs text-ink-muted">
+                      Hidden from your profile &amp; feeds — it only appears as a
+                      Sponsored post. You'll set a budget after posting.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isAd}
+                  onClick={() => setIsAd((v) => !v)}
+                  disabled={busy}
+                  className={cn(
+                    "relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50",
+                    isAd ? "bg-rouge-600" : "bg-white/15",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
+                      isAd ? "translate-x-[22px]" : "translate-x-0.5",
+                    )}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
+
           {!isStory && (
             <div className="overflow-hidden rounded-lg bg-ink-soft">
               <button
@@ -846,6 +922,10 @@ function CreatePostDialog({
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {stage || "Posting…"}
+                </>
+              ) : isAd ? (
+                <>
+                  <Rocket className="h-4 w-4" /> Create ad
                 </>
               ) : (
                 "Share"

@@ -8,7 +8,7 @@ import type { SocialPost, PostStats, ArtistStats } from "@rougechain/sdk";
 import { rc, resolveTxId } from "@/lib/rouge";
 import { useAuth } from "@/store/auth";
 import { invalidateProfile } from "@/lib/profile";
-import { decodeBody } from "@/lib/envelope";
+import { decodeBody, isAdPost } from "@/lib/envelope";
 import * as write from "@/lib/write";
 import { recordTip, getPostTips } from "@/lib/tips";
 
@@ -29,7 +29,11 @@ const PAGE = 50;
 export function useGlobalTimeline() {
   return useQuery({
     queryKey: qk.timeline,
-    queryFn: () => rc().social.getGlobalTimeline(PAGE, 0),
+    // Ad "dark posts" never appear organically — only as boosted Sponsored items.
+    queryFn: () =>
+      rc()
+        .social.getGlobalTimeline(PAGE, 0)
+        .then((posts) => (posts ?? []).filter((p) => !isAdPost(p))),
   });
 }
 
@@ -63,7 +67,7 @@ export function useFollowingFeed() {
       const seen = new Set<string>();
       const merged: SocialPost[] = [];
       for (const p of perUser.flat()) {
-        if (!p || p.reply_to_id || seen.has(p.id)) continue;
+        if (!p || p.reply_to_id || seen.has(p.id) || isAdPost(p)) continue;
         seen.add(p.id);
         merged.push(p);
       }
@@ -80,7 +84,14 @@ export function useUserPosts(pubkey: string | undefined) {
   return useQuery({
     queryKey: qk.userPosts(pubkey ?? ""),
     enabled: Boolean(pubkey),
-    queryFn: () => rc().social.getUserPosts(pubkey as string, PAGE, 0),
+    // Hide ad "dark posts" from the author's own profile grid/lists.
+    queryFn: () =>
+      rc()
+        .social.getUserPosts(pubkey as string, PAGE, 0)
+        .then((r) => ({
+          posts: ((r?.posts ?? []) as SocialPost[]).filter((p) => !isAdPost(p)),
+          total: r?.total ?? 0,
+        })),
   });
 }
 
@@ -421,7 +432,7 @@ export function useActivity() {
     queryFn: async (): Promise<ActivityData> => {
       const { posts } = await rc().social.getUserPosts(publicKey, 15, 0);
       const mine = posts.filter((p) => {
-        if (p.reply_to_id) return false;
+        if (p.reply_to_id || isAdPost(p)) return false;
         const k = decodeBody(p.body).kind;
         return k !== "profile" && k !== "story" && k !== "note";
       });
