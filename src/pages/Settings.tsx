@@ -50,7 +50,7 @@ import {
   useMyAds,
   usePromoted,
   useAdStats,
-  useEndCampaign,
+  useCampaignAction,
 } from "@/hooks/usePromote";
 import { promoteEnabled } from "@/lib/promote";
 import { Rocket } from "lucide-react";
@@ -386,10 +386,25 @@ function AdRow({
   const decoded = decodeBody(post.body);
   const cap = "data" in decoded ? (decoded.data as { cap?: string }).cap?.trim() : undefined;
   const { data: stats } = useAdStats(post.id);
-  const end = useEndCampaign();
+  const campaign = useCampaignAction();
   const [confirming, setConfirming] = useState(false);
 
   const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const paused = !!stats?.paused;
+  const live = active || paused; // a fundable campaign exists (running or paused)
+
+  function run(action: "end" | "pause" | "resume", okMsg: string) {
+    campaign.mutate(
+      { action, postId: post.id },
+      {
+        onSuccess: () => {
+          toast(okMsg, "success");
+          setConfirming(false);
+        },
+        onError: (e) => toast(e instanceof Error ? e.message : t("ads.actionFailed"), "error"),
+      },
+    );
+  }
 
   return (
     <li className="rounded-xl bg-ink-soft p-2">
@@ -405,16 +420,16 @@ function AdRow({
             <span
               className={cn(
                 "inline-block h-1.5 w-1.5 rounded-full",
-                active ? "bg-emerald-400" : "bg-ink-muted",
+                active ? "bg-emerald-400" : paused ? "bg-amber-400" : "bg-ink-muted",
               )}
             />
-            <span className={active ? "text-emerald-400" : "text-ink-muted"}>
-              {active ? t("ads.running") : t("ads.notRunning")}
+            <span className={active ? "text-emerald-400" : paused ? "text-amber-400" : "text-ink-muted"}>
+              {active ? t("ads.running") : paused ? t("ads.paused") : t("ads.notRunning")}
             </span>
           </div>
         </div>
         <button className="btn-soft shrink-0 px-3 py-1.5 text-sm" onClick={onBoost}>
-          {active ? t("ads.addBudget") : t("ads.boost")}
+          {live ? t("ads.addBudget") : t("ads.boost")}
         </button>
       </div>
 
@@ -429,7 +444,7 @@ function AdRow({
         </div>
       )}
 
-      {active && (
+      {live && (
         <div className="mt-2">
           {confirming ? (
             <div className="flex items-center gap-2">
@@ -439,34 +454,44 @@ function AdRow({
               <button
                 className="btn-soft shrink-0 px-2.5 py-1 text-xs"
                 onClick={() => setConfirming(false)}
-                disabled={end.isPending}
+                disabled={campaign.isPending}
               >
                 {t("ads.keep")}
               </button>
               <button
                 className="shrink-0 rounded-lg bg-red-500/15 px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/25 disabled:opacity-50"
-                disabled={end.isPending}
-                onClick={() =>
-                  end.mutate(post.id, {
-                    onSuccess: () => {
-                      toast("Campaign ended.", "success");
-                      setConfirming(false);
-                    },
-                    onError: (e) =>
-                      toast(e instanceof Error ? e.message : "Couldn't end it.", "error"),
-                  })
-                }
+                disabled={campaign.isPending}
+                onClick={() => run("end", t("ads.endedToast"))}
               >
-                {end.isPending ? t("ads.ending") : t("ads.endNow")}
+                {campaign.isPending ? t("ads.ending") : t("ads.endNow")}
               </button>
             </div>
           ) : (
-            <button
-              className="text-xs text-ink-muted hover:text-red-400"
-              onClick={() => setConfirming(true)}
-            >
-              {t("ads.endCampaign")}
-            </button>
+            <div className="flex items-center gap-4">
+              {paused ? (
+                <button
+                  className="text-xs font-medium text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+                  disabled={campaign.isPending}
+                  onClick={() => run("resume", t("ads.resumedToast"))}
+                >
+                  {campaign.isPending ? t("ads.resuming") : t("ads.resume")}
+                </button>
+              ) : (
+                <button
+                  className="text-xs font-medium text-ink-muted hover:text-white disabled:opacity-50"
+                  disabled={campaign.isPending}
+                  onClick={() => run("pause", t("ads.pausedToast"))}
+                >
+                  {campaign.isPending ? t("ads.pausing") : t("ads.pause")}
+                </button>
+              )}
+              <button
+                className="text-xs text-ink-muted hover:text-red-400"
+                onClick={() => setConfirming(true)}
+              >
+                {t("ads.endCampaign")}
+              </button>
+            </div>
           )}
         </div>
       )}

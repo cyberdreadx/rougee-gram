@@ -267,6 +267,15 @@
     "endNow": "Terminer maintenant",
     "ending": "Fin en cours…",
     "keep": "Conserver",
+    "pause": "Mettre en pause",
+    "resume": "Reprendre",
+    "paused": "En pause",
+    "pausing": "Mise en pause…",
+    "resuming": "Reprise…",
+    "endedToast": "Campagne terminée.",
+    "pausedToast": "Campagne en pause.",
+    "resumedToast": "Campagne reprise.",
+    "actionFailed": "Impossible de mettre à jour la campagne.",
     "endConfirm": "Terminer cette campagne maintenant ? La cagnotte non dépensée ({{amount}} XRGE) reste réservée aux spectateurs qui l'ont déjà gagnée."
   }
 }

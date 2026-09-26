@@ -267,6 +267,15 @@
     "endNow": "Encerrar agora",
     "ending": "Encerrando…",
     "keep": "Manter",
+    "pause": "Pausar",
+    "resume": "Retomar",
+    "paused": "Pausada",
+    "pausing": "Pausando…",
+    "resuming": "Retomando…",
+    "endedToast": "Campanha encerrada.",
+    "pausedToast": "Campanha pausada.",
+    "resumedToast": "Campanha retomada.",
+    "actionFailed": "Não foi possível atualizar a campanha.",
     "endConfirm": "Encerrar esta campanha agora? O fundo não gasto ({{amount}} XRGE) permanece reservado para os espectadores que já o ganharam."
   }
 }

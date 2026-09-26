@@ -54,6 +54,7 @@ export async function getPromoted(): Promise<PromotedAd[]> {
 export interface AdStats {
   found: boolean;
   active: boolean;
+  paused: boolean;
   spend: number;
   poolBalance: number;
   rewardsPaid: number;
@@ -77,6 +78,7 @@ export async function getAdStats(postId: string): Promise<AdStats | null> {
     return {
       found: true,
       active: !!d.active,
+      paused: !!d.paused,
       spend: Number(d.spend) || 0,
       poolBalance: Number(d.poolBalance) || 0,
       rewardsPaid: Number(d.rewardsPaid) || 0,
@@ -107,19 +109,26 @@ export async function recordClick(postId: string, viewer?: string): Promise<void
   }
 }
 
-/** The canonical fields the author signs to end a campaign. The worker verifies
- *  the signature and that the signer owns the ad. */
-export function endCampaignPayload(postId: string): Record<string, unknown> {
-  return { action: "promote:end", network: getConfig().network, postId };
+/** A campaign action the author can take on their own ad. */
+export type CampaignAction = "end" | "pause" | "resume";
+
+/** The canonical fields the author signs for a campaign action. The worker
+ *  verifies the signature and that the signer owns the ad. */
+export function campaignActionPayload(
+  action: CampaignAction,
+  postId: string,
+): Record<string, unknown> {
+  return { action: `promote:${action}`, network: getConfig().network, postId };
 }
 
-/** Submit an author-signed request to end (early-expire) a campaign. */
-export async function submitEndCampaign(
+/** Submit an author-signed campaign action (end / pause / resume). */
+export async function submitCampaignAction(
+  action: CampaignAction,
   signedTx: SignedTransaction,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!promoteEnabled()) return { ok: false, error: "Not available." };
   try {
-    const res = await fetch(`${base()}/end`, {
+    const res = await fetch(`${base()}/${action}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ network: getConfig().network, signedTx }),
@@ -127,7 +136,7 @@ export async function submitEndCampaign(
     const d = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     return { ok: res.ok && !!d.ok, error: d.error };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to end campaign" };
+    return { ok: false, error: e instanceof Error ? e.message : "Action failed" };
   }
 }
 

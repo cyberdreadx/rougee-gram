@@ -267,6 +267,15 @@
     "endNow": "今すぐ終了",
     "ending": "終了中…",
     "keep": "続ける",
+    "pause": "一時停止",
+    "resume": "再開",
+    "paused": "一時停止中",
+    "pausing": "一時停止中…",
+    "resuming": "再開中…",
+    "endedToast": "キャンペーンを終了しました。",
+    "pausedToast": "キャンペーンを一時停止しました。",
+    "resumedToast": "キャンペーンを再開しました。",
+    "actionFailed": "キャンペーンを更新できませんでした。",
     "endConfirm": "このキャンペーンを今すぐ終了しますか？未使用のプール（{{amount}} XRGE）は、すでに獲得した視聴者のために確保されます。"
   }
 }

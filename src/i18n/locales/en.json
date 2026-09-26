@@ -267,6 +267,15 @@
     "endNow": "End now",
     "ending": "Ending…",
     "keep": "Keep",
+    "pause": "Pause",
+    "resume": "Resume",
+    "paused": "Paused",
+    "pausing": "Pausing…",
+    "resuming": "Resuming…",
+    "endedToast": "Campaign ended.",
+    "pausedToast": "Campaign paused.",
+    "resumedToast": "Campaign resumed.",
+    "actionFailed": "Couldn't update the campaign.",
     "endConfirm": "End this campaign now? Unspent pool ({{amount}} XRGE) stays reserved for viewers who already earned it."
   }
 }

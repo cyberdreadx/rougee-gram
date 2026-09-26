@@ -267,6 +267,15 @@
     "endNow": "立即结束",
     "ending": "结束中…",
     "keep": "保留",
+    "pause": "暂停",
+    "resume": "恢复",
+    "paused": "已暂停",
+    "pausing": "暂停中…",
+    "resuming": "恢复中…",
+    "endedToast": "推广已结束。",
+    "pausedToast": "推广已暂停。",
+    "resumedToast": "推广已恢复。",
+    "actionFailed": "无法更新此推广。",
     "endConfirm": "现在结束这次推广吗？未花费的奖励池（{{amount}} XRGE）将保留给已经赚取奖励的观众。"
   }
 }

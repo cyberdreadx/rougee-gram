@@ -14,8 +14,9 @@ import {
   claimEarnings,
   promoteEnabled,
   getAdStats,
-  endCampaignPayload,
-  submitEndCampaign,
+  campaignActionPayload,
+  submitCampaignAction,
+  type CampaignAction,
 } from "@/lib/promote";
 
 /** Boost a post: pay XRGE to the ad-pool, then register the boost (verified
@@ -111,20 +112,21 @@ export function useAdStats(postId: string | undefined) {
   });
 }
 
-/** End (early-expire) one of the user's ad campaigns. Author-signed: the wallet
- *  signs a payload we define, and the worker verifies the signer owns the ad. */
-export function useEndCampaign() {
+/** Take an author-signed action (end / pause / resume) on one of the user's
+ *  campaigns. The wallet signs a payload we define; the worker verifies the
+ *  signer owns the ad. */
+export function useCampaignAction() {
   const { wallet, publicKey, isExtensionWallet } = useAuth();
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (postId: string) => {
+    mutationFn: async ({ action, postId }: { action: CampaignAction; postId: string }) => {
       if (!publicKey) throw new Error("Locked");
-      const fields = endCampaignPayload(postId);
+      const fields = campaignActionPayload(action, postId);
       const signedTx = isExtensionWallet
         ? await ext.signPayload(publicKey, fields)
         : signRequest(wallet!, fields);
-      const r = await submitEndCampaign(signedTx);
-      if (!r.ok) throw new Error(r.error || "Couldn't end the campaign.");
+      const r = await submitCampaignAction(action, signedTx);
+      if (!r.ok) throw new Error(r.error || "Couldn't update the campaign.");
       return { postId };
     },
     onSuccess: ({ postId }) => {

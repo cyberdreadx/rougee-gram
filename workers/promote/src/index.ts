@@ -15,7 +15,10 @@
  *   POST /impression {network, postId, viewer}              -> { ok, earned, balance }
  *   GET  /earnings?network=&viewer=                         -> { balance, claimMin }
  *   POST /claim      {network, viewer}                      -> { ok, claimed, txId }
+ *   POST /click      {network, postId, viewer}              -> { ok, counted }
  *   POST /end        {network, signedTx}                    -> { ok, ad }   (author-signed)
+ *   POST /pause      {network, signedTx}                    -> { ok, ad }   (author-signed)
+ *   POST /resume     {network, signedTx}                    -> { ok, ad }   (author-signed)
  */
 import { RougeChain, Wallet, pubkeyToAddress, verifyTransaction } from "@rougechain/sdk";
 import type { SignedTransaction } from "@rougechain/sdk";
@@ -120,6 +123,10 @@ interface Ad {
   impressions?: number;
   /** Unique viewers who clicked the ad's call-to-action. */
   clicks?: number;
+  /** Author paused the campaign — hidden from feeds until resumed. */
+  paused?: boolean;
+  /** Remaining run-time (ms) captured at pause, restored on resume. */
+  remainingMs?: number;
 }
 
 async function activeAds(env: Env, network: string): Promise<Ad[]> {
@@ -129,8 +136,59 @@ async function activeAds(env: Env, network: string): Promise<Ad[]> {
     list.keys.map((k) => env.PROMOTE.get(k.name, "json") as Promise<Ad | null>),
   );
   return ads
-    .filter((a): a is Ad => !!a && a.until > now && a.poolBalance >= a.rewardPerView)
+    .filter((a): a is Ad => !!a && !a.paused && a.until > now && a.poolBalance >= a.rewardPerView)
     .sort((a, b) => b.weight - a.weight);
+}
+
+/**
+ * Verify an author-signed campaign action. The wallet signs a payload WE define
+ * (action + postId), so it's unambiguous — unlike the messenger read-signing
+ * case where read and destructive payloads were byte-identical. We only act if
+ * the signature is valid, fresh, un-replayed, and the signer owns the ad.
+ */
+type AuthResult =
+  | { ok: true; ad: Ad; key: string }
+  | { ok: false; status: number; error: string };
+async function authedAd(
+  env: Env,
+  network: string,
+  signedTx: SignedTransaction | undefined,
+  action: string,
+): Promise<AuthResult> {
+  if (!signedTx?.payload || !signedTx.signature || !signedTx.public_key) {
+    return { ok: false, status: 400, error: "missing signature" };
+  }
+  let valid = false;
+  try {
+    valid = verifyTransaction(signedTx);
+  } catch {
+    valid = false;
+  }
+  if (!valid) return { ok: false, status: 401, error: "bad signature" };
+
+  const p = signedTx.payload as unknown as {
+    action?: string;
+    network?: string;
+    postId?: string;
+    timestamp?: number;
+    nonce?: string;
+  };
+  if (p.action !== action) return { ok: false, status: 400, error: "wrong action" };
+  if (p.network !== network) return { ok: false, status: 400, error: "network mismatch" };
+  if (!p.postId) return { ok: false, status: 400, error: "missing postId" };
+  if (!(Math.abs(Date.now() - Number(p.timestamp)) < 5 * 60_000)) {
+    return { ok: false, status: 400, error: "stale request" };
+  }
+  if (p.nonce) {
+    const nkey = `nonce:${network}:${p.nonce}`;
+    if (await env.PROMOTE.get(nkey)) return { ok: false, status: 400, error: "replayed" };
+    await env.PROMOTE.put(nkey, "1", { expirationTtl: 600 });
+  }
+  const key = `ad:${network}:${p.postId}`;
+  const ad = (await env.PROMOTE.get(key, "json")) as Ad | null;
+  if (!ad) return { ok: false, status: 404, error: "no such ad" };
+  if (ad.author !== signedTx.public_key) return { ok: false, status: 403, error: "not your ad" };
+  return { ok: true, ad, key };
 }
 
 export default {
@@ -175,7 +233,8 @@ async function handle(request: Request, env: Env): Promise<Response> {
     return json(
       {
         found: true,
-        active: ad.until > Date.now() && ad.poolBalance >= ad.rewardPerView,
+        active: !ad.paused && ad.until > Date.now() && ad.poolBalance >= ad.rewardPerView,
+        paused: !!ad.paused,
         spend: ad.weight,
         poolBalance: ad.poolBalance,
         rewardsPaid: views * ad.rewardPerView,
@@ -381,47 +440,47 @@ async function handle(request: Request, env: Env): Promise<Response> {
       signedTx?: SignedTransaction;
     };
     if (!network || !nodeFor(env, network)) return json({ error: "unsupported network" }, 400, env);
-    if (!signedTx?.payload || !signedTx.signature || !signedTx.public_key) {
-      return json({ error: "missing signature" }, 400, env);
-    }
+    const r = await authedAd(env, network, signedTx, "promote:end");
+    if (!r.ok) return json({ error: r.error }, r.status, env);
+    r.ad.until = Date.now();
+    await env.PROMOTE.put(r.key, JSON.stringify(r.ad));
+    return json({ ok: true, ad: r.ad }, 200, env);
+  }
 
-    let ok = false;
-    try {
-      ok = verifyTransaction(signedTx);
-    } catch {
-      ok = false;
-    }
-    if (!ok) return json({ error: "bad signature" }, 401, env);
-
-    const p = signedTx.payload as unknown as {
-      action?: string;
+  // ── Pause campaign: author-signed. Hides the ad from feeds and banks the
+  //    remaining run-time so Resume restores the same window. ──
+  if (request.method === "POST" && url.pathname === "/pause") {
+    const { network, signedTx } = (await request.json().catch(() => ({}))) as {
       network?: string;
-      postId?: string;
-      timestamp?: number;
-      nonce?: string;
+      signedTx?: SignedTransaction;
     };
-    if (p.action !== "promote:end") return json({ error: "wrong action" }, 400, env);
-    if (p.network !== network) return json({ error: "network mismatch" }, 400, env);
-    if (!p.postId) return json({ error: "missing postId" }, 400, env);
-    // Freshness: reject stale/replayed requests (±5 min).
-    if (!(Math.abs(Date.now() - Number(p.timestamp)) < 5 * 60_000)) {
-      return json({ error: "stale request" }, 400, env);
+    if (!network || !nodeFor(env, network)) return json({ error: "unsupported network" }, 400, env);
+    const r = await authedAd(env, network, signedTx, "promote:pause");
+    if (!r.ok) return json({ error: r.error }, r.status, env);
+    if (!r.ad.paused) {
+      r.ad.remainingMs = Math.max(0, r.ad.until - Date.now());
+      r.ad.paused = true;
+      await env.PROMOTE.put(r.key, JSON.stringify(r.ad));
     }
-    // One-time nonce guard against replay within the freshness window.
-    if (p.nonce) {
-      const nkey = `endnonce:${network}:${p.nonce}`;
-      if (await env.PROMOTE.get(nkey)) return json({ error: "replayed" }, 400, env);
-      await env.PROMOTE.put(nkey, "1", { expirationTtl: 600 });
+    return json({ ok: true, ad: r.ad }, 200, env);
+  }
+
+  // ── Resume campaign: author-signed. Restores the banked remaining run-time. ──
+  if (request.method === "POST" && url.pathname === "/resume") {
+    const { network, signedTx } = (await request.json().catch(() => ({}))) as {
+      network?: string;
+      signedTx?: SignedTransaction;
+    };
+    if (!network || !nodeFor(env, network)) return json({ error: "unsupported network" }, 400, env);
+    const r = await authedAd(env, network, signedTx, "promote:resume");
+    if (!r.ok) return json({ error: r.error }, r.status, env);
+    if (r.ad.paused) {
+      r.ad.until = Date.now() + (r.ad.remainingMs || 0);
+      r.ad.paused = false;
+      delete r.ad.remainingMs;
+      await env.PROMOTE.put(r.key, JSON.stringify(r.ad));
     }
-
-    const key = `ad:${network}:${p.postId}`;
-    const ad = (await env.PROMOTE.get(key, "json")) as Ad | null;
-    if (!ad) return json({ error: "no such ad" }, 404, env);
-    if (ad.author !== signedTx.public_key) return json({ error: "not your ad" }, 403, env);
-
-    ad.until = Date.now();
-    await env.PROMOTE.put(key, JSON.stringify(ad));
-    return json({ ok: true, ad }, 200, env);
+    return json({ ok: true, ad: r.ad }, 200, env);
   }
 
   return json({ error: "not found" }, 404, env);
