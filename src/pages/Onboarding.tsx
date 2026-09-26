@@ -139,7 +139,7 @@ export default function Onboarding() {
                 Posts, likes &amp; follows live on-chain, signed by you.
               </Feature>
               <Feature icon={<Sparkles className="h-4 w-4" />}>
-                Photos are content-addressed on IPFS — no silent takedowns.
+                Photos are content-addressed &amp; portable — no silent takedowns.
               </Feature>
             </ul>
           </div>

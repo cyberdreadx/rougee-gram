@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Compass, Camera } from "lucide-react";
 import { useFollowingFeed, useGlobalTimeline } from "@/hooks/useSocial";
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
 type Tab = "following" | "discover";
 
 export default function Home() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("following");
   const following = useFollowingFeed();
   const discover = useGlobalTimeline();
@@ -24,10 +26,10 @@ export default function Home() {
       {/* Segmented tabs */}
       <div className="sticky top-[var(--top-bar-h)] z-20 flex border-b border-ink-border bg-ink/80 backdrop-blur md:top-0">
         <TabButton active={tab === "following"} onClick={() => setTab("following")}>
-          Following
+          {t("common.following")}
         </TabButton>
         <TabButton active={tab === "discover"} onClick={() => setTab("discover")}>
-          Discover
+          {t("home.discover")}
         </TabButton>
       </div>
 
@@ -43,18 +45,17 @@ export default function Home() {
                 <Compass className="h-8 w-8" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold">Your feed is quiet</h3>
+                <h3 className="text-lg font-semibold">{t("home.feedQuiet")}</h3>
                 <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
-                  Follow some people to fill this up — or head to Discover to see
-                  what's happening across RougeChain.
+                  {t("home.feedQuietHint")}
                 </p>
               </div>
               <div className="flex gap-2">
                 <button className="btn-soft" onClick={() => setTab("discover")}>
-                  Browse Discover
+                  {t("home.browseDiscover")}
                 </button>
                 <Link to="/explore" className="btn-primary">
-                  Explore
+                  {t("nav.explore")}
                 </Link>
               </div>
             </div>
@@ -64,14 +65,13 @@ export default function Home() {
                 <Camera className="h-8 w-8" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold">No photos yet</h3>
+                <h3 className="text-lg font-semibold">{t("home.noPhotos")}</h3>
                 <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
-                  Be the first to post on RouGee. Your photo will live
-                  on-chain, signed by you.
+                  {t("home.noPhotosHint")}
                 </p>
               </div>
               <button className="btn-primary" onClick={() => open()}>
-                Share the first photo
+                {t("home.shareFirst")}
               </button>
             </div>
           )

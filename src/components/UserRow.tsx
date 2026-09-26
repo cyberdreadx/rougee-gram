@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useArtistStats, useToggleFollow } from "@/hooks/useSocial";
@@ -20,6 +21,7 @@ export default function UserRow({
   subtitle?: string;
   showFollow?: boolean;
 }) {
+  const { t } = useTranslation();
   const { publicKey } = useAuth();
   const { toast } = useToast();
   const { data: profile } = useProfile(pubkey);
@@ -56,18 +58,18 @@ export default function UserRow({
           onClick={() =>
             follow.mutate(undefined, {
               onError: (e) =>
-                toast(e instanceof Error ? e.message : "Follow failed", "error"),
+                toast(e instanceof Error ? e.message : t("common.followFailed"), "error"),
               onSuccess: () =>
-                toast(stats.data?.isFollowing ? "Unfollowed" : "Followed", "success"),
+                toast(stats.data?.isFollowing ? t("common.unfollowed") : t("common.followed"), "success"),
             })
           }
         >
           {follow.isPending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : stats.data?.isFollowing ? (
-            "Following"
+            t("common.following")
           ) : (
-            "Follow"
+            t("common.follow")
           )}
         </button>
       )}

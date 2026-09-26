@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Camera, Loader2, Link2, Plus, X } from "lucide-react";
 import Modal from "./Modal";
 import Avatar from "./Avatar";
@@ -23,6 +24,7 @@ export default function EditProfile({
   profile: Profile;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const update = useUpdateProfile();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -53,7 +55,7 @@ export default function EditProfile({
       const media = await putImage(img.blob, "avatar");
       setAvatarRef(media.ref);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Avatar upload failed", "error");
+      toast(e instanceof Error ? e.message : t("edit.avatarUploadFailed"), "error");
     } finally {
       setUploadingAvatar(false);
     }
@@ -64,24 +66,24 @@ export default function EditProfile({
     const filled = links.filter((l) => (l.url || "").trim());
     const bad = filled.find((l) => !normalizeLinkUrl(l.url));
     if (bad) {
-      toast(`"${bad.url}" isn't a valid link.`, "error");
+      toast(t("edit.invalidLink", { url: bad.url }), "error");
       return;
     }
     update.mutate(
       { name, bio, avatarRef, links: filled, vfy: profile.vfy },
       {
         onSuccess: () => {
-          toast("Profile saved", "success");
+          toast(t("edit.saved"), "success");
           onClose();
         },
         onError: (e) =>
-          toast(e instanceof Error ? e.message : "Save failed", "error"),
+          toast(e instanceof Error ? e.message : t("edit.saveFailed"), "error"),
       },
     );
   }
 
   return (
-    <Modal onClose={onClose} title="Edit profile" maxWidth="max-w-md">
+    <Modal onClose={onClose} title={t("edit.title")} maxWidth="max-w-md">
       <div className="space-y-4">
         <div className="flex flex-col items-center gap-2">
           <button
@@ -92,7 +94,7 @@ export default function EditProfile({
             {localPreview ? (
               <img
                 src={localPreview}
-                alt="avatar preview"
+                alt={t("edit.avatarPreview")}
                 className="h-20 w-20 rounded-full object-cover"
               />
             ) : (
@@ -110,29 +112,35 @@ export default function EditProfile({
             className="text-xs text-rouge-400 hover:underline"
             onClick={() => fileInput.current?.click()}
           >
-            Change photo
+            {t("edit.changePhoto")}
           </button>
         </div>
 
         <div>
-          <label className="label">Display name</label>
+          <label className="label">{t("edit.displayName")}</label>
           <input
             className="input"
             value={name}
             maxLength={NAME_LIMIT}
-            placeholder="Your name"
+            placeholder={t("edit.yourName")}
             onChange={(e) => setName(e.target.value)}
+            autoCapitalize="words"
+            autoCorrect="on"
+            spellCheck
           />
         </div>
 
         <div>
-          <label className="label">Bio</label>
+          <label className="label">{t("edit.bio")}</label>
           <textarea
             className="input h-24 resize-none"
             value={bio}
             maxLength={BIO_LIMIT}
-            placeholder="Tell people about yourself"
+            placeholder={t("edit.bioPlaceholder")}
             onChange={(e) => setBio(e.target.value)}
+            autoCapitalize="sentences"
+            autoCorrect="on"
+            spellCheck
           />
           <div className="mt-1 text-right text-xs text-ink-muted">
             {bio.length}/{BIO_LIMIT}
@@ -141,7 +149,7 @@ export default function EditProfile({
 
         <div>
           <label className="label flex items-center gap-1.5">
-            <Link2 className="h-3.5 w-3.5" /> Links
+            <Link2 className="h-3.5 w-3.5" /> {t("edit.links")}
           </label>
           <div className="space-y-2">
             {links.map((l, i) => (
@@ -154,13 +162,13 @@ export default function EditProfile({
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
-                    placeholder="yoursite.com"
+                    placeholder={t("edit.linkUrl")}
                     onChange={(e) => updateLink(i, { url: e.target.value })}
                   />
                   <button
                     className="btn-ghost h-9 w-9 shrink-0 p-0"
                     onClick={() => removeLink(i)}
-                    aria-label="Remove link"
+                    aria-label={t("edit.removeLink")}
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -169,7 +177,7 @@ export default function EditProfile({
                   className="input mt-2"
                   value={l.label ?? ""}
                   maxLength={LINK_LABEL_LIMIT}
-                  placeholder="Label (optional)"
+                  placeholder={t("edit.linkLabel")}
                   onChange={(e) => updateLink(i, { label: e.target.value })}
                 />
               </div>
@@ -180,7 +188,7 @@ export default function EditProfile({
               className="btn-soft mt-2 w-full justify-center gap-1.5 py-2 text-sm"
               onClick={addLink}
             >
-              <Plus className="h-4 w-4" /> Add link
+              <Plus className="h-4 w-4" /> {t("edit.addLink")}
             </button>
           )}
         </div>
@@ -190,10 +198,10 @@ export default function EditProfile({
           onClick={save}
           disabled={update.isPending || uploadingAvatar}
         >
-          {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+          {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.save")}
         </button>
         <p className="text-center text-xs text-ink-muted">
-          Your profile is published as a signed on-chain post.
+          {t("edit.publishedNote")}
         </p>
       </div>
 

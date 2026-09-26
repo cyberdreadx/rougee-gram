@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Search, X, ArrowRight } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
@@ -10,6 +11,7 @@ import UserRow from "@/components/UserRow";
 import { resolveAddress, handleFromAddress, shortAddress } from "@/lib/format";
 
 export default function Explore() {
+  const { t } = useTranslation();
   const { data, isLoading } = useGlobalTimeline();
   const [q, setQ] = useState("");
   const authors = useMemo(() => uniqueAuthors(data), [data]);
@@ -22,7 +24,7 @@ export default function Explore() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
           <input
             className="input pl-9 pr-9"
-            placeholder="Search people (rouge1… address or handle)"
+            placeholder={t("explore.searchPlaceholder")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             autoCapitalize="none"
@@ -33,7 +35,7 @@ export default function Explore() {
             <button
               onClick={() => setQ("")}
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-muted hover:text-white"
-              aria-label="Clear"
+              aria-label={t("explore.clear")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -54,7 +56,7 @@ export default function Explore() {
           {/* Discovery is text-heavy too — the media grid hides text posts, so
               show the latest ones here or they'd be invisible. */}
           <h2 className="px-4 pb-1 pt-5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            Latest posts
+            {t("explore.latestPosts")}
           </h2>
           <FeedList
             posts={data}
@@ -63,7 +65,7 @@ export default function Explore() {
             showSponsored
             emptyState={
               <div className="px-6 py-10 text-center text-sm text-ink-muted">
-                No text posts yet.
+                {t("explore.noTextPosts")}
               </div>
             }
           />
@@ -80,6 +82,7 @@ function SearchResults({
   query: string;
   authors: string[];
 }) {
+  const { t } = useTranslation();
   const [dir, setDir] = useState<{ pubkey: string; address: string; handle: string }[]>([]);
 
   useEffect(() => {
@@ -112,7 +115,7 @@ function SearchResults({
             <ArrowRight className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-semibold">Open account</div>
+            <div className="text-sm font-semibold">{t("explore.openAccount")}</div>
             <div className="truncate font-mono text-xs text-ink-muted">
               {shortAddress(query.trim(), 16, 8)}
             </div>
@@ -130,7 +133,7 @@ function SearchResults({
 
       {!looksLikeAddress && matches.length === 0 && (
         <p className="py-10 text-center text-sm text-ink-muted">
-          No people found for “{query.trim()}”. Try a full rouge1… address.
+          {t("explore.noPeople", { query: query.trim() })}
         </p>
       )}
     </div>

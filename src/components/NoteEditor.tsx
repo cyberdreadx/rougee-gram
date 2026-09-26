@@ -60,6 +60,9 @@ export default function NoteEditor({
         onChange={(e) => setText(e.target.value)}
         autoFocus
         disabled={busy}
+        autoCapitalize="sentences"
+        autoCorrect="on"
+        spellCheck
       />
       <div className="mt-1 text-right text-xs text-ink-muted">
         {text.length}/{NOTE_LIMIT}

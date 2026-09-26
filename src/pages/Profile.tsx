@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import {
   Loader2,
@@ -53,6 +54,7 @@ import { cn } from "@/lib/utils";
 type ProfileTab = "posts" | "text" | "reels" | "tagged" | "saved";
 
 export default function Profile() {
+  const { t } = useTranslation();
   const { address } = useParams<{ address: string }>();
   const location = useLocation();
   const navigate = useNavigate();
@@ -83,7 +85,7 @@ export default function Profile() {
   if (!pubkey) {
     return (
       <div className="py-20 text-center text-sm text-ink-muted">
-        Couldn't find that account.
+        {t("profile.notFound")}
       </div>
     );
   }
@@ -101,7 +103,7 @@ export default function Profile() {
           <button
             className="btn-ghost h-10 w-10 p-0"
             onClick={() => navigate("/settings")}
-            aria-label="Settings"
+            aria-label={t("nav.settings")}
           >
             <Settings className="h-5 w-5" />
           </button>
@@ -121,14 +123,14 @@ export default function Profile() {
             onEdit={() => setShowNote(true)}
           />
           <div className="flex flex-1 justify-around text-center">
-            <Stat label="Posts" value={photoCount} />
+            <Stat label={t("profile.posts")} value={photoCount} />
             <Stat
-              label="Followers"
+              label={t("profile.followers")}
               value={stats.data?.followers ?? 0}
               onClick={pubkey ? () => setFollowList("followers") : undefined}
             />
             <Stat
-              label="Following"
+              label={t("profile.followingStat")}
               value={stats.data?.following ?? 0}
               onClick={pubkey ? () => setFollowList("following") : undefined}
             />
@@ -189,12 +191,12 @@ export default function Profile() {
 
       {/* Tabs */}
       <div className="flex border-t border-ink-border">
-        <TabButton active={tab === "posts"} onClick={() => setTab("posts")} icon={Grid3x3} label="Posts" />
-        <TabButton active={tab === "text"} onClick={() => setTab("text")} icon={AlignLeft} label="Text posts" />
-        <TabButton active={tab === "reels"} onClick={() => setTab("reels")} icon={Clapperboard} label="Reels" />
-        <TabButton active={tab === "tagged"} onClick={() => setTab("tagged")} icon={UserSquare} label="Tagged" />
+        <TabButton active={tab === "posts"} onClick={() => setTab("posts")} icon={Grid3x3} label={t("profile.tabPosts")} />
+        <TabButton active={tab === "text"} onClick={() => setTab("text")} icon={AlignLeft} label={t("profile.tabText")} />
+        <TabButton active={tab === "reels"} onClick={() => setTab("reels")} icon={Clapperboard} label={t("profile.tabReels")} />
+        <TabButton active={tab === "tagged"} onClick={() => setTab("tagged")} icon={UserSquare} label={t("profile.tabTagged")} />
         {isMe && (
-          <TabButton active={tab === "saved"} onClick={() => setTab("saved")} icon={Bookmark} label="Saved" />
+          <TabButton active={tab === "saved"} onClick={() => setTab("saved")} icon={Bookmark} label={t("profile.tabSaved")} />
         )}
       </div>
 
@@ -215,7 +217,7 @@ export default function Profile() {
             posts={posts.data?.posts}
             isLoading={posts.isLoading}
             only="reels"
-            emptyLabel="No reels yet."
+            emptyLabel={t("profile.noReels")}
           />
         )}
         {tab === "tagged" && <TaggedEmpty />}
@@ -253,6 +255,7 @@ function ProfileNote({
   name?: string;
   onEdit: () => void;
 }) {
+  const { t } = useTranslation();
   const showChip = Boolean(note) || isMe;
   const inner = (
     <>
@@ -262,7 +265,7 @@ function ProfileNote({
             {note ? (
               <span className="line-clamp-2 text-white">{note.text}</span>
             ) : (
-              <span className="text-ink-muted">Note…</span>
+              <span className="text-ink-muted">{t("profile.note")}</span>
             )}
             <span className="absolute -bottom-1 left-3 h-2 w-2 rounded-full bg-ink-card" />
           </div>
@@ -283,7 +286,7 @@ function ProfileNote({
         type="button"
         onClick={onEdit}
         className="relative shrink-0"
-        aria-label="Edit your note"
+        aria-label={t("profile.editNote")}
       >
         {inner}
       </button>
@@ -334,6 +337,7 @@ function TextPostList({
   isLoading: boolean;
   profile?: ProfileData;
 }) {
+  const { t } = useTranslation();
   if (isLoading) {
     return (
       <div className="flex justify-center py-16">
@@ -351,9 +355,9 @@ function TextPostList({
           <AlignLeft className="h-7 w-7" />
         </div>
         <div>
-          <h3 className="font-semibold">No text posts yet</h3>
+          <h3 className="font-semibold">{t("profile.noTextPosts")}</h3>
           <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
-            Text posts and threads will show up here.
+            {t("profile.textPostsHint")}
           </p>
         </div>
       </div>
@@ -369,26 +373,28 @@ function TextPostList({
 }
 
 function SavedGrid() {
+  const { t } = useTranslation();
   const saved = useSavedPosts();
   return (
     <PhotoGrid
       posts={saved.data}
       isLoading={saved.isLoading}
-      emptyLabel="Save posts to find them here later."
+      emptyLabel={t("profile.savedEmpty")}
     />
   );
 }
 
 function TaggedEmpty() {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-ink-border text-ink-muted">
         <UserSquare className="h-7 w-7" />
       </div>
       <div>
-        <h3 className="font-semibold">No tagged posts</h3>
+        <h3 className="font-semibold">{t("profile.noTagged")}</h3>
         <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
-          When people tag this account in a post, it&apos;ll show up here.
+          {t("profile.taggedHint")}
         </p>
       </div>
     </div>
@@ -404,6 +410,7 @@ function Stat({
   value: number;
   onClick?: () => void;
 }) {
+  const { t } = useTranslation();
   const inner = (
     <>
       <div className="text-lg font-bold">{formatCount(value)}</div>
@@ -415,7 +422,7 @@ function Stat({
     <button
       onClick={onClick}
       className="rounded-lg transition-colors hover:bg-white/5"
-      aria-label={`View ${label.toLowerCase()}`}
+      aria-label={t("profile.viewTab", { label })}
     >
       {inner}
     </button>
@@ -429,6 +436,7 @@ function FollowButton({
   pubkey: string;
   isFollowing?: boolean;
 }) {
+  const { t } = useTranslation();
   const follow = useToggleFollow(pubkey);
   const { toast } = useToast();
   return (
@@ -438,22 +446,23 @@ function FollowButton({
       onClick={() =>
         follow.mutate(undefined, {
           onError: (e) =>
-            toast(e instanceof Error ? e.message : "Failed", "error"),
+            toast(e instanceof Error ? e.message : t("common.failed"), "error"),
         })
       }
     >
       {follow.isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : isFollowing ? (
-        "Following"
+        t("common.following")
       ) : (
-        "Follow"
+        t("common.follow")
       )}
     </button>
   );
 }
 
 function MessageButton({ pubkey }: { pubkey: string }) {
+  const { t } = useTranslation();
   const start = useStartConversation();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -464,7 +473,7 @@ function MessageButton({ pubkey }: { pubkey: string }) {
       onClick={() =>
         start.mutate([pubkey], {
           onSuccess: (id) => navigate(`/messages/${id}`),
-          onError: (e) => toast(e instanceof Error ? e.message : "Failed", "error"),
+          onError: (e) => toast(e instanceof Error ? e.message : t("common.failed"), "error"),
         })
       }
     >
@@ -472,7 +481,7 @@ function MessageButton({ pubkey }: { pubkey: string }) {
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <>
-          <Send className="h-4 w-4" /> Message
+          <Send className="h-4 w-4" /> {t("common.message")}
         </>
       )}
     </button>
@@ -480,11 +489,12 @@ function MessageButton({ pubkey }: { pubkey: string }) {
 }
 
 function EditProfileButton({ profile }: { profile?: import("@/lib/profile").Profile }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <>
       <button className="btn-soft flex-1" onClick={() => setOpen(true)} disabled={!profile}>
-        Edit profile
+        {t("common.editProfile")}
       </button>
       {open && profile && <EditProfile profile={profile} onClose={() => setOpen(false)} />}
     </>
@@ -492,17 +502,18 @@ function EditProfileButton({ profile }: { profile?: import("@/lib/profile").Prof
 }
 
 function ShareProfileButton({ address }: { address: string }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [done, setDone] = useState(false);
   function share() {
     const url = `${location.origin}/u/${address}`;
     navigator.clipboard.writeText(url);
     setDone(true);
-    toast("Profile link copied", "success");
+    toast(t("profile.linkCopied"), "success");
     setTimeout(() => setDone(false), 1500);
   }
   return (
-    <button className="btn-soft h-10 w-11 shrink-0 p-0" onClick={share} aria-label="Share profile">
+    <button className="btn-soft h-10 w-11 shrink-0 p-0" onClick={share} aria-label={t("profile.shareProfile")}>
       {done ? <Check className="h-4 w-4 text-emerald-400" /> : <Share2 className="h-4 w-4" />}
     </button>
   );

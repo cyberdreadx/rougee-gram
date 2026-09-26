@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Loader2, Heart, Users, Grid3x3, MessageCircle, Coins } from "lucide-react";
 import {
   useActivity,
@@ -13,13 +14,14 @@ import MediaImage from "@/components/MediaImage";
 import UserLink from "@/components/UserLink";
 
 export default function Activity() {
+  const { t } = useTranslation();
   const { data, isLoading, isError } = useActivity();
 
   return (
     <div>
       <header className="sticky top-[var(--top-bar-h)] z-20 border-b border-ink-border bg-ink/80 px-4 py-3.5 backdrop-blur md:top-0">
-        <h1 className="text-base font-semibold">Activity</h1>
-        <p className="text-xs text-ink-muted">Comments on your posts &amp; your reach</p>
+        <h1 className="text-base font-semibold">{t("activity.title")}</h1>
+        <p className="text-xs text-ink-muted">{t("activity.subtitle")}</p>
       </header>
 
       {isLoading && (
@@ -30,7 +32,7 @@ export default function Activity() {
 
       {isError && (
         <div className="py-16 text-center text-sm text-ink-muted">
-          Couldn't load your activity.
+          {t("activity.loadError")}
         </div>
       )}
 
@@ -38,21 +40,20 @@ export default function Activity() {
         <>
           {/* Aggregates */}
           <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
-            <Stat icon={<Coins className="h-4 w-4" />} label="XRGE tipped" value={data.totalTips} />
-            <Stat icon={<Heart className="h-4 w-4" />} label="Likes" value={data.totalLikes} />
-            <Stat icon={<Users className="h-4 w-4" />} label="Followers" value={data.followers} />
-            <Stat icon={<Grid3x3 className="h-4 w-4" />} label="Posts" value={data.postCount} />
+            <Stat icon={<Coins className="h-4 w-4" />} label={t("activity.statTipped")} value={data.totalTips} />
+            <Stat icon={<Heart className="h-4 w-4" />} label={t("activity.statLikes")} value={data.totalLikes} />
+            <Stat icon={<Users className="h-4 w-4" />} label={t("activity.statFollowers")} value={data.followers} />
+            <Stat icon={<Grid3x3 className="h-4 w-4" />} label={t("activity.statPosts")} value={data.postCount} />
           </div>
           <p className="px-4 pb-2 text-xs text-ink-muted">
-            Likes are shown as a total — RougeChain exposes counts, not
-            identities, for likes.
+            {t("activity.likesNote")}
           </p>
 
           {/* New followers */}
           {data.newFollowers.length > 0 && (
             <>
               <h2 className="px-4 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                New followers
+                {t("activity.newFollowers")}
               </h2>
               <div className="divide-y divide-ink-border/60">
                 {data.newFollowers.map((pk) => (
@@ -66,11 +67,11 @@ export default function Activity() {
           {data.tips.length > 0 && (
             <>
               <h2 className="px-4 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                Recent tips
+                {t("activity.recentTips")}
               </h2>
               <div className="divide-y divide-ink-border/60">
-                {data.tips.map((t) => (
-                  <TipRow key={t.from + t.at} item={t} />
+                {data.tips.map((tip) => (
+                  <TipRow key={tip.from + tip.at} item={tip} />
                 ))}
               </div>
             </>
@@ -78,12 +79,12 @@ export default function Activity() {
 
           {/* Comments */}
           <h2 className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            Recent comments
+            {t("activity.recentComments")}
           </h2>
           {data.comments.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-6 py-14 text-center text-sm text-ink-muted">
               <MessageCircle className="h-8 w-8" />
-              No comments on your posts yet.
+              {t("activity.noComments")}
             </div>
           ) : (
             <div className="divide-y divide-ink-border/60">
@@ -129,6 +130,7 @@ function postThumb(post: { body: string }): string | undefined {
 }
 
 function FollowerRow({ pubkey }: { pubkey: string }) {
+  const { t } = useTranslation();
   const { data: profile } = useProfile(pubkey);
   return (
     <Link
@@ -139,7 +141,7 @@ function FollowerRow({ pubkey }: { pubkey: string }) {
       <div className="min-w-0 flex-1 leading-snug">
         <p className="truncate text-sm">
           <UserLink pubkey={pubkey} className="font-semibold" />{" "}
-          <span className="text-ink-muted">started following you</span>
+          <span className="text-ink-muted">{t("activity.startedFollowing")}</span>
         </p>
       </div>
     </Link>
@@ -147,6 +149,7 @@ function FollowerRow({ pubkey }: { pubkey: string }) {
 }
 
 function TipRow({ item }: { item: ActivityTip }) {
+  const { t } = useTranslation();
   const { data: profile } = useProfile(item.from);
   const thumb = postThumb(item.post);
   return (
@@ -158,7 +161,7 @@ function TipRow({ item }: { item: ActivityTip }) {
       <div className="min-w-0 flex-1 leading-snug">
         <p className="truncate text-sm">
           <UserLink pubkey={item.from} className="font-semibold" />{" "}
-          <span className="text-ink-muted">tipped</span>{" "}
+          <span className="text-ink-muted">{t("activity.tippedVerb")}</span>{" "}
           <span className="font-semibold text-amber-300">{formatCount(item.amount)} XRGE</span>
         </p>
         <span className="text-xs text-ink-muted">{timeAgo(item.at)}</span>
@@ -173,6 +176,7 @@ function TipRow({ item }: { item: ActivityTip }) {
 }
 
 function CommentRow({ item }: { item: ActivityComment }) {
+  const { t } = useTranslation();
   const { data: profile } = useProfile(item.comment.author_pubkey);
   const thumb = postThumb(item.post);
 
@@ -190,7 +194,7 @@ function CommentRow({ item }: { item: ActivityComment }) {
       <div className="min-w-0 flex-1 leading-snug">
         <p className="truncate text-sm">
           <UserLink pubkey={item.comment.author_pubkey} className="font-semibold" />{" "}
-          <span className="text-ink-muted">commented:</span> {item.comment.body}
+          <span className="text-ink-muted">{t("activity.commented")}</span> {item.comment.body}
         </p>
         <span className="text-xs text-ink-muted">{timeAgo(item.comment.created_at)}</span>
       </div>

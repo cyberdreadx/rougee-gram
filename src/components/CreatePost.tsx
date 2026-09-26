@@ -16,9 +16,6 @@ import {
   Crop,
   Film,
   Scissors,
-  HardDrive,
-  Globe,
-  Cloud,
   AlertTriangle,
   ChevronDown,
   Music2,
@@ -293,11 +290,7 @@ function CreatePostDialog({
   }
 
   function uploadStage() {
-    return backend === "cloudflare"
-      ? "Uploading to Cloudflare…"
-      : backend === "ipfs"
-        ? "Uploading to IPFS…"
-        : "Saving locally…";
+    return backend === "local" ? "Saving locally…" : "Uploading…";
   }
 
   async function shareImage() {
@@ -328,7 +321,7 @@ function CreatePostDialog({
 
     // Cloudflare Stream path — adaptive HLS + auto thumbnail.
     if (streamEnabled()) {
-      setStage("Uploading to Cloudflare Stream…");
+      setStage("Uploading video…");
       const s = await putStream(vinfo.blob);
       let poster = s.thumbnail;
       if (!poster && vinfo.poster) {
@@ -795,6 +788,9 @@ function CreatePostDialog({
               maxLength={CAPTION_LIMIT}
               onChange={(e) => setCaption(e.target.value)}
               disabled={busy}
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              spellCheck
             />
             <div className="mt-1 text-right text-xs text-ink-muted">
               {caption.length}/{CAPTION_LIMIT}
@@ -942,29 +938,9 @@ function CreatePostDialog({
             </div>
           )}
 
-          <div className="flex items-center gap-2 rounded-lg bg-ink-soft px-3 py-2 text-xs text-ink-muted">
-            {backend === "cloudflare" ? (
-              <>
-                <Cloud className="h-3.5 w-3.5 text-emerald-400" />
-                Storing on Cloudflare R2 — fast &amp; low-cost.
-              </>
-            ) : backend === "ipfs" ? (
-              <>
-                <Globe className="h-3.5 w-3.5 text-emerald-400" />
-                Storing on IPFS — portable &amp; censorship-resistant.
-              </>
-            ) : (
-              <>
-                <HardDrive className="h-3.5 w-3.5 text-amber-400" />
-                Local mode — media stays on this device. Add Cloudflare or Pinata
-                in Settings.
-              </>
-            )}
-          </div>
-
           <div className="flex gap-2">
             <button className="btn-soft flex-1 py-3" onClick={reset} disabled={busy}>
-              Change
+              {t("common.change")}
             </button>
             <button
               className="btn-primary flex-[2] py-3"
@@ -1142,6 +1118,9 @@ function ThreadComposer({
                 maxLength={POST_BODY_LIMIT}
                 onChange={(e) => update(i, e.target.value)}
                 disabled={busy}
+                autoCapitalize="sentences"
+                autoCorrect="on"
+                spellCheck
               />
               <div className="mt-1 text-right text-xs text-ink-muted">
                 {seg.length}/{POST_BODY_LIMIT}

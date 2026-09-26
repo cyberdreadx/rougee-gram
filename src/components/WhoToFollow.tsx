@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useSuggestedUsers } from "@/hooks/useSocial";
 import UserRow from "./UserRow";
 import { cn } from "@/lib/utils";
@@ -9,13 +10,14 @@ export default function WhoToFollow({
   limit?: number;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const { suggestions, isLoading } = useSuggestedUsers(limit);
 
   if (!isLoading && suggestions.length === 0) return null;
 
   return (
     <div className={cn("card p-4", className)}>
-      <h3 className="mb-3 text-sm font-semibold">Who to follow</h3>
+      <h3 className="mb-3 text-sm font-semibold">{t("common.whoToFollow")}</h3>
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (

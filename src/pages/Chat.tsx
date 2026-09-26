@@ -159,6 +159,9 @@ export default function Chat() {
               }
             }}
             disabled={send.isPending}
+            autoCapitalize="sentences"
+            autoCorrect="on"
+            spellCheck
           />
           <button
             className="btn-primary h-10 w-10 shrink-0 p-0"

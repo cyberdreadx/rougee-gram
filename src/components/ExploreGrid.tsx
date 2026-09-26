@@ -29,6 +29,7 @@ export default function ExploreGrid({
   isLoading?: boolean;
   showSponsored?: boolean;
 }) {
+  const { t } = useTranslation();
   if (isLoading) {
     return (
       <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
@@ -43,7 +44,7 @@ export default function ExploreGrid({
   if (cells.length === 0) {
     return (
       <div className="px-4 py-16 text-center text-sm text-ink-muted">
-        Nothing to explore yet.
+        {t("explore.empty")}
       </div>
     );
   }
