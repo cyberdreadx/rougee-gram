@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SocialPost } from "@rougechain/sdk";
 import { useAuth } from "@/store/auth";
 import { rc, resolveTxId } from "@/lib/rouge";
+import { isAdPost } from "@/lib/envelope";
 import * as write from "@/lib/write";
 import {
   getPoolAddress,
@@ -73,6 +74,24 @@ export function useSponsoredPosts() {
         ),
       );
       return posts.filter((p): p is SocialPost => !!p);
+    },
+  });
+}
+
+/**
+ * The signed-in user's own ad "dark posts" — including ones never funded.
+ * These are filtered out of every organic surface, so this is the only place
+ * an author can see and (re-)boost them.
+ */
+export function useMyAds() {
+  const { publicKey } = useAuth();
+  return useQuery({
+    queryKey: ["myAds", publicKey],
+    enabled: !!publicKey && promoteEnabled(),
+    staleTime: 60_000,
+    queryFn: async (): Promise<SocialPost[]> => {
+      const r = await rc().social.getUserPosts(publicKey, 100, 0);
+      return ((r?.posts ?? []) as SocialPost[]).filter((p) => isAdPost(p));
     },
   });
 }

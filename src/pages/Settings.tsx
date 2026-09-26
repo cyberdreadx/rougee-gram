@@ -18,6 +18,7 @@ import {
   Lock,
   AtSign,
 } from "lucide-react";
+import type { SocialPost } from "@rougechain/sdk";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import Modal from "@/components/Modal";
@@ -40,9 +41,13 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import { startVerify, confirmVerify } from "@/lib/verifyApi";
 import { VERIFY_MIN_XRGE } from "@/lib/verify";
 import { useMyUsername, useRegisterUsername, useReleaseUsername } from "@/hooks/useUsername";
-import { useEarnings, useClaimEarnings } from "@/hooks/usePromote";
+import { useEarnings, useClaimEarnings, useMyAds, usePromoted } from "@/hooks/usePromote";
 import { promoteEnabled } from "@/lib/promote";
 import { Rocket } from "lucide-react";
+import BoostModal from "@/components/BoostModal";
+import MediaImage from "@/components/MediaImage";
+import { toMediaCells } from "@/components/PhotoGrid";
+import { decodeBody } from "@/lib/envelope";
 import { validateUsername, normalizeUsername, isUsernameAvailable, USERNAME_MAX } from "@/lib/username";
 
 /** Operator-only sections (media backend config, network switcher) are hidden
@@ -86,6 +91,8 @@ export default function Settings() {
         <VerifySection publicKey={publicKey} balance={balance} />
 
         <RewardsSection />
+
+        <MyAdsSection />
 
         {SHOW_ADVANCED ? (
           <>
@@ -280,6 +287,89 @@ function RewardsSection() {
         )}
       </button>
     </Section>
+  );
+}
+
+function MyAdsSection() {
+  const { data: ads, isLoading } = useMyAds();
+  const { data: promoted } = usePromoted();
+  const [boostId, setBoostId] = useState<string | null>(null);
+  if (!promoteEnabled()) return null;
+
+  const activeIds = new Set((promoted ?? []).map((a) => a.postId));
+  const list = ads ?? [];
+
+  return (
+    <Section icon={<Rocket className="h-4 w-4" />} title="Your ads">
+      <p className="text-sm text-ink-muted">
+        Ad creatives are hidden from your profile and organic feeds — they only
+        run as Sponsored posts while boosted. Manage them here.
+      </p>
+
+      {isLoading ? (
+        <div className="flex justify-center py-3">
+          <Loader2 className="h-4 w-4 animate-spin text-ink-muted" />
+        </div>
+      ) : list.length === 0 ? (
+        <p className="rounded-xl bg-ink-soft px-3 py-3 text-sm text-ink-muted">
+          No ads yet. Toggle “Run as an ad” when creating a post to make one.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {list.map((post) => (
+            <AdRow
+              key={post.id}
+              post={post}
+              active={activeIds.has(post.id)}
+              onBoost={() => setBoostId(post.id)}
+            />
+          ))}
+        </ul>
+      )}
+
+      {boostId && <BoostModal postId={boostId} onClose={() => setBoostId(null)} />}
+    </Section>
+  );
+}
+
+function AdRow({
+  post,
+  active,
+  onBoost,
+}: {
+  post: SocialPost;
+  active: boolean;
+  onBoost: () => void;
+}) {
+  const [cell] = toMediaCells([post]);
+  const decoded = decodeBody(post.body);
+  const cap = "data" in decoded ? (decoded.data as { cap?: string }).cap?.trim() : undefined;
+
+  return (
+    <li className="flex items-center gap-3 rounded-xl bg-ink-soft p-2">
+      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ink">
+        {cell?.thumbRef ? (
+          <MediaImage refUri={cell.thumbRef} alt="" className="h-full w-full object-cover" />
+        ) : null}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm">{cap || "Untitled ad"}</div>
+        <div className="mt-0.5 flex items-center gap-1.5 text-xs">
+          <span
+            className={cn(
+              "inline-block h-1.5 w-1.5 rounded-full",
+              active ? "bg-emerald-400" : "bg-ink-muted",
+            )}
+          />
+          <span className={active ? "text-emerald-400" : "text-ink-muted"}>
+            {active ? "Running" : "Not running"}
+          </span>
+        </div>
+      </div>
+      <button className="btn-soft shrink-0 px-3 py-1.5 text-sm" onClick={onBoost}>
+        {active ? "Add budget" : "Boost"}
+      </button>
+    </li>
   );
 }
 
