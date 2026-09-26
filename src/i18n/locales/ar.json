@@ -48,7 +48,20 @@
     "turnOffComments": "إيقاف التعليقات",
     "runAsAd": "النشر كإعلان",
     "runAsAdDesc": "مخفي عن ملفك الشخصي وعن الخلاصات — يظهر فقط كمنشور ممول. ستحدد الميزانية بعد النشر.",
-    "createAd": "إنشاء إعلان"
+    "createAd": "إنشاء إعلان",
+    "ctaLabel": "زر الحث على اتخاذ إجراء",
+    "ctaButton": "زر",
+    "ctaUrlPlaceholder": "https://your-link.com"
+  },
+  "cta": {
+    "learn_more": "اعرف المزيد",
+    "shop_now": "تسوق الآن",
+    "sign_up": "سجّل الآن",
+    "book_now": "احجز الآن",
+    "get_offer": "احصل على العرض",
+    "download": "تنزيل",
+    "watch_more": "شاهد المزيد",
+    "contact_us": "اتصل بنا"
   },
   "ads": {
     "sponsored": "ممول",

@@ -50,6 +50,8 @@ import {
   CAPTION_LIMIT,
   CAROUSEL_MAX,
   POST_BODY_LIMIT,
+  CTA_ACTIONS,
+  type AdCta,
 } from "@/lib/envelope";
 import { requestFaucet } from "@/lib/rouge";
 import { invalidateFeeds } from "@/hooks/useSocial";
@@ -141,6 +143,8 @@ function CreatePostDialog({
   const [noMediaComments, setNoMediaComments] = useState(false);
   const [location, setLocation] = useState("");
   const [isAd, setIsAd] = useState(false);
+  const [ctaAction, setCtaAction] = useState("learn_more");
+  const [ctaUrl, setCtaUrl] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [sound, setSound] = useState<Sound | null>(null);
   const [showSounds, setShowSounds] = useState(false);
@@ -154,6 +158,12 @@ function CreatePostDialog({
   const audioEnv = sound
     ? { id: sound.id, url: sound.audioUrl, title: sound.title, artist: sound.artist }
     : undefined;
+
+  function buildAdCta(): AdCta | undefined {
+    const url = ctaUrl.trim();
+    if (!isAd || !url) return undefined;
+    return { action: ctaAction, url: /^https?:\/\//i.test(url) ? url : `https://${url}` };
+  }
 
   const backend = activeBackend();
   const kind = file
@@ -251,6 +261,8 @@ function CreatePostDialog({
     setHideLikes(false);
     setNoComments(false);
     setIsAd(false);
+    setCtaAction("learn_more");
+    setCtaUrl("");
     setNoMediaComments(false);
     setLocation("");
     setShowAdvanced(false);
@@ -306,6 +318,7 @@ function CreatePostDialog({
       nmc: noMediaComments || undefined,
       loc: location.trim() || undefined,
       ad: isAd || undefined,
+      cta: buildAdCta(),
     });
     await submit(body);
   }
@@ -344,6 +357,7 @@ function CreatePostDialog({
           nmc: noMediaComments || undefined,
           loc: location.trim() || undefined,
           ad: isAd || undefined,
+          cta: buildAdCta(),
           audio: audioEnv,
         }),
       );
@@ -378,6 +392,7 @@ function CreatePostDialog({
       nmc: noMediaComments || undefined,
       loc: location.trim() || undefined,
       ad: isAd || undefined,
+      cta: buildAdCta(),
       audio: audioEnv,
     });
     await submit(body);
@@ -445,6 +460,7 @@ function CreatePostDialog({
         nmc: noMediaComments || undefined,
         loc: location.trim() || undefined,
         ad: isAd || undefined,
+        cta: buildAdCta(),
       }),
     );
   }
@@ -845,6 +861,44 @@ function CreatePostDialog({
                   />
                 </button>
               </div>
+
+              {isAd && (
+                <div className="space-y-2 border-t border-rouge-600/25 px-3 pb-3 pt-2.5">
+                  <label className="block text-xs font-medium text-ink-muted">
+                    {t("create.ctaLabel")}
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative shrink-0">
+                      <select
+                        className="input h-10 appearance-none pr-8 text-sm"
+                        value={ctaAction}
+                        onChange={(e) => setCtaAction(e.target.value)}
+                        disabled={busy}
+                        aria-label={t("create.ctaButton")}
+                      >
+                        {CTA_ACTIONS.map((a) => (
+                          <option key={a} value={a}>
+                            {t(`cta.${a}`)}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+                    </div>
+                    <input
+                      type="url"
+                      inputMode="url"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      className="input h-10 min-w-0 flex-1 text-sm"
+                      placeholder={t("create.ctaUrlPlaceholder")}
+                      value={ctaUrl}
+                      onChange={(e) => setCtaUrl(e.target.value)}
+                      disabled={busy}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

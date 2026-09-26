@@ -48,7 +48,20 @@
     "turnOffComments": "关闭评论",
     "runAsAd": "作为广告投放",
     "runAsAdDesc": "不会出现在你的主页和信息流中，仅作为“赞助”帖子显示。发布后你将设置预算。",
-    "createAd": "创建广告"
+    "createAd": "创建广告",
+    "ctaLabel": "行动号召按钮",
+    "ctaButton": "按钮",
+    "ctaUrlPlaceholder": "https://your-link.com"
+  },
+  "cta": {
+    "learn_more": "了解更多",
+    "shop_now": "立即购买",
+    "sign_up": "立即注册",
+    "book_now": "立即预订",
+    "get_offer": "领取优惠",
+    "download": "下载",
+    "watch_more": "观看更多",
+    "contact_us": "联系我们"
   },
   "ads": {
     "sponsored": "赞助",

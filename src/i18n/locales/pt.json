@@ -48,7 +48,20 @@
     "turnOffComments": "Desativar comentários",
     "runAsAd": "Publicar como anúncio",
     "runAsAdDesc": "Oculto do seu perfil e dos feeds — aparece apenas como publicação patrocinada. Você definirá um orçamento depois de publicar.",
-    "createAd": "Criar anúncio"
+    "createAd": "Criar anúncio",
+    "ctaLabel": "Botão de chamada para ação",
+    "ctaButton": "Botão",
+    "ctaUrlPlaceholder": "https://seu-link.com"
+  },
+  "cta": {
+    "learn_more": "Saiba mais",
+    "shop_now": "Comprar agora",
+    "sign_up": "Cadastre-se",
+    "book_now": "Reserve agora",
+    "get_offer": "Ver oferta",
+    "download": "Baixar",
+    "watch_more": "Ver mais",
+    "contact_us": "Fale conosco"
   },
   "ads": {
     "sponsored": "Patrocinado",

@@ -48,7 +48,20 @@
     "turnOffComments": "Turn off commenting",
     "runAsAd": "Run as an ad",
     "runAsAdDesc": "Hidden from your profile & feeds — it only appears as a Sponsored post. You'll set a budget after posting.",
-    "createAd": "Create ad"
+    "createAd": "Create ad",
+    "ctaLabel": "Call-to-action button",
+    "ctaButton": "Button",
+    "ctaUrlPlaceholder": "https://your-link.com"
+  },
+  "cta": {
+    "learn_more": "Learn more",
+    "shop_now": "Shop now",
+    "sign_up": "Sign up",
+    "book_now": "Book now",
+    "get_offer": "Get offer",
+    "download": "Download",
+    "watch_more": "Watch more",
+    "contact_us": "Contact us"
   },
   "ads": {
     "sponsored": "Sponsored",

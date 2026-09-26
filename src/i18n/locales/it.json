@@ -48,7 +48,20 @@
     "turnOffComments": "Disattiva i commenti",
     "runAsAd": "Pubblica come annuncio",
     "runAsAdDesc": "Nascosto dal tuo profilo e dai feed — appare solo come post sponsorizzato. Imposterai un budget dopo la pubblicazione.",
-    "createAd": "Crea annuncio"
+    "createAd": "Crea annuncio",
+    "ctaLabel": "Pulsante di invito all'azione",
+    "ctaButton": "Pulsante",
+    "ctaUrlPlaceholder": "https://il-tuo-link.com"
+  },
+  "cta": {
+    "learn_more": "Scopri di più",
+    "shop_now": "Acquista ora",
+    "sign_up": "Iscriviti",
+    "book_now": "Prenota ora",
+    "get_offer": "Ottieni offerta",
+    "download": "Scarica",
+    "watch_more": "Guarda altro",
+    "contact_us": "Contattaci"
   },
   "ads": {
     "sponsored": "Sponsorizzato",

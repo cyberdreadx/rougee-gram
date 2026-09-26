@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Heart,
   MessageCircle,
@@ -11,9 +11,10 @@ import {
   Check,
   Coins,
   Rocket,
+  ChevronRight,
 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
-import { decodeBody, postOptions } from "@/lib/envelope";
+import { decodeBody, postOptions, postCta } from "@/lib/envelope";
 import { useProfile } from "@/hooks/useProfile";
 import {
   usePostStats,
@@ -43,7 +44,9 @@ import { Film, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function PostCard({ post }: { post: SocialPost }) {
+  const { t } = useTranslation();
   const decoded = decodeBody(post.body);
+  const cta = postCta(post);
   const { data: profile } = useProfile(post.author_pubkey);
   const { data: stats } = usePostStats(post.id);
   const like = useToggleLike(post.id);
@@ -192,6 +195,19 @@ export default function PostCard({ post }: { post: SocialPost }) {
           </div>
         )}
       </div>
+
+      {/* Ad call-to-action bar (Instagram-style "Learn more" / "Shop now" …) */}
+      {cta && (
+        <a
+          href={cta.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mx-3 mt-2 flex items-center justify-center gap-1 rounded-lg bg-ink-soft py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 sm:mx-0"
+        >
+          {t(`cta.${cta.action}`)}
+          <ChevronRight className="h-4 w-4" />
+        </a>
+      )}
 
       {/* actions */}
       <div className="flex items-center gap-4 px-3 pt-3 sm:px-0">

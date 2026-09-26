@@ -48,7 +48,20 @@
     "turnOffComments": "コメントをオフにする",
     "runAsAd": "広告として配信",
     "runAsAdDesc": "プロフィールやフィードには表示されず、「広告」としてのみ表示されます。投稿後に予算を設定します。",
-    "createAd": "広告を作成"
+    "createAd": "広告を作成",
+    "ctaLabel": "アクションボタン",
+    "ctaButton": "ボタン",
+    "ctaUrlPlaceholder": "https://your-link.com"
+  },
+  "cta": {
+    "learn_more": "詳しくはこちら",
+    "shop_now": "今すぐ購入",
+    "sign_up": "登録する",
+    "book_now": "今すぐ予約",
+    "get_offer": "特典を受け取る",
+    "download": "ダウンロード",
+    "watch_more": "もっと見る",
+    "contact_us": "お問い合わせ"
   },
   "ads": {
     "sponsored": "広告",

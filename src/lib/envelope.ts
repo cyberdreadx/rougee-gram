@@ -38,6 +38,43 @@ export interface PostOptions {
   /** This is an AD creative ("dark post"): it's hidden from the author's profile
    *  and all organic feeds, and only surfaces as a boosted "Sponsored" item. */
   ad?: boolean;
+  /** Optional call-to-action button for an ad (Instagram-style "Learn more",
+   *  "Shop now", …) linking to an external destination. */
+  cta?: AdCta;
+}
+
+/** An ad's call-to-action button: a preset label + an external destination. */
+export interface AdCta {
+  /** One of CTA_ACTIONS — the button label is localized from this key. */
+  action: string;
+  /** Absolute http(s) destination URL. */
+  url: string;
+}
+
+/** Available CTA button actions (mirrors Instagram/Facebook ad CTAs). The label
+ *  shown to users is localized in the i18n `cta.*` namespace by this key. */
+export const CTA_ACTIONS = [
+  "learn_more",
+  "shop_now",
+  "sign_up",
+  "book_now",
+  "get_offer",
+  "download",
+  "watch_more",
+  "contact_us",
+] as const;
+
+/** The ad CTA on a post, if it has one (and looks like a valid http(s) link). */
+export function postCta(post: { body: string } | undefined | null): AdCta | null {
+  if (!post) return null;
+  const d = decodeBody(post.body);
+  if (d.kind !== "photo" && d.kind !== "video" && d.kind !== "carousel") return null;
+  const cta = (d.data as PostOptions).cta;
+  if (!cta || !/^https?:\/\//i.test(cta.url || "")) return null;
+  const action = CTA_ACTIONS.includes(cta.action as (typeof CTA_ACTIONS)[number])
+    ? cta.action
+    : "learn_more";
+  return { action, url: cta.url };
 }
 
 export interface PhotoEnvelope extends PostOptions {

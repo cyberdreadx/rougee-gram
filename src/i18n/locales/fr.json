@@ -48,7 +48,20 @@
     "turnOffComments": "Désactiver les commentaires",
     "runAsAd": "Diffuser comme publicité",
     "runAsAdDesc": "Masqué de votre profil et des fils — n'apparaît que comme publication sponsorisée. Vous définirez un budget après la publication.",
-    "createAd": "Créer la publicité"
+    "createAd": "Créer la publicité",
+    "ctaLabel": "Bouton d'appel à l'action",
+    "ctaButton": "Bouton",
+    "ctaUrlPlaceholder": "https://votre-lien.com"
+  },
+  "cta": {
+    "learn_more": "En savoir plus",
+    "shop_now": "Acheter",
+    "sign_up": "S'inscrire",
+    "book_now": "Réserver",
+    "get_offer": "Voir l'offre",
+    "download": "Télécharger",
+    "watch_more": "Voir plus",
+    "contact_us": "Nous contacter"
   },
   "ads": {
     "sponsored": "Sponsorisé",
