@@ -5,7 +5,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import type { SocialPost, PostStats, ArtistStats } from "@rougechain/sdk";
-import { rc } from "@/lib/rouge";
+import { rc, resolveTxId } from "@/lib/rouge";
 import { useAuth } from "@/store/auth";
 import { invalidateProfile } from "@/lib/profile";
 import { decodeBody } from "@/lib/envelope";
@@ -242,16 +242,16 @@ export function useTip() {
       const res = await write.tip({ wallet, publicKey, isExtensionWallet }, to, amount);
       if (!res.success) throw new Error(res.error || "Tip failed");
       // Attribute the transfer to the post so its tip total reflects it. The
-      // node nests the id under `data` for signed writes; tolerate both shapes.
-      // Fire-and-forget: the on-chain transfer already succeeded, so recording
-      // must not block the UI — refresh the post's total once it lands.
-      const txId =
-        (res as { txId?: string }).txId ??
-        (res as { data?: { txId?: string } }).data?.txId;
-      if (postId && txId) {
-        void recordTip(postId, txId).then((ok) => {
-          if (ok) client.invalidateQueries({ queryKey: qk.postTips(postId) });
-        });
+      // transfer response doesn't reliably carry the txId, so resolve it (from
+      // the response, else the sender's tx history). Fire-and-forget so the UI
+      // isn't blocked; refresh the post's total once it lands.
+      if (postId) {
+        void (async () => {
+          const txId = await resolveTxId(res, publicKey);
+          if (txId && (await recordTip(postId, txId))) {
+            client.invalidateQueries({ queryKey: qk.postTips(postId) });
+          }
+        })();
       }
       return res;
     },

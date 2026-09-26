@@ -9,6 +9,7 @@ import {
   Trash2,
   Check,
   Coins,
+  Rocket,
 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { decodeBody, postOptions } from "@/lib/envelope";
@@ -33,6 +34,8 @@ import SaveButton from "./SaveButton";
 import TipButton from "./TipButton";
 import Handle from "./Handle";
 import RichText from "./RichText";
+import BoostModal from "./BoostModal";
+import { promoteEnabled } from "@/lib/promote";
 import Caption from "./Caption";
 import FeedVideo from "./FeedVideo";
 import { Film, MapPin } from "lucide-react";
@@ -542,6 +545,7 @@ function PostMenu({
   const { toast } = useToast();
   const del = useDeletePost();
   const [open, setOpen] = useState(false);
+  const [boosting, setBoosting] = useState(false);
   const isMine = publicKey === authorPubkey;
 
   if (!isMine) {
@@ -566,7 +570,18 @@ function PostMenu({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-xl border border-ink-border bg-ink-card shadow-xl">
+          <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-ink-border bg-ink-card shadow-xl">
+            {promoteEnabled() && (
+              <button
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5"
+                onClick={() => {
+                  setBoosting(true);
+                  setOpen(false);
+                }}
+              >
+                <Rocket className="h-4 w-4 text-rouge-400" /> Boost post
+              </button>
+            )}
             <button
               className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-rouge-400 hover:bg-white/5 disabled:opacity-50"
               disabled={del.isPending}
@@ -584,6 +599,7 @@ function PostMenu({
           </div>
         </>
       )}
+      {boosting && <BoostModal postId={postId} onClose={() => setBoosting(false)} />}
     </div>
   );
 }

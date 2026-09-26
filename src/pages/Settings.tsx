@@ -40,6 +40,9 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import { startVerify, confirmVerify } from "@/lib/verifyApi";
 import { VERIFY_MIN_XRGE } from "@/lib/verify";
 import { useMyUsername, useRegisterUsername, useReleaseUsername } from "@/hooks/useUsername";
+import { useEarnings, useClaimEarnings } from "@/hooks/usePromote";
+import { promoteEnabled } from "@/lib/promote";
+import { Rocket } from "lucide-react";
 import { validateUsername, normalizeUsername, isUsernameAvailable, USERNAME_MAX } from "@/lib/username";
 
 /** Operator-only sections (media backend config, network switcher) are hidden
@@ -81,6 +84,8 @@ export default function Settings() {
         <SecuritySection address={address} isExtensionWallet={isExtensionWallet} />
 
         <VerifySection publicKey={publicKey} balance={balance} />
+
+        <RewardsSection />
 
         {SHOW_ADVANCED ? (
           <>
@@ -223,6 +228,57 @@ function UsernameSection() {
           </p>
         </div>
       )}
+    </Section>
+  );
+}
+
+function RewardsSection() {
+  const { toast } = useToast();
+  const { refreshBalance } = useAuth();
+  const { data, isLoading } = useEarnings();
+  const claim = useClaimEarnings();
+  if (!promoteEnabled()) return null;
+
+  const balance = data?.balance ?? 0;
+  const claimMin = data?.claimMin ?? 0;
+  const canClaim = balance >= claimMin && claimMin > 0 && !claim.isPending;
+
+  return (
+    <Section icon={<Rocket className="h-4 w-4" />} title="Ad rewards">
+      <p className="text-sm text-ink-muted">
+        Earn XRGE for viewing sponsored posts in your feed. Earnings accrue here and
+        pay out to your wallet when you claim.
+      </p>
+      <div className="flex items-center justify-between rounded-xl bg-ink-soft px-3 py-2.5">
+        <span className="flex items-center gap-2 text-sm">
+          <Coins className="h-4 w-4 text-rouge-400" />
+          <span className="font-semibold">
+            {isLoading ? "…" : `${balance.toLocaleString(undefined, { maximumFractionDigits: 3 })} XRGE`}
+          </span>
+        </span>
+        <span className="text-xs text-ink-muted">earned</span>
+      </div>
+      <button
+        className="btn-primary w-full py-2.5"
+        disabled={!canClaim}
+        onClick={() =>
+          claim.mutate(undefined, {
+            onSuccess: (r) => {
+              toast(`Claimed ${(r.claimed ?? 0).toLocaleString()} XRGE 🎉`, "success");
+              setTimeout(refreshBalance, 1500);
+            },
+            onError: (e) => toast(e instanceof Error ? e.message : "Claim failed", "error"),
+          })
+        }
+      >
+        {claim.isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : balance < claimMin ? (
+          `Earn ${claimMin} XRGE to claim`
+        ) : (
+          "Claim earnings"
+        )}
+      </button>
     </Section>
   );
 }

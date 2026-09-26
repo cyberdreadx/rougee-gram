@@ -35,6 +35,7 @@ export default function Home() {
         posts={active.data}
         isLoading={active.isLoading}
         isError={active.isError}
+        showSponsored
         emptyState={
           tab === "following" ? (
             <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">

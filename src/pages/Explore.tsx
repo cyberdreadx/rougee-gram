@@ -60,6 +60,7 @@ export default function Explore() {
             posts={data}
             isLoading={isLoading}
             textOnly
+            showSponsored
             emptyState={
               <div className="px-6 py-10 text-center text-sm text-ink-muted">
                 No text posts yet.
