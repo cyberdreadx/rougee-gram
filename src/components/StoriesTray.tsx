@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useMyProfile, useProfile } from "@/hooks/useProfile";
@@ -15,6 +16,7 @@ import StoryViewer from "./StoryViewer";
 import { cn } from "@/lib/utils";
 
 export default function StoriesTray() {
+  const { t } = useTranslation();
   const { publicKey, address } = useAuth();
   const myProfile = useMyProfile();
   const { open } = useCreatePost();
@@ -52,7 +54,7 @@ export default function StoriesTray() {
             <Plus className="h-3 w-3" />
           </span>
         </span>
-        <span className="w-16 truncate text-center text-xs text-ink-muted">Your story</span>
+        <span className="w-16 truncate text-center text-xs text-ink-muted">{t("stories.yourStory")}</span>
       </button>
 
       {isLoading && others.length === 0
@@ -91,11 +93,12 @@ function StoryRing({
   unseen: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   const { data: profile } = useProfile(group.pubkey);
   return (
     <button
       onClick={onClick}
-      aria-label="View story"
+      aria-label={t("stories.viewStory")}
       className="flex w-16 shrink-0 flex-col items-center gap-1"
     >
       <span className={cn("rounded-full p-[2.5px]", unseen ? "brand-gradient" : "bg-ink-border")}>

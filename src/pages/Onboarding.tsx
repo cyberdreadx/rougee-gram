@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ShieldCheck,
   KeyRound,
@@ -30,8 +31,9 @@ export default function Onboarding() {
     extensionDetected,
     host,
   } = useAuth();
+  const { t } = useTranslation();
   const isQwalla = host === "qwalla";
-  const walletName = isQwalla ? "Qwalla" : "RougeChain extension";
+  const walletName = isQwalla ? t("onboarding.qwalla") : t("onboarding.extension");
   const { toast } = useToast();
   const [view, setView] = useState<View>("welcome");
   const [busy, setBusy] = useState(false);
@@ -50,8 +52,8 @@ export default function Onboarding() {
   const net = getConfig().network;
 
   function validatePw(): string | null {
-    if (password.length < 8) return "Password must be at least 8 characters.";
-    if (password !== confirm) return "Passwords don't match.";
+    if (password.length < 8) return t("onboarding.pwMin8");
+    if (password !== confirm) return t("onboarding.pwMismatch");
     return null;
   }
 
@@ -64,7 +66,7 @@ export default function Onboarding() {
       setMnemonic(m);
       setView("backup");
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Failed to create wallet.", "error");
+      toast(e instanceof Error ? e.message : t("onboarding.createFailed"), "error");
     } finally {
       setBusy(false);
     }
@@ -75,14 +77,14 @@ export default function Onboarding() {
     if (err) return toast(err, "error");
     const words = importPhrase.trim().split(/\s+/).length;
     if (words !== 12 && words !== 24) {
-      return toast("Enter a 12 or 24-word recovery phrase.", "error");
+      return toast(t("onboarding.enterPhrase"), "error");
     }
     setBusy(true);
     try {
       await importMnemonic(importPhrase, password);
-      toast("Wallet imported.", "success");
+      toast(t("onboarding.imported"), "success");
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Import failed.", "error");
+      toast(e instanceof Error ? e.message : t("onboarding.importFailed"), "error");
     } finally {
       setBusy(false);
     }
@@ -92,14 +94,14 @@ export default function Onboarding() {
     const err = validatePw();
     if (err) return toast(err, "error");
     if (!pubKey.trim() || !privKey.trim()) {
-      return toast("Both public and private keys are required.", "error");
+      return toast(t("onboarding.keysRequired"), "error");
     }
     setBusy(true);
     try {
       await importKeys(pubKey, privKey, password);
-      toast("Wallet imported.", "success");
+      toast(t("onboarding.imported"), "success");
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Import failed.", "error");
+      toast(e instanceof Error ? e.message : t("onboarding.importFailed"), "error");
     } finally {
       setBusy(false);
     }
@@ -122,29 +124,25 @@ export default function Onboarding() {
           <Logo size={40} withWordmark />
           <div className="relative z-10 space-y-6">
             <h1 className="text-4xl font-bold leading-tight tracking-tight">
-              Photos nobody can{" "}
-              <span className="brand-text">take away</span> from you.
+              {t("onboarding.heroTitle")}
             </h1>
             <p className="max-w-sm text-ink-muted">
-              RouGee is a photo network on RougeChain — a post-quantum
-              blockchain. Your account is a cryptographic key you hold, not a row
-              in someone's database. No shadowbans. No disabled accounts. No
-              gatekeeper.
+              {t("onboarding.heroBody")}
             </p>
             <ul className="space-y-3 text-sm">
               <Feature icon={<KeyRound className="h-4 w-4" />}>
-                You own your identity — a key, not an email/phone.
+                {t("onboarding.feat1")}
               </Feature>
               <Feature icon={<ShieldCheck className="h-4 w-4" />}>
-                Posts, likes &amp; follows live on-chain, signed by you.
+                {t("onboarding.feat2")}
               </Feature>
               <Feature icon={<Sparkles className="h-4 w-4" />}>
-                Photos are content-addressed &amp; portable — no silent takedowns.
+                {t("onboarding.feat3")}
               </Feature>
             </ul>
           </div>
           <p className="relative z-10 text-xs text-ink-muted">
-            Connected to <span className="text-rouge-400">{net}</span>
+            {t("onboarding.connectedTo", { net })}
           </p>
         </div>
 
@@ -157,10 +155,9 @@ export default function Onboarding() {
 
             {view === "welcome" && (
               <div className="animate-fade-in space-y-4">
-                <h2 className="text-2xl font-bold">Welcome</h2>
+                <h2 className="text-2xl font-bold">{t("onboarding.welcome")}</h2>
                 <p className="text-sm text-ink-muted">
-                  Create an account in seconds. No sign-up form, no verification —
-                  just a key that's yours.
+                  {t("onboarding.welcomeBody")}
                 </p>
                 {extensionDetected && (
                   <button
@@ -176,7 +173,7 @@ export default function Onboarding() {
                         toast(
                           e instanceof Error
                             ? e.message
-                            : `Couldn't connect ${walletName}.`,
+                            : t("onboarding.connectFailed", { wallet: walletName }),
                           "error",
                         );
                       } finally {
@@ -186,39 +183,34 @@ export default function Onboarding() {
                     disabled={busy}
                   >
                     <Plug className="h-4 w-4" />{" "}
-                    {isQwalla ? "Continue with Qwalla" : "Connect RougeChain extension"}
+                    {isQwalla ? t("onboarding.continueQwalla") : t("onboarding.connectExtension")}
                   </button>
                 )}
                 <button
                   className="btn-primary w-full py-3"
                   onClick={() => setView("create")}
                 >
-                  Create new account
+                  {t("onboarding.createAccount")}
                 </button>
                 <button
                   className="btn-soft w-full py-3"
                   onClick={() => setView("import-mnemonic")}
                 >
-                  I already have a recovery phrase
+                  {t("onboarding.havePhrase")}
                 </button>
                 <button
                   className="btn-ghost w-full"
                   onClick={() => setView("import-keys")}
                 >
-                  Import with raw keys
+                  {t("onboarding.importRawKeys")}
                 </button>
                 <div className="flex items-start gap-2 rounded-xl bg-ink-soft px-3 py-2.5 text-xs text-ink-muted">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rouge-400" />
-                  <span>
-                    Made an account before? It may have been cleared from this
-                    browser. Import your recovery phrase once — it'll remember you
-                    and only ask for your password next time.
-                  </span>
+                  <span>{t("onboarding.clearedNote")}</span>
                 </div>
                 {extensionDetected && (
                   <p className="text-center text-xs text-ink-muted">
-                    {walletName} keeps your key; create/import stores it encrypted
-                    in this browser.
+                    {t("onboarding.custodyNote", { wallet: walletName })}
                   </p>
                 )}
               </div>
@@ -227,10 +219,9 @@ export default function Onboarding() {
             {view === "create" && (
               <div className="animate-fade-in space-y-4">
                 <BackButton onClick={() => setView("welcome")} />
-                <h2 className="text-2xl font-bold">Set a password</h2>
+                <h2 className="text-2xl font-bold">{t("onboarding.setPassword")}</h2>
                 <p className="text-sm text-ink-muted">
-                  This encrypts your key on this device. We never see it, and it
-                  can't be reset — so remember it.
+                  {t("onboarding.setPasswordBody")}
                 </p>
                 <PasswordFields
                   {...{ password, setPassword, confirm, setConfirm, showPw, setShowPw }}
@@ -240,18 +231,16 @@ export default function Onboarding() {
                   onClick={handleCreate}
                   disabled={busy}
                 >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : t("onboarding.createAccountBtn")}
                 </button>
               </div>
             )}
 
             {view === "backup" && (
               <div className="animate-fade-in space-y-4">
-                <h2 className="text-2xl font-bold">Save your recovery phrase</h2>
+                <h2 className="text-2xl font-bold">{t("onboarding.savePhrase")}</h2>
                 <p className="text-sm text-ink-muted">
-                  These 24 words are the <b>only</b> way to recover your account
-                  on another device. Write them down and keep them offline. Anyone
-                  with them controls your account.
+                  {t("onboarding.savePhraseBody")}
                 </p>
                 <div className="grid grid-cols-2 gap-2 rounded-xl border border-ink-border bg-ink-soft p-3 text-sm sm:grid-cols-3">
                   {mnemonic.split(/\s+/).map((word, i) => (
@@ -266,11 +255,11 @@ export default function Onboarding() {
                 <button className="btn-soft w-full" onClick={copyMnemonic}>
                   {copied ? (
                     <>
-                      <Check className="h-4 w-4" /> Copied
+                      <Check className="h-4 w-4" /> {t("onboarding.copied")}
                     </>
                   ) : (
                     <>
-                      <Copy className="h-4 w-4" /> Copy phrase
+                      <Copy className="h-4 w-4" /> {t("onboarding.copyPhrase")}
                     </>
                   )}
                 </button>
@@ -281,17 +270,17 @@ export default function Onboarding() {
                     onChange={(e) => setSavedConfirmed(e.target.checked)}
                     className="mt-0.5 h-4 w-4 accent-rouge-600"
                   />
-                  I've saved my recovery phrase somewhere safe.
+                  {t("onboarding.savedConfirm")}
                 </label>
                 <button
                   className="btn-primary w-full py-3"
                   disabled={!savedConfirmed}
                   onClick={() => {
                     finalizeOnboarding();
-                    toast("Welcome to RouGee!", "success");
+                    toast(t("onboarding.welcomeToast"), "success");
                   }}
                 >
-                  Enter RouGee
+                  {t("onboarding.enterRouge")}
                 </button>
               </div>
             )}
@@ -299,10 +288,10 @@ export default function Onboarding() {
             {view === "import-mnemonic" && (
               <div className="animate-fade-in space-y-4">
                 <BackButton onClick={() => setView("welcome")} />
-                <h2 className="text-2xl font-bold">Recovery phrase</h2>
+                <h2 className="text-2xl font-bold">{t("onboarding.recoveryPhrase")}</h2>
                 <textarea
                   className="input h-24 resize-none font-mono"
-                  placeholder="Enter your 12 or 24-word phrase, separated by spaces"
+                  placeholder={t("onboarding.phrasePlaceholder")}
                   value={importPhrase}
                   onChange={(e) => setImportPhrase(e.target.value)}
                   autoCapitalize="none"
@@ -317,7 +306,7 @@ export default function Onboarding() {
                   onClick={handleImportMnemonic}
                   disabled={busy}
                 >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Import account"}
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : t("onboarding.importAccount")}
                 </button>
               </div>
             )}
@@ -325,9 +314,9 @@ export default function Onboarding() {
             {view === "import-keys" && (
               <div className="animate-fade-in space-y-4">
                 <BackButton onClick={() => setView("welcome")} />
-                <h2 className="text-2xl font-bold">Import raw keys</h2>
+                <h2 className="text-2xl font-bold">{t("onboarding.importRawKeysTitle")}</h2>
                 <div>
-                  <label className="label">Public key (hex)</label>
+                  <label className="label">{t("onboarding.publicKeyHex")}</label>
                   <textarea
                     className="input h-16 resize-none font-mono text-xs"
                     value={pubKey}
@@ -336,7 +325,7 @@ export default function Onboarding() {
                   />
                 </div>
                 <div>
-                  <label className="label">Private key (hex)</label>
+                  <label className="label">{t("onboarding.privateKeyHex")}</label>
                   <textarea
                     className="input h-16 resize-none font-mono text-xs"
                     value={privKey}
@@ -352,7 +341,7 @@ export default function Onboarding() {
                   onClick={handleImportKeys}
                   disabled={busy}
                 >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Import account"}
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : t("onboarding.importAccount")}
                 </button>
               </div>
             )}
@@ -375,9 +364,10 @@ function Feature({ icon, children }: { icon: React.ReactNode; children: React.Re
 }
 
 function BackButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <button className="btn-ghost -ml-2 h-8 px-2 text-sm" onClick={onClick}>
-      <ArrowLeft className="h-4 w-4" /> Back
+      <ArrowLeft className="h-4 w-4" /> {t("onboarding.back")}
     </button>
   );
 }
@@ -390,6 +380,7 @@ function PasswordFields(props: {
   showPw: boolean;
   setShowPw: (v: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const { password, setPassword, confirm, setConfirm, showPw, setShowPw } = props;
   return (
     <div className="space-y-3">
@@ -397,7 +388,7 @@ function PasswordFields(props: {
         <input
           type={showPw ? "text" : "password"}
           className="input pr-10"
-          placeholder="Password (min 8 chars)"
+          placeholder={t("onboarding.pwPlaceholder")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
@@ -413,7 +404,7 @@ function PasswordFields(props: {
       <input
         type={showPw ? "text" : "password"}
         className={cn("input", confirm && confirm !== password && "border-rouge-500/60")}
-        placeholder="Confirm password"
+        placeholder={t("onboarding.confirmPwPlaceholder")}
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
       />

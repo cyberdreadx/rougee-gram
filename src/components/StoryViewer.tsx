@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { X, Volume2, VolumeX, Send, Eye, Loader2 } from "lucide-react";
 import { decodeBody, type StoryEnvelope } from "@/lib/envelope";
@@ -34,6 +35,7 @@ export default function StoryViewer({
   startGroupIndex: number;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [gi, setGi] = useState(startGroupIndex);
   const [si, setSi] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -80,9 +82,9 @@ export default function StoryViewer({
       {
         onSuccess: () => {
           setReply("");
-          toast("Reply sent", "success");
+          toast(t("stories.replySent"), "success");
         },
-        onError: (e) => toast(e instanceof Error ? e.message : "Couldn't send reply", "error"),
+        onError: (e) => toast(e instanceof Error ? e.message : t("stories.replyFailed"), "error"),
       },
     );
   }
@@ -225,12 +227,12 @@ export default function StoryViewer({
             <button
               onClick={() => setMuted((m) => !m)}
               className="rounded-full bg-black/40 p-2"
-              aria-label={muted ? "Unmute" : "Mute"}
+              aria-label={muted ? t("stories.unmute") : t("stories.mute")}
             >
               {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
           )}
-          <button onClick={onClose} className="rounded-full bg-black/40 p-2" aria-label="Close">
+          <button onClick={onClose} className="rounded-full bg-black/40 p-2" aria-label={t("common.close")}>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -263,7 +265,7 @@ export default function StoryViewer({
             <MediaImage
               key={story.id}
               refUri={data.cid}
-              alt={data.cap || "story"}
+              alt={data.cap || t("stories.story")}
               className="max-h-full w-full object-contain"
             />
           )}
@@ -283,7 +285,7 @@ export default function StoryViewer({
                 onClick={() => setSeenOpen(true)}
                 className="mx-auto flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white"
               >
-                <Eye className="h-4 w-4" /> Seen by — tap to see
+                <Eye className="h-4 w-4" /> {t("stories.seenByTap")}
               </button>
             )
           ) : (
@@ -298,7 +300,7 @@ export default function StoryViewer({
                         "text-2xl transition-transform active:scale-90 " +
                         (myReaction === e ? "scale-110" : "opacity-80 hover:opacity-100")
                       }
-                      aria-label={`React ${e}`}
+                      aria-label={t("stories.react", { emoji: e })}
                     >
                       {e}
                     </button>
@@ -315,14 +317,14 @@ export default function StoryViewer({
                     onKeyDown={(e) => {
                       if (e.key === "Enter") submitReply();
                     }}
-                    placeholder={`Reply to ${profile ? displayName(profile) : "story"}…`}
+                    placeholder={t("stories.replyTo", { name: profile ? displayName(profile) : t("stories.story") })}
                     className="flex-1 rounded-full border border-white/30 bg-black/40 px-4 py-2 text-sm text-white placeholder:text-white/50 focus:outline-none"
                   />
                   <button
                     onClick={submitReply}
                     disabled={!reply.trim() || sendReply.isPending}
                     className="rounded-full bg-rouge-600 p-2 text-white disabled:opacity-40"
-                    aria-label="Send reply"
+                    aria-label={t("stories.sendReply")}
                   >
                     {sendReply.isPending ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -346,6 +348,7 @@ export default function StoryViewer({
 
 /** Author-only viewer/reaction list for one of your own stories. */
 function SeenBySheet({ storyId, onClose }: { storyId: string; onClose: () => void }) {
+  const { t } = useTranslation();
   const { data } = useQuery({
     queryKey: ["storyEngage", storyId],
     queryFn: () => getStoryEngagement(storyId),
@@ -361,10 +364,10 @@ function SeenBySheet({ storyId, onClose }: { storyId: string; onClose: () => voi
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-          <Eye className="h-4 w-4" /> Seen by {formatCount(data?.viewCount ?? 0)}
+          <Eye className="h-4 w-4" /> {t("stories.seenBy", { count: formatCount(data?.viewCount ?? 0) })}
         </div>
         {!data || data.views.length === 0 ? (
-          <p className="py-8 text-center text-sm text-ink-muted">No views yet.</p>
+          <p className="py-8 text-center text-sm text-ink-muted">{t("stories.noViews")}</p>
         ) : (
           <ul className="max-h-[55vh] space-y-1 overflow-y-auto">
             {data.views.map((v) => (

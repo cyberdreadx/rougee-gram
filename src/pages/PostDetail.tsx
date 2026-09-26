@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Send, Heart, ImagePlus, X } from "lucide-react";
@@ -19,7 +20,7 @@ import UserLink from "@/components/UserLink";
 import { useMyProfile } from "@/hooks/useProfile";
 import MediaImage from "@/components/MediaImage";
 import GifPicker from "@/components/GifPicker";
-import { timeAgo, formatCount } from "@/lib/format";
+import { timeAgo } from "@/lib/format";
 import {
   decodeBody,
   postOptions,
@@ -60,6 +61,7 @@ function useAncestors(post?: SocialPost) {
 }
 
 export default function PostDetail() {
+  const { t } = useTranslation();
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
   const { data, isLoading, isError } = usePost(postId);
@@ -93,7 +95,7 @@ export default function PostDetail() {
         <button className="btn-ghost h-9 w-9 p-0" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-base font-semibold">Post</h1>
+        <h1 className="text-base font-semibold">{t("post.title")}</h1>
       </header>
 
       {isLoading && (
@@ -104,7 +106,7 @@ export default function PostDetail() {
 
       {isError && (
         <div className="py-16 text-center text-sm text-ink-muted">
-          Couldn't load this post.
+          {t("post.loadError")}
         </div>
       )}
 
@@ -124,23 +126,23 @@ export default function PostDetail() {
           {/* Thread continuation — the author's own follow-up posts. */}
           {thread.length > 0 && (
             <section>
-              {thread.map((t) => (
-                <PostCard key={t.id} post={t} />
+              {thread.map((tp) => (
+                <PostCard key={tp.id} post={tp} />
               ))}
             </section>
           )}
 
           {noComments ? (
             <section className="px-3 py-10 text-center sm:px-0">
-              <p className="text-sm font-medium">Comments are turned off</p>
+              <p className="text-sm font-medium">{t("post.commentsOff")}</p>
               <p className="mt-1 text-sm text-ink-muted">
-                The author turned off commenting for this post.
+                {t("post.commentsOffBody")}
               </p>
             </section>
           ) : (
             <section className="px-3 pt-4 sm:px-0">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                Comments
+                {t("post.comments")}
               </h2>
               {replies.isLoading ? (
                 <div className="py-8 text-center">
@@ -154,7 +156,7 @@ export default function PostDetail() {
                 </div>
               ) : (
                 <p className="py-8 text-center text-sm text-ink-muted">
-                  No comments yet. Be the first.
+                  {t("post.noComments")}
                 </p>
               )}
             </section>
@@ -170,6 +172,7 @@ export default function PostDetail() {
 }
 
 function CommentRow({ comment }: { comment: SocialPost }) {
+  const { t } = useTranslation();
   const { data: profile } = useProfile(comment.author_pubkey);
   const { data: stats } = usePostStats(comment.id);
   const like = useToggleLike(comment.id);
@@ -202,7 +205,7 @@ function CommentRow({ comment }: { comment: SocialPost }) {
         {content.gif && (
           <img
             src={content.gif}
-            alt="GIF"
+            alt={t("post.gif")}
             loading="lazy"
             className="mt-1.5 max-h-52 max-w-[75%] rounded-xl"
           />
@@ -210,9 +213,7 @@ function CommentRow({ comment }: { comment: SocialPost }) {
         <div className="mt-0.5 flex items-center gap-3 text-xs text-ink-muted">
           <span>{timeAgo(comment.created_at)}</span>
           {(stats?.likes ?? 0) > 0 && (
-            <span>
-              {formatCount(stats!.likes)} {stats!.likes === 1 ? "like" : "likes"}
-            </span>
+            <span>{t("post.likeCount", { count: stats!.likes })}</span>
           )}
         </div>
       </div>
@@ -222,7 +223,7 @@ function CommentRow({ comment }: { comment: SocialPost }) {
           "mt-1 shrink-0 transition-transform active:scale-90",
           liked ? "text-rouge-500" : "text-ink-muted hover:text-white",
         )}
-        aria-label="Like comment"
+        aria-label={t("post.likeComment")}
       >
         <Heart className={cn("h-4 w-4", liked && "fill-rouge-500")} />
       </button>
@@ -231,6 +232,7 @@ function CommentRow({ comment }: { comment: SocialPost }) {
 }
 
 function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean }) {
+  const { t } = useTranslation();
   const { address } = useAuth();
   const profile = useMyProfile();
   const { toast } = useToast();
@@ -255,7 +257,7 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
       setGif(null);
       setImg({ ref: media.ref, url: URL.createObjectURL(p.blob) });
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Couldn't attach image", "error");
+      toast(e instanceof Error ? e.message : t("post.attachFailed"), "error");
     } finally {
       setUploading(false);
     }
@@ -270,7 +272,7 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
         setImg(null);
         setGif(null);
       },
-      onError: (e) => toast(e instanceof Error ? e.message : "Comment failed", "error"),
+      onError: (e) => toast(e instanceof Error ? e.message : t("post.commentFailed"), "error"),
     });
   }
 
@@ -291,7 +293,7 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
                 setGif(null);
               }}
               className="absolute -right-2 -top-2 rounded-full bg-black/70 p-1 text-white"
-              aria-label="Remove attachment"
+              aria-label={t("post.removeAttachment")}
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -306,7 +308,7 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading || add.isPending}
                 className="shrink-0 text-ink-muted hover:text-white disabled:opacity-50"
-                aria-label="Add photo"
+                aria-label={t("post.addPhoto")}
               >
                 {uploading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -318,15 +320,15 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
                 onClick={() => setShowGif(true)}
                 disabled={add.isPending}
                 className="shrink-0 rounded px-1.5 text-xs font-bold text-ink-muted hover:text-white disabled:opacity-50"
-                aria-label="Add GIF"
+                aria-label={t("post.addGif")}
               >
-                GIF
+                {t("post.gif")}
               </button>
             </>
           )}
           <input
             className="input flex-1"
-            placeholder="Add a comment…"
+            placeholder={t("post.addComment")}
             value={text}
             maxLength={2000}
             onChange={(e) => setText(e.target.value)}
@@ -345,7 +347,7 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
             className="btn-primary h-10 w-10 shrink-0 p-0"
             onClick={submit}
             disabled={!canSend}
-            aria-label="Post comment"
+            aria-label={t("post.postComment")}
           >
             {add.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

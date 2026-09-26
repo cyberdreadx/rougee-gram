@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Coins, Loader2 } from "lucide-react";
 import { useTip } from "@/hooks/useSocial";
 import { useAuth } from "@/store/auth";
@@ -32,6 +33,7 @@ export default function TipButton({
   className?: string;
   iconClassName?: string;
 }) {
+  const { t } = useTranslation();
   const { address } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -43,13 +45,13 @@ export default function TipButton({
         <button
           onClick={() => setOpen(true)}
           className={cn("text-white transition-transform hover:text-ink-muted active:scale-90", className)}
-          aria-label="Tip"
+          aria-label={t("tip.tip")}
         >
           <Coins className={iconClassName} />
         </button>
       ) : (
         <button onClick={() => setOpen(true)} className={cn("btn-soft", className)}>
-          <Coins className="h-4 w-4" /> Tip
+          <Coins className="h-4 w-4" /> {t("tip.tip")}
         </button>
       )}
       {open && (
@@ -75,6 +77,7 @@ function TipModal({
   postId?: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const { balance, refreshBalance } = useAuth();
   const { toast } = useToast();
   const tip = useTip();
@@ -88,21 +91,19 @@ function TipModal({
       { to: toAddress, amount, postId },
       {
         onSuccess: () => {
-          toast(`Tipped ${amount} XRGE 🎉`, "success");
+          toast(t("tip.tipped", { amount }), "success");
           refreshBalance();
           onClose();
         },
-        onError: (e) => toast(e instanceof Error ? e.message : "Tip failed", "error"),
+        onError: (e) => toast(e instanceof Error ? e.message : t("tip.tipFailed"), "error"),
       },
     );
   }
 
   return (
-    <Modal onClose={tip.isPending ? () => {} : onClose} title="Send a tip">
+    <Modal onClose={tip.isPending ? () => {} : onClose} title={t("tip.sendTip")}>
       <p className="text-sm text-ink-muted">
-        Send XRGE straight to{" "}
-        <span className="font-medium text-white">{toName || "this creator"}</span>. It's
-        an on-chain transfer — no middleman takes a cut.
+        {t("tip.tipBody", { name: toName || t("tip.thisCreator") })}
       </p>
 
       {/* Presets */}
@@ -123,7 +124,7 @@ function TipModal({
       </div>
 
       {/* Custom amount */}
-      <label className="label mt-4">Amount (XRGE)</label>
+      <label className="label mt-4">{t("tip.amount")}</label>
       <input
         type="number"
         min={1}
@@ -136,9 +137,9 @@ function TipModal({
 
       <div className="mt-2 flex items-center justify-between text-xs">
         <span className="text-ink-muted">
-          Balance: {formatCount(balance)} XRGE · fee {TIP_FEE}
+          {t("tip.balanceFee", { balance: formatCount(balance), fee: TIP_FEE })}
         </span>
-        {insufficient && <span className="text-rouge-400">Insufficient balance</span>}
+        {insufficient && <span className="text-rouge-400">{t("tip.insufficient")}</span>}
       </div>
 
       <button className="btn-primary mt-4 w-full py-3" onClick={send} disabled={!canSend}>
@@ -146,7 +147,7 @@ function TipModal({
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <>
-            <Coins className="h-4 w-4" /> Send {amount} XRGE
+            <Coins className="h-4 w-4" /> {t("tip.sendAmount", { amount })}
           </>
         )}
       </button>
