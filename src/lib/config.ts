@@ -24,6 +24,8 @@ export interface RuntimeConfig {
   tipsWorkerUrl: string;
   /** RouGee story-engagement Worker base URL (off-chain views + reactions). */
   storyWorkerUrl: string;
+  /** RouGee promote Worker base URL (watch-to-earn ads / boosted posts). */
+  promoteWorkerUrl: string;
 }
 
 /** Well-known RougeChain networks selectable at runtime in Settings. */
@@ -54,6 +56,7 @@ const defaults: RuntimeConfig = {
   verifyWorkerUrl: import.meta.env.VITE_VERIFY_WORKER_URL || "",
   tipsWorkerUrl: import.meta.env.VITE_TIPS_WORKER_URL || "",
   storyWorkerUrl: import.meta.env.VITE_STORY_WORKER_URL || "",
+  promoteWorkerUrl: import.meta.env.VITE_PROMOTE_WORKER_URL || "",
 };
 
 // One-time migration key: users who ran the app when the default was testnet may
@@ -72,6 +75,7 @@ const DEPLOY_ONLY: (keyof RuntimeConfig)[] = [
   "verifyWorkerUrl",
   "tipsWorkerUrl",
   "storyWorkerUrl",
+  "promoteWorkerUrl",
 ];
 
 function load(): RuntimeConfig {

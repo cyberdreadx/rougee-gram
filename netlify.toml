@@ -41,6 +41,9 @@
   # See workers/story/wrangler.toml.
   VITE_STORY_WORKER_URL = "https://rougee-story.rougee.workers.dev"
 
+  # Promote Worker (watch-to-earn ads / boosted posts). See workers/promote.
+  VITE_PROMOTE_WORKER_URL = "https://rougee-promote.rougee.workers.dev"
+
   # Verification Worker ("RouGee HQ") — issues verified-badge attestations for
   # accounts holding >= 50k XRGE. HQ public key is baked into src/lib/verify.ts;
   # HQ_MNEMONIC is a worker secret. See workers/verify/wrangler.toml.
