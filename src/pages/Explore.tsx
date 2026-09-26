@@ -49,7 +49,7 @@ export default function Explore() {
             <WhoToFollow limit={5} />
           </div>
           <div className="p-0.5 sm:p-1">
-            <ExploreGrid posts={data} isLoading={isLoading} />
+            <ExploreGrid posts={data} isLoading={isLoading} showSponsored />
           </div>
           {/* Discovery is text-heavy too — the media grid hides text posts, so
               show the latest ones here or they'd be invisible. */}

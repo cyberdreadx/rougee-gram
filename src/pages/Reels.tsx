@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MessageCircle, Repeat2, Volume2, VolumeX, Pause, Film, Music2 } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Volume2, VolumeX, Pause, Film, Music2, Rocket } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import {
   useGlobalTimeline,
@@ -9,6 +9,10 @@ import {
   useToggleRepost,
 } from "@/hooks/useSocial";
 import { useProfile } from "@/hooks/useProfile";
+import { useSponsoredPosts } from "@/hooks/usePromote";
+import { recordImpression } from "@/lib/promote";
+import { useAuth } from "@/store/auth";
+import { useToast } from "@/components/Toast";
 import { useTapGestures } from "@/hooks/useTapGestures";
 import { useCreatePost } from "@/components/CreatePost";
 import { decodeBody, type VideoEnvelope } from "@/lib/envelope";
@@ -20,14 +24,30 @@ import SaveButton from "@/components/SaveButton";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const isReel = (p: SocialPost): boolean => {
+  if (p.reply_to_id) return false;
+  const d = decodeBody(p.body);
+  return d.kind === "video" && d.data.t === "reel";
+};
+
 export default function Reels() {
   const { data, isLoading } = useGlobalTimeline();
+  const { data: sponsored } = useSponsoredPosts();
   const { open } = useCreatePost();
 
-  const reels = (data ?? []).filter((p) => {
-    if (p.reply_to_id) return false;
-    const d = decodeBody(p.body);
-    return d.kind === "video" && d.data.t === "reel";
+  const reels = (data ?? []).filter(isReel);
+  // Sponsored reels (boosted reel posts not already organically present).
+  const sponsoredReels = (sponsored ?? [])
+    .filter(isReel)
+    .filter((p) => !reels.some((r) => r.id === p.id));
+  // Intersperse one sponsored reel after every 4th organic reel.
+  const feed: { post: SocialPost; sponsored: boolean }[] = [];
+  let s = 0;
+  reels.forEach((post, i) => {
+    feed.push({ post, sponsored: false });
+    if (s < sponsoredReels.length && (i + 1) % 4 === 0) {
+      feed.push({ post: sponsoredReels[s++], sponsored: true });
+    }
   });
 
   if (isLoading) {
@@ -59,15 +79,18 @@ export default function Reels() {
 
   return (
     <div className="hide-scrollbar h-[calc(100dvh-var(--top-bar-h)-var(--bottom-nav-h))] snap-y snap-mandatory overflow-y-auto md:h-[calc(100dvh-2rem)]">
-      {reels.map((post) => (
-        <ReelItem key={post.id} post={post} />
+      {feed.map(({ post, sponsored }, i) => (
+        <ReelItem key={sponsored ? `ad-${post.id}-${i}` : post.id} post={post} sponsored={sponsored} />
       ))}
     </div>
   );
 }
 
-function ReelItem({ post }: { post: SocialPost }) {
+function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }) {
   const decoded = decodeBody(post.body);
+  const { publicKey } = useAuth();
+  const { toast } = useToast();
+  const impFired = useRef(false);
   const reel = decoded.kind === "video" ? (decoded.data as VideoEnvelope) : null;
   const { data: profile } = useProfile(post.author_pubkey);
   const { data: stats } = usePostStats(post.id);
@@ -114,6 +137,13 @@ function ReelItem({ post }: { post: SocialPost }) {
         if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
           vid.play().catch(() => {});
           startSound();
+          // Sponsored reel scrolled into view → one-time view-to-earn.
+          if (sponsored && !impFired.current && publicKey) {
+            impFired.current = true;
+            recordImpression(post.id, publicKey).then((r) => {
+              if (r.earned > 0) toast(`+${r.earned} XRGE for viewing 🎉`, "success");
+            });
+          }
         } else {
           vid.pause();
           stopSound();
@@ -160,6 +190,11 @@ function ReelItem({ post }: { post: SocialPost }) {
       ref={containerRef}
       className="relative flex h-full w-full snap-start snap-always items-center justify-center bg-black"
     >
+      {sponsored && (
+        <span className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur">
+          <Rocket className="h-3 w-3" /> Sponsored
+        </span>
+      )}
       <MediaVideo
         onRef={(el) => (videoRef.current = el)}
         refUri={reel.cid}
