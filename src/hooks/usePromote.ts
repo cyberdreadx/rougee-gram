@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SocialPost } from "@rougechain/sdk";
+import { signRequest } from "@rougechain/sdk";
 import { useAuth } from "@/store/auth";
 import { rc, resolveTxId } from "@/lib/rouge";
 import { isAdPost } from "@/lib/envelope";
 import * as write from "@/lib/write";
+import * as ext from "@/lib/extensionSigner";
 import {
   getPoolAddress,
   recordBoost,
@@ -11,6 +13,9 @@ import {
   getEarnings,
   claimEarnings,
   promoteEnabled,
+  getAdStats,
+  endCampaignPayload,
+  submitEndCampaign,
 } from "@/lib/promote";
 
 /** Boost a post: pay XRGE to the ad-pool, then register the boost (verified
@@ -92,6 +97,40 @@ export function useMyAds() {
     queryFn: async (): Promise<SocialPost[]> => {
       const r = await rc().social.getUserPosts(publicKey, 100, 0);
       return ((r?.posts ?? []) as SocialPost[]).filter((p) => isAdPost(p));
+    },
+  });
+}
+
+/** Per-ad stats (spend, views, remaining pool) for one of the user's ads. */
+export function useAdStats(postId: string | undefined) {
+  return useQuery({
+    queryKey: ["adStats", postId],
+    enabled: !!postId && promoteEnabled(),
+    staleTime: 60_000,
+    queryFn: () => getAdStats(postId as string),
+  });
+}
+
+/** End (early-expire) one of the user's ad campaigns. Author-signed: the wallet
+ *  signs a payload we define, and the worker verifies the signer owns the ad. */
+export function useEndCampaign() {
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (postId: string) => {
+      if (!publicKey) throw new Error("Locked");
+      const fields = endCampaignPayload(postId);
+      const signedTx = isExtensionWallet
+        ? await ext.signPayload(publicKey, fields)
+        : signRequest(wallet!, fields);
+      const r = await submitEndCampaign(signedTx);
+      if (!r.ok) throw new Error(r.error || "Couldn't end the campaign.");
+      return { postId };
+    },
+    onSuccess: ({ postId }) => {
+      client.invalidateQueries({ queryKey: ["promoted"] });
+      client.invalidateQueries({ queryKey: ["myAds"] });
+      client.invalidateQueries({ queryKey: ["adStats", postId] });
     },
   });
 }

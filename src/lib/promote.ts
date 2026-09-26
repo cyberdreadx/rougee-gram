@@ -1,3 +1,4 @@
+import type { SignedTransaction } from "@rougechain/sdk";
 import { getConfig } from "./config";
 
 /**
@@ -47,6 +48,65 @@ export async function getPromoted(): Promise<PromotedAd[]> {
     return Array.isArray(d.ads) ? d.ads : [];
   } catch {
     return [];
+  }
+}
+
+export interface AdStats {
+  found: boolean;
+  active: boolean;
+  spend: number;
+  poolBalance: number;
+  rewardsPaid: number;
+  views: number;
+  rewardPerView: number;
+  until: number;
+}
+
+/** Per-ad stats for the advertiser's own creative (spend, views, remaining pool). */
+export async function getAdStats(postId: string): Promise<AdStats | null> {
+  if (!promoteEnabled() || !postId) return null;
+  try {
+    const params = new URLSearchParams({ network: getConfig().network, postId });
+    const res = await fetch(`${base()}/ad?${params}`);
+    if (!res.ok) return null;
+    const d = (await res.json()) as Partial<AdStats>;
+    if (!d.found) return null;
+    return {
+      found: true,
+      active: !!d.active,
+      spend: Number(d.spend) || 0,
+      poolBalance: Number(d.poolBalance) || 0,
+      rewardsPaid: Number(d.rewardsPaid) || 0,
+      views: Number(d.views) || 0,
+      rewardPerView: Number(d.rewardPerView) || 0,
+      until: Number(d.until) || 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** The canonical fields the author signs to end a campaign. The worker verifies
+ *  the signature and that the signer owns the ad. */
+export function endCampaignPayload(postId: string): Record<string, unknown> {
+  return { action: "promote:end", network: getConfig().network, postId };
+}
+
+/** Submit an author-signed request to end (early-expire) a campaign. */
+export async function submitEndCampaign(
+  signedTx: SignedTransaction,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!promoteEnabled()) return { ok: false, error: "Not available." };
+  try {
+    const res = await fetch(`${base()}/end`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ network: getConfig().network, signedTx }),
+    });
+    const d = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    return { ok: res.ok && !!d.ok, error: d.error };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to end campaign" };
   }
 }
 

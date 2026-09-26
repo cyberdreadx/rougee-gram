@@ -11,11 +11,14 @@
  *
  *   POST /boost      {network, postId, txId, durationHours} -> { ok, ad }
  *   GET  /promoted?network=&limit=                          -> { ads:[{postId,author,weight}] }
+ *   GET  /ad?network=&postId=                               -> { found, active, spend, poolBalance, rewardsPaid, views, until }
  *   POST /impression {network, postId, viewer}              -> { ok, earned, balance }
  *   GET  /earnings?network=&viewer=                         -> { balance, claimMin }
  *   POST /claim      {network, viewer}                      -> { ok, claimed, txId }
+ *   POST /end        {network, signedTx}                    -> { ok, ad }   (author-signed)
  */
-import { RougeChain, Wallet, pubkeyToAddress } from "@rougechain/sdk";
+import { RougeChain, Wallet, pubkeyToAddress, verifyTransaction } from "@rougechain/sdk";
+import type { SignedTransaction } from "@rougechain/sdk";
 
 export interface Env {
   PROMOTE: KVNamespace;
@@ -111,6 +114,8 @@ interface Ad {
   weight: number;
   until: number;
   rewardPerView: number;
+  /** Count of rewarded impressions (for advertiser stats). */
+  viewsPaid?: number;
 }
 
 async function activeAds(env: Env, network: string): Promise<Ad[]> {
@@ -150,6 +155,31 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const limit = Math.min(Number(url.searchParams.get("limit")) || 10, 50);
     const ads = (await activeAds(env, network)).slice(0, limit);
     return json({ ads: ads.map((a) => ({ postId: a.postId, author: a.author, weight: a.weight })) }, 200, env);
+  }
+
+  // ── Per-ad stats (for the advertiser's "Your ads" view) ──
+  if (request.method === "GET" && url.pathname === "/ad") {
+    const network = url.searchParams.get("network") || "";
+    const postId = url.searchParams.get("postId") || "";
+    if (!nodeFor(env, network)) return json({ error: "unsupported network" }, 400, env);
+    if (!postId) return json({ error: "missing postId" }, 400, env);
+    const ad = (await env.PROMOTE.get(`ad:${network}:${postId}`, "json")) as Ad | null;
+    if (!ad) return json({ found: false }, 200, env);
+    const views = ad.viewsPaid || 0;
+    return json(
+      {
+        found: true,
+        active: ad.until > Date.now() && ad.poolBalance >= ad.rewardPerView,
+        spend: ad.weight,
+        poolBalance: ad.poolBalance,
+        rewardsPaid: views * ad.rewardPerView,
+        views,
+        rewardPerView: ad.rewardPerView,
+        until: ad.until,
+      },
+      200,
+      env,
+    );
   }
 
   // ── Viewer earnings ──
@@ -244,6 +274,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
 
     const reward = ad.rewardPerView;
     ad.poolBalance = Math.max(0, ad.poolBalance - reward);
+    ad.viewsPaid = (ad.viewsPaid || 0) + 1;
     await env.PROMOTE.put(`ad:${network}:${postId}`, JSON.stringify(ad));
     const balKey = `bal:${network}:${vid}`;
     const bal = Number((await env.PROMOTE.get(balKey)) || 0) + reward;
@@ -297,6 +328,62 @@ async function handle(request: Request, env: Env): Promise<Response> {
       await env.PROMOTE.delete(lock);
       return json({ ok: false, error: `Payout failed: ${e instanceof Error ? e.message : String(e)}` }, 502, env);
     }
+  }
+
+  // ── End campaign: author-signed early stop (sets the ad to expired now) ──
+  //
+  // Auth is a wallet signature over a payload WE define, so it's unambiguous:
+  // the signed message carries action:"promote:end" + postId, and we only act
+  // if the signer's public key matches the ad's author. (This is the safe shape
+  // the messenger read-signing lacked — there, read and delete payloads were
+  // byte-identical; here the action + target are inside the signed bytes.)
+  if (request.method === "POST" && url.pathname === "/end") {
+    const { network, signedTx } = (await request.json().catch(() => ({}))) as {
+      network?: string;
+      signedTx?: SignedTransaction;
+    };
+    if (!network || !nodeFor(env, network)) return json({ error: "unsupported network" }, 400, env);
+    if (!signedTx?.payload || !signedTx.signature || !signedTx.public_key) {
+      return json({ error: "missing signature" }, 400, env);
+    }
+
+    let ok = false;
+    try {
+      ok = verifyTransaction(signedTx);
+    } catch {
+      ok = false;
+    }
+    if (!ok) return json({ error: "bad signature" }, 401, env);
+
+    const p = signedTx.payload as unknown as {
+      action?: string;
+      network?: string;
+      postId?: string;
+      timestamp?: number;
+      nonce?: string;
+    };
+    if (p.action !== "promote:end") return json({ error: "wrong action" }, 400, env);
+    if (p.network !== network) return json({ error: "network mismatch" }, 400, env);
+    if (!p.postId) return json({ error: "missing postId" }, 400, env);
+    // Freshness: reject stale/replayed requests (±5 min).
+    if (!(Math.abs(Date.now() - Number(p.timestamp)) < 5 * 60_000)) {
+      return json({ error: "stale request" }, 400, env);
+    }
+    // One-time nonce guard against replay within the freshness window.
+    if (p.nonce) {
+      const nkey = `endnonce:${network}:${p.nonce}`;
+      if (await env.PROMOTE.get(nkey)) return json({ error: "replayed" }, 400, env);
+      await env.PROMOTE.put(nkey, "1", { expirationTtl: 600 });
+    }
+
+    const key = `ad:${network}:${p.postId}`;
+    const ad = (await env.PROMOTE.get(key, "json")) as Ad | null;
+    if (!ad) return json({ error: "no such ad" }, 404, env);
+    if (ad.author !== signedTx.public_key) return json({ error: "not your ad" }, 403, env);
+
+    ad.until = Date.now();
+    await env.PROMOTE.put(key, JSON.stringify(ad));
+    return json({ ok: true, ad }, 200, env);
   }
 
   return json({ error: "not found" }, 404, env);

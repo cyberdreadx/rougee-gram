@@ -211,6 +211,28 @@ export async function kemDecrypt(envelope: string, myId: string): Promise<string
   return txt;
 }
 
+/**
+ * Sign an arbitrary request payload via the provider and return the signed
+ * object (no submission). For prompting the user to authorize an off-chain
+ * worker action (e.g. ending an ad campaign) where WE define & verify the
+ * signed message — the action + target live inside the signed bytes.
+ */
+export async function signPayload(
+  publicKey: string,
+  fields: Record<string, unknown>,
+): Promise<SignedTransaction> {
+  const provider = getProvider();
+  if (!provider) throw new Error("RougeChain wallet not available.");
+  const payload: Payload = { ...fields, from: publicKey, timestamp: Date.now(), nonce: nonce() };
+  const result = await provider.signTransaction(payload);
+  if (!result?.signature) throw new Error("Wallet did not return a signature.");
+  return {
+    payload: (result.payload ?? payload) as unknown as SignedTransaction["payload"],
+    signature: result.signature,
+    public_key: result.public_key ?? publicKey,
+  };
+}
+
 /** Sign a read request via the provider and POST it (list endpoints return data
  *  directly, not the submitTx {success,…} envelope). */
 async function signAndPost(

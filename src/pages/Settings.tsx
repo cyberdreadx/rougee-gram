@@ -41,7 +41,14 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import { startVerify, confirmVerify } from "@/lib/verifyApi";
 import { VERIFY_MIN_XRGE } from "@/lib/verify";
 import { useMyUsername, useRegisterUsername, useReleaseUsername } from "@/hooks/useUsername";
-import { useEarnings, useClaimEarnings, useMyAds, usePromoted } from "@/hooks/usePromote";
+import {
+  useEarnings,
+  useClaimEarnings,
+  useMyAds,
+  usePromoted,
+  useAdStats,
+  useEndCampaign,
+} from "@/hooks/usePromote";
 import { promoteEnabled } from "@/lib/promote";
 import { Rocket } from "lucide-react";
 import BoostModal from "@/components/BoostModal";
@@ -341,35 +348,103 @@ function AdRow({
   active: boolean;
   onBoost: () => void;
 }) {
+  const { toast } = useToast();
   const [cell] = toMediaCells([post]);
   const decoded = decodeBody(post.body);
   const cap = "data" in decoded ? (decoded.data as { cap?: string }).cap?.trim() : undefined;
+  const { data: stats } = useAdStats(post.id);
+  const end = useEndCampaign();
+  const [confirming, setConfirming] = useState(false);
+
+  const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
   return (
-    <li className="flex items-center gap-3 rounded-xl bg-ink-soft p-2">
-      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ink">
-        {cell?.thumbRef ? (
-          <MediaImage refUri={cell.thumbRef} alt="" className="h-full w-full object-cover" />
-        ) : null}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm">{cap || "Untitled ad"}</div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-xs">
-          <span
-            className={cn(
-              "inline-block h-1.5 w-1.5 rounded-full",
-              active ? "bg-emerald-400" : "bg-ink-muted",
-            )}
-          />
-          <span className={active ? "text-emerald-400" : "text-ink-muted"}>
-            {active ? "Running" : "Not running"}
-          </span>
+    <li className="rounded-xl bg-ink-soft p-2">
+      <div className="flex items-center gap-3">
+        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ink">
+          {cell?.thumbRef ? (
+            <MediaImage refUri={cell.thumbRef} alt="" className="h-full w-full object-cover" />
+          ) : null}
         </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm">{cap || "Untitled ad"}</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs">
+            <span
+              className={cn(
+                "inline-block h-1.5 w-1.5 rounded-full",
+                active ? "bg-emerald-400" : "bg-ink-muted",
+              )}
+            />
+            <span className={active ? "text-emerald-400" : "text-ink-muted"}>
+              {active ? "Running" : "Not running"}
+            </span>
+          </div>
+        </div>
+        <button className="btn-soft shrink-0 px-3 py-1.5 text-sm" onClick={onBoost}>
+          {active ? "Add budget" : "Boost"}
+        </button>
       </div>
-      <button className="btn-soft shrink-0 px-3 py-1.5 text-sm" onClick={onBoost}>
-        {active ? "Add budget" : "Boost"}
-      </button>
+
+      {stats && (stats.spend > 0 || stats.views > 0) && (
+        <div className="mt-2 grid grid-cols-3 gap-2 border-t border-ink-border/60 pt-2 text-center text-xs">
+          <Stat label="Spent" value={`${fmt(stats.spend)}`} />
+          <Stat label="Views" value={fmt(stats.views)} />
+          <Stat label="Pool left" value={`${fmt(stats.poolBalance)}`} />
+        </div>
+      )}
+
+      {active && (
+        <div className="mt-2">
+          {confirming ? (
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-xs text-ink-muted">
+                End this campaign now? Unspent pool ({fmt(stats?.poolBalance ?? 0)} XRGE) stays
+                reserved for viewers who already earned it.
+              </span>
+              <button
+                className="btn-soft shrink-0 px-2.5 py-1 text-xs"
+                onClick={() => setConfirming(false)}
+                disabled={end.isPending}
+              >
+                Keep
+              </button>
+              <button
+                className="shrink-0 rounded-lg bg-red-500/15 px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/25 disabled:opacity-50"
+                disabled={end.isPending}
+                onClick={() =>
+                  end.mutate(post.id, {
+                    onSuccess: () => {
+                      toast("Campaign ended.", "success");
+                      setConfirming(false);
+                    },
+                    onError: (e) =>
+                      toast(e instanceof Error ? e.message : "Couldn't end it.", "error"),
+                  })
+                }
+              >
+                {end.isPending ? "Ending…" : "End now"}
+              </button>
+            </div>
+          ) : (
+            <button
+              className="text-xs text-ink-muted hover:text-red-400"
+              onClick={() => setConfirming(true)}
+            >
+              End campaign
+            </button>
+          )}
+        </div>
+      )}
     </li>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="font-semibold">{value}</div>
+      <div className="text-ink-muted">{label}</div>
+    </div>
   );
 }
 
