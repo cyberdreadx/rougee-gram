@@ -25,6 +25,7 @@ import {
   parseGate,
   subscribeGate,
 } from "@/lib/dmGate";
+import { DMS_ENABLED } from "@/lib/features";
 
 /**
  * A conversation's member pubkeys. The node serializes this as `participant_ids`
@@ -174,7 +175,8 @@ export function useConversations(opts?: { background?: boolean }) {
   // every page load (it reloads the page each time you return to it). We only
   // do the signed read for them when the user actively opens Messages. Local
   // wallets sign silently in-page, so they're unaffected either way.
-  const enabled = !!wallet && canDm && !(isExtensionWallet && opts?.background);
+  const enabled =
+    DMS_ENABLED && !!wallet && canDm && !(isExtensionWallet && opts?.background);
   return useQuery({
     queryKey: ["conversations", publicKey],
     enabled,
@@ -218,7 +220,7 @@ export function useMessages(
     queryKey: ["messages", conversationId, publicKey],
     // `enabled` lets callers keep a request's contents un-fetched (and thus
     // un-decrypted) until it's accepted — see the message-request gate.
-    enabled: (opts?.enabled ?? true) && !!wallet && !!conversationId && !!kem,
+    enabled: DMS_ENABLED && (opts?.enabled ?? true) && !!wallet && !!conversationId && !!kem,
     // See useConversations: don't background-poll provider wallets (each poll is
     // a wallet signature prompt). Fetch on open; local wallets stay live.
     refetchInterval: isExtensionWallet ? false : 8000,

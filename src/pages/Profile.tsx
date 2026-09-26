@@ -34,6 +34,7 @@ import { latestActiveNote, type Note } from "@/hooks/useNotes";
 import { useVerified } from "@/hooks/useVerified";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import Handle from "@/components/Handle";
+import { DMS_ENABLED } from "@/lib/features";
 import { Plus } from "lucide-react";
 
 /** Display host for a link chip (drops the www. and scheme). */
@@ -172,7 +173,7 @@ export default function Profile() {
           ) : (
             <>
               <FollowButton pubkey={pubkey} isFollowing={stats.data?.isFollowing} />
-              <MessageButton pubkey={pubkey} />
+              {DMS_ENABLED && <MessageButton pubkey={pubkey} />}
             </>
           )}
           <TipButton

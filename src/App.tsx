@@ -15,6 +15,7 @@ import Settings from "./pages/Settings";
 import Splash from "./components/Splash";
 import Tutorial from "./components/Tutorial";
 import HandleRoute from "./components/HandleRoute";
+import { DMS_ENABLED } from "./lib/features";
 import TagPage from "./pages/TagPage";
 import LocationPage from "./pages/LocationPage";
 
@@ -32,8 +33,8 @@ export default function App() {
         <Route path="/explore" element={<Explore />} />
         <Route path="/reels" element={<Reels />} />
         <Route path="/activity" element={<Activity />} />
-        <Route path="/messages" element={<Messages />} />
-        <Route path="/messages/:id" element={<Chat />} />
+        {DMS_ENABLED && <Route path="/messages" element={<Messages />} />}
+        {DMS_ENABLED && <Route path="/messages/:id" element={<Chat />} />}
         <Route path="/p/:postId" element={<PostDetail />} />
         <Route path="/u/:address" element={<Profile />} />
         <Route path="/tag/:tag" element={<TagPage />} />

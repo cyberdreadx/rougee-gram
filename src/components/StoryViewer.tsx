@@ -6,6 +6,7 @@ import { markStoriesSeen, type StoryGroup } from "@/hooks/useStories";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/store/auth";
 import { useDmCapable, useSendStoryReply } from "@/hooks/useMessenger";
+import { DMS_ENABLED } from "@/lib/features";
 import { useToast } from "./Toast";
 import { displayName } from "@/lib/profile";
 import { timeAgo, formatCount } from "@/lib/format";
@@ -304,7 +305,7 @@ export default function StoryViewer({
                   ))}
                 </div>
               )}
-              {dmCapable && (
+              {DMS_ENABLED && dmCapable && (
                 <div className="flex items-center gap-2">
                   <input
                     value={reply}

@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { shortAddress } from "@/lib/format";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useUnreadCount } from "@/hooks/useMessenger";
+import { DMS_ENABLED } from "@/lib/features";
 
 export default function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -65,7 +66,9 @@ function DesktopSidebar() {
         Create
       </button>
       <SideLink to="/activity" label="Activity" icon={Heart} end={false} />
-      <SideLink to="/messages" label="Messages" icon={Send} end={false} badge={unread} />
+      {DMS_ENABLED && (
+        <SideLink to="/messages" label="Messages" icon={Send} end={false} badge={unread} />
+      )}
       <SideLink
         to={`/u/${address}`}
         label="Profile"
@@ -176,16 +179,18 @@ function MobileTopBar() {
         >
           <Heart className="h-6 w-6" />
         </button>
-        <button
-          onClick={() => navigate("/messages")}
-          className="btn-ghost relative h-9 w-9 p-0"
-          aria-label="Messages"
-        >
-          <Send className="h-6 w-6" />
-          {unread > 0 && (
-            <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-rouge-500 ring-2 ring-ink" />
-          )}
-        </button>
+        {DMS_ENABLED && (
+          <button
+            onClick={() => navigate("/messages")}
+            className="btn-ghost relative h-9 w-9 p-0"
+            aria-label="Messages"
+          >
+            <Send className="h-6 w-6" />
+            {unread > 0 && (
+              <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-rouge-500 ring-2 ring-ink" />
+            )}
+          </button>
+        )}
       </div>
     </header>
   );
