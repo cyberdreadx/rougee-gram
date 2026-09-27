@@ -1,4 +1,12 @@
 {
+  "reelPreview": {
+    "play": "再生",
+    "preview": "プレビュー",
+    "music": "音楽",
+    "startsAt": "{{time}} から開始",
+    "align": "音楽を合わせる",
+    "hint": "ドラッグして曲の開始位置を選択"
+  },
   "nav": {
     "home": "ホーム",
     "explore": "見つける",

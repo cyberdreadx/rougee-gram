@@ -1,4 +1,12 @@
 {
+  "reelPreview": {
+    "play": "Play",
+    "preview": "Preview",
+    "music": "Music",
+    "startsAt": "Starts at {{time}}",
+    "align": "Align music",
+    "hint": "Drag to choose where the track starts"
+  },
   "nav": {
     "home": "Home",
     "explore": "Explore",

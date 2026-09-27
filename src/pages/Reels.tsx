@@ -129,6 +129,25 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
     if (a) a.muted = muted;
   }, [muted]);
 
+  // Keep the track aligned to the video: when the (looping) reel wraps back to
+  // its start, re-cue the music to its chosen offset so the same segment plays
+  // every loop — Instagram-style, instead of drifting on short reels.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !sound) return;
+    let last = 0;
+    const onTU = () => {
+      const a = audioElRef.current;
+      if (a && v.currentTime < last - 0.3) {
+        a.currentTime = soundStart;
+        a.play().catch(() => {});
+      }
+      last = v.currentTime;
+    };
+    v.addEventListener("timeupdate", onTU);
+    return () => v.removeEventListener("timeupdate", onTU);
+  }, [sound, soundStart]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;

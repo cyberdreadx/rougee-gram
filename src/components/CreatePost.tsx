@@ -55,6 +55,7 @@ import { invalidateFeeds } from "@/hooks/useSocial";
 import type { Sound } from "@/hooks/useSounds";
 import * as write from "@/lib/write";
 import SoundPicker from "./SoundPicker";
+import ReelMusicPreview from "./ReelMusicPreview";
 import PhotoEditor from "./PhotoEditor";
 import LocationAutocomplete from "./LocationAutocomplete";
 import BoostModal from "./BoostModal";
@@ -144,6 +145,7 @@ function CreatePostDialog({
   const [ctaUrl, setCtaUrl] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [sound, setSound] = useState<Sound | null>(null);
+  const [soundStart, setSoundStart] = useState(0);
   const [showSounds, setShowSounds] = useState(false);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -153,7 +155,13 @@ function CreatePostDialog({
   const [segments, setSegments] = useState<string[]>([""]);
 
   const audioEnv = sound
-    ? { id: sound.id, url: sound.audioUrl, title: sound.title, artist: sound.artist }
+    ? {
+        id: sound.id,
+        url: sound.audioUrl,
+        title: sound.title,
+        artist: sound.artist,
+        start: soundStart || undefined,
+      }
     : undefined;
 
   function buildAdCta(): AdCta | undefined {
@@ -264,6 +272,7 @@ function CreatePostDialog({
     setLocation("");
     setShowAdvanced(false);
     setSound(null);
+    setSoundStart(0);
     setShowSounds(false);
     setSquare(false);
     setIsReel(false);
@@ -636,6 +645,27 @@ function CreatePostDialog({
                 <X className="h-4 w-4" />
               </button>
             </div>
+          ) : kind === "video" && sound ? (
+            <div className="relative">
+              <ReelMusicPreview
+                videoUrl={previewUrl}
+                clipStart={trimStart}
+                clipEnd={trimEnd || vinfo?.duration || 0}
+                cover={isReel || crop916}
+                audioUrl={sound.audioUrl}
+                soundStart={soundStart}
+                onChangeStart={setSoundStart}
+                title={sound.title}
+                artist={sound.artist}
+              />
+              <button
+                onClick={() => reset()}
+                disabled={busy}
+                className="absolute left-2 top-2 rounded-lg bg-black/60 p-2 text-white backdrop-blur hover:bg-black/80"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           ) : (
             <div className="relative">
             <div
@@ -977,7 +1007,10 @@ function CreatePostDialog({
       {showSounds && (
         <SoundPicker
           selectedId={sound?.id}
-          onSelect={setSound}
+          onSelect={(s) => {
+            setSound(s);
+            setSoundStart(0);
+          }}
           onClose={() => setShowSounds(false)}
         />
       )}

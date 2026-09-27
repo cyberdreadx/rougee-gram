@@ -1,4 +1,12 @@
 {
+  "reelPreview": {
+    "play": "Lire",
+    "preview": "Aperçu",
+    "music": "Musique",
+    "startsAt": "Commence à {{time}}",
+    "align": "Aligner la musique",
+    "hint": "Faites glisser pour choisir où commence le morceau"
+  },
   "nav": {
     "home": "Accueil",
     "explore": "Explorer",

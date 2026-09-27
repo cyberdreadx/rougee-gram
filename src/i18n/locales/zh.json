@@ -1,4 +1,12 @@
 {
+  "reelPreview": {
+    "play": "播放",
+    "preview": "预览",
+    "music": "音乐",
+    "startsAt": "从 {{time}} 开始",
+    "align": "对齐音乐",
+    "hint": "拖动以选择音乐的起始位置"
+  },
   "nav": {
     "home": "主页",
     "explore": "发现",
