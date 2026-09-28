@@ -5,7 +5,8 @@
     "music": "Música",
     "startsAt": "Empieza en {{time}}",
     "align": "Alinear la música",
-    "hint": "Arrastra para elegir dónde empieza la canción"
+    "hint": "Arrastra para elegir dónde empieza la canción",
+    "useSound": "Usar este sonido"
   },
   "nav": {
     "home": "Inicio",

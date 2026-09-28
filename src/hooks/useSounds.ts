@@ -16,6 +16,11 @@ export interface Sound {
   audioUrl: string;
   /** Seconds, 0 if unknown. */
   duration: number;
+  /** Normalized waveform peaks (0–1) from qRougee, for a real scrubber. */
+  waveform?: number[];
+  /** The track's "hook" window (seconds) — where a reel should start by default. */
+  previewStart?: number;
+  previewEnd?: number;
 }
 
 interface TrackAttrs {
@@ -23,6 +28,9 @@ interface TrackAttrs {
   duration?: string | number;
   coverUrl?: string;
   audioUrl?: string;
+  waveform?: number[];
+  previewStart?: number | string;
+  previewEnd?: number | string;
 }
 
 /** The qRougee music catalog (NFT tracks with a playable audio URL), newest first. */
@@ -48,6 +56,9 @@ export function useSounds() {
                 coverUrl: attrs.coverUrl || col.image || "",
                 audioUrl: attrs.audioUrl,
                 duration: Number(attrs.duration) || 0,
+                waveform: Array.isArray(attrs.waveform) ? attrs.waveform : undefined,
+                previewStart: attrs.previewStart != null ? Number(attrs.previewStart) : undefined,
+                previewEnd: attrs.previewEnd != null ? Number(attrs.previewEnd) : undefined,
                 mintedAt: token.minted_at ?? 0,
               });
             }

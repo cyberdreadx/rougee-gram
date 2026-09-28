@@ -657,6 +657,7 @@ function CreatePostDialog({
                 onChangeStart={setSoundStart}
                 title={sound.title}
                 artist={sound.artist}
+                peaks={sound.waveform}
               />
               <button
                 onClick={() => reset()}
@@ -1009,7 +1010,8 @@ function CreatePostDialog({
           selectedId={sound?.id}
           onSelect={(s) => {
             setSound(s);
-            setSoundStart(0);
+            // Start the reel on the track's auto-detected hook by default.
+            setSoundStart(s?.previewStart ?? 0);
           }}
           onClose={() => setShowSounds(false)}
         />

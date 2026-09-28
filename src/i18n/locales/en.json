@@ -5,7 +5,8 @@
     "music": "Music",
     "startsAt": "Starts at {{time}}",
     "align": "Align music",
-    "hint": "Drag to choose where the track starts"
+    "hint": "Drag to choose where the track starts",
+    "useSound": "Use this sound"
   },
   "nav": {
     "home": "Home",
@@ -35,7 +36,6 @@
     "followed": "Followed",
     "failed": "Failed",
     "whoToFollow": "Who to follow",
-    "close": "Close",
     "more": "more",
     "done": "Done",
     "edit": "Edit",
@@ -400,7 +400,6 @@
     "ratioOriginal": "Original",
     "ratio11": "1:1",
     "reelMaxTitle": "Reels must be {{seconds}}s or shorter",
-    "reel": "Reel",
     "video": "Video",
     "largeFile": "Large file ({{size}}) — upload may be slow.",
     "trim": "Trim",

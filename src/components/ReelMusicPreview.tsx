@@ -25,6 +25,7 @@ export default function ReelMusicPreview({
   onChangeStart,
   title,
   artist,
+  peaks,
 }: {
   videoUrl: string;
   clipStart: number;
@@ -36,6 +37,8 @@ export default function ReelMusicPreview({
   onChangeStart: (start: number) => void;
   title?: string;
   artist?: string;
+  /** Real normalized waveform peaks (0–1) from the track, if available. */
+  peaks?: number[];
 }) {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -205,13 +208,16 @@ export default function ReelMusicPreview({
           ref={trackRef}
           className="relative h-10 w-full touch-none overflow-hidden rounded-lg bg-black/40"
         >
-          {/* tick marks — a lightweight stand-in for a waveform */}
-          <div className="pointer-events-none absolute inset-0 flex items-center gap-[3px] px-1 opacity-40">
-            {Array.from({ length: 48 }).map((_, i) => (
+          {/* Waveform: real peaks from the track when available, else a stand-in. */}
+          <div className="pointer-events-none absolute inset-0 flex items-center gap-[2px] px-1 opacity-45">
+            {(peaks && peaks.length > 0
+              ? peaks
+              : Array.from({ length: 48 }, (_, i) => (20 + ((i * 37) % 60)) / 100)
+            ).map((v, i) => (
               <span
                 key={i}
-                className="w-full rounded-full bg-white/50"
-                style={{ height: `${20 + ((i * 37) % 60)}%` }}
+                className="w-full rounded-full bg-white/60"
+                style={{ height: `${Math.max(8, Math.min(100, v * 100))}%` }}
               />
             ))}
           </div>
