@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Globe, ExternalLink, Loader2, Link as LinkIcon, UserPlus, UserCheck, Ban } from "lucide-react";
+import { ArrowLeft, Globe, ExternalLink, Loader2, Link as LinkIcon, UserPlus, UserCheck, Ban, Copy, Check } from "lucide-react";
 import { useNostrAuthor, useNostrSocial } from "@/hooks/useNostrFeed";
 import { npub, shortNpub } from "@/lib/nostrAuth";
 import { loadNostrLists, setFollow, setBlock } from "@/lib/nostrSocial";
@@ -40,6 +40,14 @@ export default function NostrProfile() {
     setBusy(null);
   };
 
+  const [copied, setCopied] = useState(false);
+  const copyNpub = () => {
+    if (!pubkey) return;
+    navigator.clipboard.writeText(npub(pubkey));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   const name = profile?.name?.trim() || (pubkey ? shortNpub(pubkey) : "");
   const njump = pubkey ? `https://njump.me/${npub(pubkey)}` : "#";
 
@@ -60,15 +68,17 @@ export default function NostrProfile() {
       )}
 
       <div className="flex items-start gap-4 px-4 py-4">
-        {profile?.picture ? (
-          <img
-            src={profile.picture}
-            alt=""
-            className="h-16 w-16 shrink-0 rounded-full object-cover"
-          />
-        ) : (
-          <Avatar seed={pubkey ?? ""} name={name} size={64} />
-        )}
+        <div className="shrink-0 rounded-full p-0.5 ring-2 ring-rouge-500/40">
+          {profile?.picture ? (
+            <img
+              src={profile.picture}
+              alt=""
+              className="h-20 w-20 rounded-full object-cover"
+            />
+          ) : (
+            <Avatar seed={pubkey ?? ""} name={name} size={80} />
+          )}
+        </div>
         <div className="min-w-0 flex-1">
           <div className="text-lg font-semibold">{name}</div>
           {profile?.nip05 && (
@@ -76,12 +86,21 @@ export default function NostrProfile() {
               {profile.nip05.replace(/^_@/, "")}
             </div>
           )}
+          <div className="mt-0.5 text-xs text-ink-muted">{notes.length} notes</div>
           {profile?.about && (
             <p className="mt-1 whitespace-pre-wrap break-words text-sm text-ink-muted">
               {profile.about}
             </p>
           )}
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
+            <button onClick={copyNpub} className="inline-flex items-center gap-1.5 hover:text-ink">
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+              {pubkey ? shortNpub(pubkey) : ""}
+            </button>
             {profile?.website && (
               <a
                 href={profile.website}

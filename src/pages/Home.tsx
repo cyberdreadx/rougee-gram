@@ -12,10 +12,31 @@ import { cn } from "@/lib/utils";
 
 type Tab = "following" | "discover";
 
+const HOME_TAB_KEY = "rougee:home-tab";
+function initialHomeTab(): Tab {
+  try {
+    const v = localStorage.getItem(HOME_TAB_KEY);
+    if (v === "following" || v === "discover") return v;
+  } catch {
+    /* localStorage unavailable */
+  }
+  return "discover"; // Discover leads — it's where the activity is
+}
+
 export default function Home() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>("following");
+  const [tab, setTab] = useState<Tab>(initialHomeTab);
   const [topic, setTopic] = useState<string | null>(null);
+
+  // Remember the chosen tab so each person lands on what they prefer.
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    try {
+      localStorage.setItem(HOME_TAB_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  };
   const following = useFollowingFeed();
   const discover = useDiscoverFeed(topic);
   const { open } = useCreatePost();
@@ -28,11 +49,11 @@ export default function Home() {
 
       {/* Segmented tabs */}
       <div className="sticky top-[var(--top-bar-h)] z-20 flex border-b border-ink-border bg-ink/55 backdrop-blur md:top-0">
-        <TabButton active={tab === "following"} onClick={() => setTab("following")}>
-          {t("common.following")}
-        </TabButton>
-        <TabButton active={tab === "discover"} onClick={() => setTab("discover")}>
+        <TabButton active={tab === "discover"} onClick={() => selectTab("discover")}>
           {t("home.discover")}
+        </TabButton>
+        <TabButton active={tab === "following"} onClick={() => selectTab("following")}>
+          {t("common.following")}
         </TabButton>
       </div>
 
@@ -87,7 +108,7 @@ export default function Home() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <button className="btn-soft" onClick={() => setTab("discover")}>
+                <button className="btn-soft" onClick={() => selectTab("discover")}>
                   {t("home.browseDiscover")}
                 </button>
                 <Link to="/explore" className="btn-primary">
