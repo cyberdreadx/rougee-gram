@@ -30,6 +30,7 @@ export interface NostrMeta {
   name: string; // display name — from kind-0, else a short pubkey
   avatar?: string; // avatar url from kind-0, if any
   images: string[]; // image urls pulled from the note
+  videos: string[]; // video urls pulled from the note (played inline)
   noteUrl: string; // link out to a Nostr web client
   likeCount?: number; // live interaction counts (kind-7/1/6 referencing this note)
   replyCount?: number;
@@ -45,27 +46,46 @@ export const isNostrPost = (p: { id: string }): boolean =>
 let pool: SimplePool | null = null;
 export const getPool = (): SimplePool => (pool ??= new SimplePool());
 
-const IMG_RE =
-  /(https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp|avif)(?:\?[^\s]*)?)/gi;
+const IMG_RE = /(https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp|avif)(?:\?[^\s]*)?)/gi;
+const VIDEO_RE = /(https?:\/\/[^\s]+\.(?:mp4|webm|mov|m4v|ogv)(?:\?[^\s]*)?)/gi;
+const IMG_EXT = /\.(?:jpg|jpeg|png|gif|webp|avif)(?:\?|$)/i;
+const VIDEO_EXT = /\.(?:mp4|webm|mov|m4v|ogv)(?:\?|$)/i;
+
+/** NIP-92 imeta entries: ["imeta", "url https://…", "m image/jpeg", …] */
+function imetaEntries(e: Event): { url: string; mime: string }[] {
+  const out: { url: string; mime: string }[] = [];
+  for (const tag of e.tags) {
+    if (tag[0] !== "imeta") continue;
+    const url = tag.find((x) => typeof x === "string" && x.startsWith("url "))?.slice(4).trim();
+    const mime = tag.find((x) => typeof x === "string" && x.startsWith("m "))?.slice(2).trim() ?? "";
+    if (url) out.push({ url, mime });
+  }
+  return out;
+}
 
 export function imagesOf(e: Event): string[] {
   const urls = new Set<string>();
-  for (const tag of e.tags) {
-    // NIP-92 imeta: ["imeta", "url https://…", "m image/jpeg", …]
-    if (tag[0] === "imeta") {
-      const u = tag.find((x) => typeof x === "string" && x.startsWith("url "));
-      if (u) urls.add(u.slice(4).trim());
-    }
-    if (tag[0] === "image" && tag[1]) urls.add(tag[1]);
+  for (const { url, mime } of imetaEntries(e)) {
+    if (mime.startsWith("image") || IMG_EXT.test(url)) urls.add(url);
   }
+  for (const tag of e.tags) if (tag[0] === "image" && tag[1]) urls.add(tag[1]);
   for (const m of e.content.matchAll(IMG_RE)) urls.add(m[1]);
   return [...urls].filter((u) => /^https:\/\//i.test(u));
 }
 
-/** Note text with the bare image urls (shown as media) stripped out. */
-function textOf(content: string, images: string[]): string {
+export function videosOf(e: Event): string[] {
+  const urls = new Set<string>();
+  for (const { url, mime } of imetaEntries(e)) {
+    if (mime.startsWith("video") || VIDEO_EXT.test(url)) urls.add(url);
+  }
+  for (const m of e.content.matchAll(VIDEO_RE)) urls.add(m[1]);
+  return [...urls].filter((u) => /^https:\/\//i.test(u));
+}
+
+/** Note text with the bare media urls (shown inline) stripped out. */
+function textOf(content: string, media: string[]): string {
   let s = content;
-  for (const u of images) s = s.split(u).join("");
+  for (const u of media) s = s.split(u).join("");
   return s.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
@@ -92,7 +112,7 @@ export function isFeedNote(e: Event): boolean {
   if (e.tags.some((t) => t[0] === "e" || t[0] === "content-warning")) return false;
   if (e.content.trim().length > MAX_NOTE_CHARS) return false;
   if (isMachineNote(e.content)) return false;
-  return imagesOf(e).length > 0;
+  return imagesOf(e).length > 0 || videosOf(e).length > 0;
 }
 
 /** Lowercase hashtags from #t tags + inline #tags in the content. */
@@ -118,10 +138,11 @@ export const DISCOVER_TOPICS: { id: string | null; label: string }[] = [
 /** Map a kind-1 event + optional kind-0 profile to a FeedPost. */
 export function eventToFeedPost(e: Event, prof?: NostrProfile): FeedPost {
   const images = imagesOf(e);
+  const videos = videosOf(e);
   return {
     id: `${NOSTR_ID_PREFIX}${e.id}`,
     author_pubkey: e.pubkey,
-    body: textOf(e.content, images),
+    body: textOf(e.content, [...images, ...videos]),
     reply_to_id: null,
     created_at: String(e.created_at),
     nostr: {
@@ -129,6 +150,7 @@ export function eventToFeedPost(e: Event, prof?: NostrProfile): FeedPost {
       name: prof?.name?.trim() || shortPk(e.pubkey),
       avatar: prof?.picture,
       images,
+      videos,
       noteUrl: `https://njump.me/${e.id}`,
     },
   };

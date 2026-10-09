@@ -99,6 +99,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
 
   if (!n) return null;
   const images = n.images.slice(0, 4);
+  const videos = n.videos.slice(0, 2);
   const likeCount = Math.max(n.likeCount ?? 0, acted?.liked ? 1 : 0);
   const replyCount = Math.max(n.replyCount ?? 0, replies.length);
   const repostCount = Math.max(n.repostCount ?? 0, acted?.reposted ? 1 : 0);
@@ -140,7 +141,19 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
         </p>
       )}
 
-      {/* media */}
+      {/* videos — play inline, in-app */}
+      {videos.map((url) => (
+        <video
+          key={url}
+          src={url}
+          controls
+          playsInline
+          preload="metadata"
+          className="mt-3 max-h-[70vh] w-full rounded-xl bg-black"
+        />
+      ))}
+
+      {/* images */}
       {images.length > 0 && (
         <div
           className={
@@ -149,17 +162,16 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           }
         >
           {images.map((url) => (
-            <a key={url} href={n.noteUrl} target="_blank" rel="noopener noreferrer" className="block">
-              <img
-                src={url}
-                alt=""
-                loading="lazy"
-                className={
-                  "w-full object-cover " +
-                  (images.length === 1 ? "max-h-[70vh]" : "aspect-square")
-                }
-              />
-            </a>
+            <img
+              key={url}
+              src={url}
+              alt=""
+              loading="lazy"
+              className={
+                "w-full object-cover " +
+                (images.length === 1 ? "max-h-[70vh]" : "aspect-square")
+              }
+            />
           ))}
         </div>
       )}
