@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { Event } from "nostr-tools";
+import { getActed, subscribeActed } from "@/lib/nostrAuth";
 import {
   NOSTR_RELAYS,
   getPool,
@@ -140,6 +148,11 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
   }, []);
 
   return { live, pending: pending.size, flush, trending };
+}
+
+/** What this device has liked/reposted on Nostr (reactive). */
+export function useActed() {
+  return useSyncExternalStore(subscribeActed, getActed, getActed);
 }
 
 /**
