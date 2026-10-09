@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Compass, Camera } from "lucide-react";
+import { Compass, Camera, ArrowUp } from "lucide-react";
 import { useFollowingFeed } from "@/hooks/useSocial";
 import { useDiscoverFeed } from "@/hooks/useNostrFeed";
 import { useCreatePost } from "@/components/CreatePost";
@@ -33,6 +33,19 @@ export default function Home() {
           {t("home.discover")}
         </TabButton>
       </div>
+
+      {tab === "discover" && discover.newCount > 0 && (
+        <button
+          onClick={() => {
+            discover.showNew();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className="fixed left-1/2 top-24 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-rouge-600 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-rouge-600/30 transition hover:bg-rouge-500"
+        >
+          <ArrowUp className="h-3.5 w-3.5" />
+          {discover.newCount} new {discover.newCount === 1 ? "post" : "posts"}
+        </button>
+      )}
 
       <FeedList
         posts={active.data}
