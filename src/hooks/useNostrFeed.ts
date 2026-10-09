@@ -61,6 +61,7 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
     // the initial load fully populated regardless of multi-relay EOSE timing.
     const openedAt = Math.floor(Date.now() / 1000);
     let buffer: Event[] = [];
+    let primed = false; // paint the first batch quickly, then settle into batching
 
     const flushBuffer = () => {
       if (!buffer.length) return;
@@ -81,6 +82,10 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
         if (!isFeedNote(e)) return;
         buffer.push(e);
         wantProfiles.current.add(e.pubkey);
+        if (!primed) {
+          primed = true;
+          setTimeout(flushBuffer, 120);
+        }
       },
       oneose: () => {
         flushBuffer();
