@@ -1,7 +1,11 @@
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Globe, ExternalLink, Loader2, Link as LinkIcon } from "lucide-react";
-import { useNostrAuthor } from "@/hooks/useNostrFeed";
+import { ArrowLeft, Globe, ExternalLink, Loader2, Link as LinkIcon, UserPlus, UserCheck, Ban } from "lucide-react";
+import { useNostrAuthor, useNostrSocial } from "@/hooks/useNostrFeed";
 import { npub, shortNpub } from "@/lib/nostrAuth";
+import { loadNostrLists, setFollow, setBlock } from "@/lib/nostrSocial";
+import { useAuth } from "@/store/auth";
+import { cn } from "@/lib/utils";
 import NostrPostCard from "@/components/NostrPostCard";
 import Avatar from "@/components/Avatar";
 
@@ -12,6 +16,29 @@ import Avatar from "@/components/Avatar";
 export default function NostrProfile() {
   const { pubkey } = useParams<{ pubkey: string }>();
   const { notes, profile, loading } = useNostrAuthor(pubkey);
+
+  const { address } = useAuth();
+  const owner = address || "anon";
+  const { follows, mutes } = useNostrSocial();
+  const [busy, setBusy] = useState<null | "follow" | "block">(null);
+  useEffect(() => {
+    loadNostrLists(owner);
+  }, [owner]);
+
+  const following = !!(pubkey && follows.has(pubkey));
+  const blocked = !!(pubkey && mutes.has(pubkey));
+  const toggleFollow = async () => {
+    if (!pubkey) return;
+    setBusy("follow");
+    await setFollow(owner, pubkey, !following);
+    setBusy(null);
+  };
+  const toggleBlock = async () => {
+    if (!pubkey) return;
+    setBusy("block");
+    await setBlock(owner, pubkey, !blocked);
+    setBusy(null);
+  };
 
   const name = profile?.name?.trim() || (pubkey ? shortNpub(pubkey) : "");
   const njump = pubkey ? `https://njump.me/${npub(pubkey)}` : "#";
@@ -76,6 +103,35 @@ export default function NostrProfile() {
             </a>
           </div>
         </div>
+      </div>
+
+      <div className="flex gap-2 px-4 pb-4">
+        <button
+          onClick={toggleFollow}
+          disabled={busy !== null}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition disabled:opacity-60",
+            following
+              ? "border border-ink-border text-ink hover:border-rose-500/50 hover:text-rose-400"
+              : "bg-rouge-600 text-white hover:bg-rouge-500",
+          )}
+        >
+          {following ? <UserCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+          {following ? "Following" : "Follow"}
+        </button>
+        <button
+          onClick={toggleBlock}
+          disabled={busy !== null}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold transition disabled:opacity-60",
+            blocked
+              ? "border-rose-500/60 text-rose-400"
+              : "border-ink-border text-ink-muted hover:text-ink",
+          )}
+        >
+          <Ban className="h-4 w-4" />
+          {blocked ? "Unblock" : "Block"}
+        </button>
       </div>
 
       <div className="border-t border-ink-border">

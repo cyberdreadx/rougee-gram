@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { Event } from "nostr-tools";
 import { getActed, subscribeActed, replyTargetOf } from "@/lib/nostrAuth";
+import { getNostrSocial, subscribeNostrSocial } from "@/lib/nostrSocial";
 import {
   NOSTR_RELAYS,
   getPool,
@@ -227,6 +228,11 @@ export function useActed() {
   return useSyncExternalStore(subscribeActed, getActed, getActed);
 }
 
+/** The viewer's Nostr follows + mutes (reactive). */
+export function useNostrSocial() {
+  return useSyncExternalStore(subscribeNostrSocial, getNostrSocial, getNostrSocial);
+}
+
 /** Live replies to one note (kind-1 with #e), fetched only while `open`. */
 export function useNoteThread(eventId: string, open: boolean) {
   const [replies, setReplies] = useState<Event[]>([]);
@@ -331,13 +337,14 @@ export function useNostrAuthor(pubkey: string | undefined) {
 export function useDiscoverFeed(topic: string | null = null) {
   const global = useGlobalTimeline();
   const stream = useNostrStream(true, topic);
+  const { mutes } = useNostrSocial();
 
   const data = useMemo<FeedPost[]>(() => {
     const rouge = (global.data ?? []) as FeedPost[];
-    return [...rouge, ...stream.live].sort(
-      (a, b) => toMs(b.created_at) - toMs(a.created_at),
-    );
-  }, [global.data, stream.live]);
+    return [...rouge, ...stream.live]
+      .filter((p) => !p.nostr || !mutes.has(p.nostr.pubkey)) // hide blocked authors
+      .sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
+  }, [global.data, stream.live, mutes]);
 
   return {
     data,
