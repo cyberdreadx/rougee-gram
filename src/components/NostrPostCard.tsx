@@ -42,21 +42,28 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   const replies = useNoteThread(eventId, showComments);
 
   // Populate the viewer's Nostr identity from their rougee profile on first use.
-  const buildMeta = async (): Promise<{ name?: string; picture?: string }> => ({
-    name: myProfile?.name?.trim() || (address ? shortAddress(address) : undefined),
-    picture: myProfile?.avatarRef
-      ? (await resolveMediaUrl(myProfile.avatarRef)) ?? undefined
-      : undefined,
-  });
+  // Resolving the avatar must never throw — it would otherwise block the action.
+  const buildMeta = async (): Promise<{ name?: string; picture?: string }> => {
+    let picture: string | undefined;
+    try {
+      if (myProfile?.avatarRef) picture = (await resolveMediaUrl(myProfile.avatarRef)) ?? undefined;
+    } catch {
+      /* avatar is optional */
+    }
+    return {
+      name: myProfile?.name?.trim() || (address ? shortAddress(address) : undefined),
+      picture,
+    };
+  };
 
   const like = async () => {
     if (!n || acted?.liked || busy) return;
     setBusy("like");
+    markActed(post.id, "liked"); // optimistic — the heart fills instantly
     try {
       await publishEvent(owner, buildReaction({ id: eventId, pubkey: n.pubkey }), await buildMeta());
-      markActed(post.id, "liked");
-    } catch {
-      /* relay rejected */
+    } catch (e) {
+      console.warn("[nostr] like failed", e);
     } finally {
       setBusy(null);
     }
@@ -65,11 +72,11 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   const repost = async () => {
     if (!n || acted?.reposted || busy) return;
     setBusy("repost");
+    markActed(post.id, "reposted"); // optimistic
     try {
       await publishEvent(owner, buildRepost({ id: eventId, pubkey: n.pubkey }), await buildMeta());
-      markActed(post.id, "reposted");
-    } catch {
-      /* relay rejected */
+    } catch (e) {
+      console.warn("[nostr] repost failed", e);
     } finally {
       setBusy(null);
     }
