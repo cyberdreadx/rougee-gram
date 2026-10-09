@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Globe, ExternalLink, Heart, Repeat2, MessageCircle, Send } from "lucide-react";
 import type { FeedPost } from "@/lib/nostrFeed";
 import { timeAgo, shortAddress } from "@/lib/format";
@@ -98,25 +99,32 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
 
   if (!n) return null;
   const images = n.images.slice(0, 4);
+  const likeCount = Math.max(n.likeCount ?? 0, acted?.liked ? 1 : 0);
+  const replyCount = Math.max(n.replyCount ?? 0, replies.length);
+  const repostCount = Math.max(n.repostCount ?? 0, acted?.reposted ? 1 : 0);
 
   return (
     <article className="border-b border-ink-border px-4 py-3">
       {/* header */}
       <div className="flex items-center gap-3">
-        {n.avatar && !brokenAvatar ? (
-          <img
-            src={n.avatar}
-            alt=""
-            loading="lazy"
-            onError={() => setBrokenAvatar(true)}
-            className="h-10 w-10 shrink-0 rounded-full object-cover"
-          />
-        ) : (
-          <Avatar seed={n.pubkey} name={n.name} size={40} />
-        )}
+        <Link to={`/nostr/${n.pubkey}`} className="shrink-0" aria-label={`${n.name} on Nostr`}>
+          {n.avatar && !brokenAvatar ? (
+            <img
+              src={n.avatar}
+              alt=""
+              loading="lazy"
+              onError={() => setBrokenAvatar(true)}
+              className="h-10 w-10 rounded-full object-cover"
+            />
+          ) : (
+            <Avatar seed={n.pubkey} name={n.name} size={40} />
+          )}
+        </Link>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-semibold">{n.name}</span>
+            <Link to={`/nostr/${n.pubkey}`} className="truncate text-sm font-semibold hover:underline">
+              {n.name}
+            </Link>
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink-border px-1.5 py-px text-[10px] text-ink-muted">
               <Globe className="h-2.5 w-2.5" /> Nostr
             </span>
@@ -168,6 +176,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           aria-label="Like on Nostr"
         >
           <Heart className={cn("h-5 w-5", acted?.liked && "fill-current")} />
+          {likeCount > 0 && <span className="text-xs">{likeCount}</span>}
         </button>
         <button
           onClick={() => setShowComments((v) => !v)}
@@ -178,9 +187,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           aria-label="Comments"
         >
           <MessageCircle className="h-5 w-5" />
-          {showComments && replies.length > 0 && (
-            <span className="text-xs">{replies.length}</span>
-          )}
+          {replyCount > 0 && <span className="text-xs">{replyCount}</span>}
         </button>
         <button
           onClick={repost}
@@ -192,6 +199,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           aria-label="Repost on Nostr"
         >
           <Repeat2 className="h-5 w-5" />
+          {repostCount > 0 && <span className="text-xs">{repostCount}</span>}
         </button>
         <a
           href={n.noteUrl}

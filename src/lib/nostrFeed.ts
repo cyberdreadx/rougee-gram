@@ -22,6 +22,7 @@ export const NOSTR_ID_PREFIX = "nostr:";
 export interface NostrProfile {
   name?: string;
   picture?: string;
+  about?: string;
 }
 
 export interface NostrMeta {
@@ -30,6 +31,9 @@ export interface NostrMeta {
   avatar?: string; // avatar url from kind-0, if any
   images: string[]; // image urls pulled from the note
   noteUrl: string; // link out to a Nostr web client
+  likeCount?: number; // live interaction counts (kind-7/1/6 referencing this note)
+  replyCount?: number;
+  repostCount?: number;
 }
 
 /** A feed item: a native RougeChain post, or a mixed-in Nostr note (has `nostr`). */
@@ -133,8 +137,13 @@ export function eventToFeedPost(e: Event, prof?: NostrProfile): FeedPost {
 /** Parse a kind-0 profile event's content. */
 export function parseProfile(content: string): NostrProfile | null {
   try {
-    const j = JSON.parse(content) as { name?: string; display_name?: string; picture?: string };
-    return { name: j.display_name || j.name, picture: j.picture };
+    const j = JSON.parse(content) as {
+      name?: string;
+      display_name?: string;
+      picture?: string;
+      about?: string;
+    };
+    return { name: j.display_name || j.name, picture: j.picture, about: j.about };
   } catch {
     return null;
   }
