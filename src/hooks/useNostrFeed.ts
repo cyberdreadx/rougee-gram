@@ -48,6 +48,9 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
   const [events, setEvents] = useState<Map<string, Event>>(new Map());
   const [pending, setPending] = useState<Map<string, Event>>(new Map());
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
+  const [reactions, setReactions] = useState<Map<string, Set<string>>>(new Map());
+  const [reposts, setReposts] = useState<Map<string, Set<string>>>(new Map());
+  const [replies, setReplies] = useState<Map<string, Set<string>>>(new Map());
   const wantProfiles = useRef<Set<string>>(new Set());
 
   // ── Live subscription ──
@@ -55,6 +58,9 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
     if (!enabled) return;
     setEvents(new Map());
     setPending(new Map());
+    setReactions(new Map());
+    setReposts(new Map());
+    setReplies(new Map());
     const pool = getPool();
     // Posts that already existed when the feed opened are backlog → shown
     // immediately; only notes published *after* are held as "new". This keeps
@@ -129,12 +135,68 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
     return () => clearInterval(id);
   }, [enabled, profiles]);
 
+  // ── Live interaction counts: replies (1), reposts (6), reactions (7) ──
+  const idsKey = useMemo(
+    () => [...events.keys()].slice(0, 100).sort().join(","),
+    [events],
+  );
+  const [stableIds, setStableIds] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setStableIds(idsKey), 1200);
+    return () => clearTimeout(t);
+  }, [idsKey]);
+
+  useEffect(() => {
+    if (!enabled || !stableIds) return;
+    const ids = stableIds.split(",").filter(Boolean);
+    const idSet = new Set(ids);
+    const addTo = (
+      setter: (u: (prev: Map<string, Set<string>>) => Map<string, Set<string>>) => void,
+      noteId: string,
+      val: string,
+    ) =>
+      setter((prev) => {
+        if (prev.get(noteId)?.has(val)) return prev;
+        const next = new Map(prev);
+        next.set(noteId, new Set(prev.get(noteId)).add(val));
+        return next;
+      });
+    const sub = getPool().subscribeMany(
+      NOSTR_RELAYS,
+      { kinds: [1, 6, 7], "#e": ids },
+      {
+        onevent: (e) => {
+          const es = e.tags.filter((t) => t[0] === "e" && t[1]).map((t) => t[1]);
+          if (e.kind === 1) {
+            const target = replyTargetOf(e);
+            if (target && idSet.has(target)) addTo(setReplies, target, e.id);
+          } else if (e.kind === 7) {
+            const target = [...es].reverse().find((id) => idSet.has(id));
+            if (target) addTo(setReactions, target, e.pubkey);
+          } else if (e.kind === 6) {
+            const target = es.find((id) => idSet.has(id));
+            if (target) addTo(setReposts, target, e.id);
+          }
+        },
+      },
+    );
+    return () => sub.close();
+  }, [enabled, stableIds]);
+
   const live = useMemo<FeedPost[]>(
     () =>
       [...events.values()]
         .sort((a, b) => b.created_at - a.created_at)
-        .map((e) => eventToFeedPost(e, profiles.get(e.pubkey))),
-    [events, profiles],
+        .map((e) => {
+          const fp = eventToFeedPost(e, profiles.get(e.pubkey));
+          if (fp.nostr) {
+            fp.nostr.likeCount = reactions.get(e.id)?.size ?? 0;
+            fp.nostr.replyCount = replies.get(e.id)?.size ?? 0;
+            fp.nostr.repostCount = reposts.get(e.id)?.size ?? 0;
+          }
+          return fp;
+        }),
+    [events, profiles, reactions, replies, reposts],
   );
 
   const trending = useMemo<string[]>(() => {

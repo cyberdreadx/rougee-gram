@@ -30,6 +30,9 @@ export interface NostrMeta {
   avatar?: string; // avatar url from kind-0, if any
   images: string[]; // image urls pulled from the note
   noteUrl: string; // link out to a Nostr web client
+  likeCount?: number; // live interaction counts (kind-7/1/6 referencing this note)
+  replyCount?: number;
+  repostCount?: number;
 }
 
 /** A feed item: a native RougeChain post, or a mixed-in Nostr note (has `nostr`). */

@@ -98,6 +98,9 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
 
   if (!n) return null;
   const images = n.images.slice(0, 4);
+  const likeCount = Math.max(n.likeCount ?? 0, acted?.liked ? 1 : 0);
+  const replyCount = Math.max(n.replyCount ?? 0, replies.length);
+  const repostCount = Math.max(n.repostCount ?? 0, acted?.reposted ? 1 : 0);
 
   return (
     <article className="border-b border-ink-border px-4 py-3">
@@ -168,6 +171,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           aria-label="Like on Nostr"
         >
           <Heart className={cn("h-5 w-5", acted?.liked && "fill-current")} />
+          {likeCount > 0 && <span className="text-xs">{likeCount}</span>}
         </button>
         <button
           onClick={() => setShowComments((v) => !v)}
@@ -178,9 +182,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           aria-label="Comments"
         >
           <MessageCircle className="h-5 w-5" />
-          {showComments && replies.length > 0 && (
-            <span className="text-xs">{replies.length}</span>
-          )}
+          {replyCount > 0 && <span className="text-xs">{replyCount}</span>}
         </button>
         <button
           onClick={repost}
@@ -192,6 +194,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           aria-label="Repost on Nostr"
         >
           <Repeat2 className="h-5 w-5" />
+          {repostCount > 0 && <span className="text-xs">{repostCount}</span>}
         </button>
         <a
           href={n.noteUrl}
