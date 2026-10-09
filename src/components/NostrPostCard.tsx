@@ -1,40 +1,59 @@
 import { useState } from "react";
-import { Globe, ExternalLink, Heart, Repeat2 } from "lucide-react";
+import { Globe, ExternalLink, Heart, Repeat2, MessageCircle, Send } from "lucide-react";
 import type { FeedPost } from "@/lib/nostrFeed";
-import { timeAgo } from "@/lib/format";
+import { timeAgo, shortAddress } from "@/lib/format";
 import { useAuth } from "@/store/auth";
-import { useActed } from "@/hooks/useNostrFeed";
+import { useActed, useNoteThread } from "@/hooks/useNostrFeed";
+import { useMyProfile } from "@/hooks/useProfile";
 import {
   buildReaction,
   buildRepost,
+  buildReply,
   publishEvent,
   markActed,
   eventIdOf,
+  shortNpub,
 } from "@/lib/nostrAuth";
+import { resolveMediaUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import Avatar from "./Avatar";
 import RichText from "./RichText";
 
 /**
  * A Nostr note mixed into the Discover feed. Identity/avatar come from the
- * note's kind-0 profile, media renders natively (https). Like/repost are
- * published to Nostr with the viewer's own Nostr key (GLTCH-style); value
- * (tips) stays on RougeChain.
+ * note's kind-0 profile, media renders natively (https). Like / repost /
+ * comment are published to Nostr with the viewer's own Nostr key (populated
+ * with their rougee name + avatar the first time); value (tips) stays on
+ * RougeChain.
  */
 export default function NostrPostCard({ post }: { post: FeedPost }) {
   const { address } = useAuth();
+  const myProfile = useMyProfile();
   const acted = useActed()[post.id];
   const [brokenAvatar, setBrokenAvatar] = useState(false);
   const [busy, setBusy] = useState<null | "like" | "repost">(null);
+  const [showComments, setShowComments] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [sending, setSending] = useState(false);
 
   const n = post.nostr;
   const owner = address || "anon";
+  const eventId = eventIdOf(post.id);
+  const replies = useNoteThread(eventId, showComments);
+
+  // Populate the viewer's Nostr identity from their rougee profile on first use.
+  const buildMeta = async (): Promise<{ name?: string; picture?: string }> => ({
+    name: myProfile?.name?.trim() || (address ? shortAddress(address) : undefined),
+    picture: myProfile?.avatarRef
+      ? (await resolveMediaUrl(myProfile.avatarRef)) ?? undefined
+      : undefined,
+  });
 
   const like = async () => {
     if (!n || acted?.liked || busy) return;
     setBusy("like");
     try {
-      await publishEvent(owner, buildReaction({ id: eventIdOf(post.id), pubkey: n.pubkey }));
+      await publishEvent(owner, buildReaction({ id: eventId, pubkey: n.pubkey }), await buildMeta());
       markActed(post.id, "liked");
     } catch {
       /* relay rejected */
@@ -47,12 +66,26 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
     if (!n || acted?.reposted || busy) return;
     setBusy("repost");
     try {
-      await publishEvent(owner, buildRepost({ id: eventIdOf(post.id), pubkey: n.pubkey }));
+      await publishEvent(owner, buildRepost({ id: eventId, pubkey: n.pubkey }), await buildMeta());
       markActed(post.id, "reposted");
     } catch {
       /* relay rejected */
     } finally {
       setBusy(null);
+    }
+  };
+
+  const sendComment = async () => {
+    const text = commentText.trim();
+    if (!n || !text || sending) return;
+    setSending(true);
+    try {
+      await publishEvent(owner, buildReply({ id: eventId, pubkey: n.pubkey }, text), await buildMeta());
+      setCommentText(""); // the thread subscription surfaces it once relays echo it back
+    } catch {
+      /* relay rejected */
+    } finally {
+      setSending(false);
     }
   };
 
@@ -130,6 +163,19 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           <Heart className={cn("h-5 w-5", acted?.liked && "fill-current")} />
         </button>
         <button
+          onClick={() => setShowComments((v) => !v)}
+          className={cn(
+            "flex items-center gap-1.5 text-sm transition-colors hover:text-sky-400",
+            showComments && "text-sky-400",
+          )}
+          aria-label="Comments"
+        >
+          <MessageCircle className="h-5 w-5" />
+          {showComments && replies.length > 0 && (
+            <span className="text-xs">{replies.length}</span>
+          )}
+        </button>
+        <button
           onClick={repost}
           disabled={busy !== null || acted?.reposted}
           className={cn(
@@ -149,6 +195,47 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           <ExternalLink className="h-3.5 w-3.5" /> View on Nostr
         </a>
       </div>
+
+      {/* comments (Nostr replies) */}
+      {showComments && (
+        <div className="mt-3 border-t border-ink-border pt-3">
+          {replies.length === 0 ? (
+            <p className="text-xs text-ink-muted">No comments yet — be the first.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {replies.map((rep) => (
+                <div key={rep.id} className="text-sm">
+                  <span className="font-semibold">{shortNpub(rep.pubkey)}</span>{" "}
+                  <span className="whitespace-pre-wrap break-words">
+                    <RichText text={rep.content} />
+                  </span>
+                  <div className="text-[10px] text-ink-muted">{timeAgo(rep.created_at)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              className="flex-1 rounded-full border border-ink-border bg-transparent px-3 py-1.5 text-sm outline-none focus:border-rouge-500"
+              placeholder="Add a comment…"
+              value={commentText}
+              maxLength={500}
+              onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") sendComment();
+              }}
+            />
+            <button
+              onClick={sendComment}
+              disabled={sending || !commentText.trim()}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rouge-600 text-white transition hover:bg-rouge-500 disabled:opacity-50"
+              aria-label="Send comment"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </article>
   );
 }

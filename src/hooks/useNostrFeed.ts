@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { Event } from "nostr-tools";
-import { getActed, subscribeActed } from "@/lib/nostrAuth";
+import { getActed, subscribeActed, replyTargetOf } from "@/lib/nostrAuth";
 import {
   NOSTR_RELAYS,
   getPool,
@@ -162,6 +162,31 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
 /** What this device has liked/reposted on Nostr (reactive). */
 export function useActed() {
   return useSyncExternalStore(subscribeActed, getActed, getActed);
+}
+
+/** Live replies to one note (kind-1 with #e), fetched only while `open`. */
+export function useNoteThread(eventId: string, open: boolean): Event[] {
+  const [replies, setReplies] = useState<Event[]>([]);
+  useEffect(() => {
+    if (!open || !eventId) {
+      setReplies([]);
+      return;
+    }
+    const seen = new Map<string, Event>();
+    const sub = getPool().subscribeMany(
+      NOSTR_RELAYS,
+      { kinds: [1], "#e": [eventId] },
+      {
+        onevent: (e) => {
+          if (replyTargetOf(e) !== eventId || seen.has(e.id)) return;
+          seen.set(e.id, e);
+          setReplies([...seen.values()].sort((a, b) => a.created_at - b.created_at));
+        },
+      },
+    );
+    return () => sub.close();
+  }, [eventId, open]);
+  return replies;
 }
 
 /**
