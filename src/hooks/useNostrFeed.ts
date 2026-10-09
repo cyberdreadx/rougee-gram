@@ -334,17 +334,56 @@ export function useNostrAuthor(pubkey: string | undefined) {
  * Discover = native RougeChain global timeline + a live stream of Nostr image
  * notes, interleaved newest-first. `newCount`/`showNew` drive the "N new" pill.
  */
+// Discover ranking — a blend of recency and engagement, nudged toward people
+// you follow. Tune the weights here.
+const RANK = {
+  repostWeight: 2,
+  replyWeight: 1.5,
+  decayExponent: 1.3, // higher ⇒ recency dominates more
+  followBoost: 2.5,
+};
+
 export function useDiscoverFeed(topic: string | null = null) {
   const global = useGlobalTimeline();
   const stream = useNostrStream(true, topic);
-  const { mutes } = useNostrSocial();
+  const { follows, mutes } = useNostrSocial();
+  // Freeze the ranked order so the feed doesn't reshuffle as counts trickle in;
+  // it only re-ranks when the set of posts changes (new posts / refresh).
+  const orderRef = useRef<{ sig: string; ids: string[] }>({ sig: "", ids: [] });
 
   const data = useMemo<FeedPost[]>(() => {
     const rouge = (global.data ?? []) as FeedPost[];
-    return [...rouge, ...stream.live]
-      .filter((p) => !p.nostr || !mutes.has(p.nostr.pubkey)) // hide blocked authors
-      .sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
-  }, [global.data, stream.live, mutes]);
+    const all = [...rouge, ...stream.live].filter(
+      (p) => !p.nostr || !mutes.has(p.nostr.pubkey), // hide blocked authors
+    );
+    const byId = new Map(all.map((p) => [p.id, p]));
+    const sig = [...byId.keys()].sort().join(",");
+
+    if (orderRef.current.sig !== sig) {
+      const now = Date.now();
+      const score = (p: FeedPost): number => {
+        const ageH = Math.max(0, (now - toMs(p.created_at)) / 3_600_000);
+        const n = p.nostr;
+        const eng = n
+          ? (n.likeCount ?? 0) +
+            RANK.repostWeight * (n.repostCount ?? 0) +
+            RANK.replyWeight * (n.replyCount ?? 0)
+          : 0;
+        // +1 keeps brand-new, zero-engagement posts competitive (the "recency" half)
+        let s = (eng + 1) / Math.pow(ageH + 2, RANK.decayExponent);
+        if (n && follows.has(n.pubkey)) s *= RANK.followBoost;
+        return s;
+      };
+      orderRef.current = {
+        sig,
+        ids: [...all].sort((a, b) => score(b) - score(a)).map((p) => p.id),
+      };
+    }
+    // Return in the frozen order, carrying the latest post objects (live counts).
+    return orderRef.current.ids
+      .map((id) => byId.get(id))
+      .filter((p): p is FeedPost => Boolean(p));
+  }, [global.data, stream.live, follows, mutes]);
 
   return {
     data,
