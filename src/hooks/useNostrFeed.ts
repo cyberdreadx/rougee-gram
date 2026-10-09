@@ -6,6 +6,7 @@ import {
   isFeedNote,
   eventToFeedPost,
   parseProfile,
+  hashtagsOf,
   toMs,
   type FeedPost,
   type NostrProfile,
@@ -35,7 +36,7 @@ const capNewest = (map: Map<string, Event>): Map<string, Event> => {
  * held in `pending` (so the list doesn't jump) and surfaced via a "N new" pill;
  * `flush()` pulls them into view.
  */
-export function useNostrStream(enabled: boolean) {
+export function useNostrStream(enabled: boolean, topic: string | null = null) {
   const [events, setEvents] = useState<Map<string, Event>>(new Map());
   const [pending, setPending] = useState<Map<string, Event>>(new Map());
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
@@ -59,7 +60,10 @@ export function useNostrStream(enabled: boolean) {
     };
     const timer = setInterval(flushBuffer, FLUSH_MS);
 
-    const sub = pool.subscribeMany(NOSTR_RELAYS, { kinds: [1], limit: 200 }, {
+    const filter = topic
+      ? { kinds: [1], "#t": [topic], limit: 200 }
+      : { kinds: [1], limit: 200 };
+    const sub = pool.subscribeMany(NOSTR_RELAYS, filter, {
       onevent: (e) => {
         if (!isFeedNote(e)) return;
         buffer.push(e);
@@ -75,7 +79,7 @@ export function useNostrStream(enabled: boolean) {
       clearInterval(timer);
       sub.close();
     };
-  }, [enabled]);
+  }, [enabled, topic]);
 
   // ── Author profiles (kind-0), fetched for newly seen authors ──
   useEffect(() => {
@@ -116,6 +120,18 @@ export function useNostrStream(enabled: boolean) {
     [events, profiles],
   );
 
+  const trending = useMemo<string[]>(() => {
+    const counts = new Map<string, number>();
+    for (const e of events.values())
+      for (const tag of hashtagsOf(e)) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    if (topic) counts.delete(topic);
+    return [...counts.entries()]
+      .filter(([, n]) => n >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([tag]) => tag);
+  }, [events, topic]);
+
   const flush = useCallback(() => {
     setPending((pend) => {
       setEvents((prev) => capNewest(addAll(prev, [...pend.values()])));
@@ -123,16 +139,16 @@ export function useNostrStream(enabled: boolean) {
     });
   }, []);
 
-  return { live, pending: pending.size, flush };
+  return { live, pending: pending.size, flush, trending };
 }
 
 /**
  * Discover = native RougeChain global timeline + a live stream of Nostr image
  * notes, interleaved newest-first. `newCount`/`showNew` drive the "N new" pill.
  */
-export function useDiscoverFeed() {
+export function useDiscoverFeed(topic: string | null = null) {
   const global = useGlobalTimeline();
-  const stream = useNostrStream(true);
+  const stream = useNostrStream(true, topic);
 
   const data = useMemo<FeedPost[]>(() => {
     const rouge = (global.data ?? []) as FeedPost[];
@@ -147,5 +163,6 @@ export function useDiscoverFeed() {
     isError: global.isError,
     newCount: stream.pending,
     showNew: stream.flush,
+    trending: stream.trending,
   };
 }

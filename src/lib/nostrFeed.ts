@@ -67,10 +67,49 @@ function textOf(content: string, images: string[]): string {
 
 const shortPk = (hex: string): string => `${hex.slice(0, 8)}…${hex.slice(-4)}`;
 
-/** Is this note a renderable Discover item (an image post, not a reply)? */
-export function isFeedNote(e: Event): boolean {
-  return !e.tags.some((t) => t[0] === "e") && imagesOf(e).length > 0;
+const MAX_NOTE_CHARS = 2000;
+
+/** Drop app traffic masquerading as notes (JSON blobs, long opaque tokens). */
+export function isMachineNote(content: string): boolean {
+  const t = content.trim();
+  if ((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))) {
+    try {
+      JSON.parse(t);
+      return true;
+    } catch {
+      /* not JSON — keep */
+    }
+  }
+  return t.length >= 64 && !/\s/.test(t) && /^[A-Za-z0-9+/=_-]+$/.test(t);
 }
+
+/** A renderable Discover item: an image post, not a reply, not machine/junk. */
+export function isFeedNote(e: Event): boolean {
+  if (e.tags.some((t) => t[0] === "e" || t[0] === "content-warning")) return false;
+  if (e.content.trim().length > MAX_NOTE_CHARS) return false;
+  if (isMachineNote(e.content)) return false;
+  return imagesOf(e).length > 0;
+}
+
+/** Lowercase hashtags from #t tags + inline #tags in the content. */
+export function hashtagsOf(e: Event): string[] {
+  const out = new Set<string>();
+  for (const t of e.tags) if (t[0] === "t" && t[1]) out.add(t[1].toLowerCase());
+  for (const m of e.content.matchAll(/#([a-z0-9_]{2,30})/gi)) out.add(m[1].toLowerCase());
+  return [...out];
+}
+
+/** Curated Discover topic chips; `id: null` = the random firehose. */
+export const DISCOVER_TOPICS: { id: string | null; label: string }[] = [
+  { id: null, label: "All" },
+  { id: "art", label: "#art" },
+  { id: "photography", label: "#photography" },
+  { id: "music", label: "#music" },
+  { id: "memes", label: "#memes" },
+  { id: "cyberpunk", label: "#cyberpunk" },
+  { id: "nostr", label: "#nostr" },
+  { id: "bitcoin", label: "#bitcoin" },
+];
 
 /** Map a kind-1 event + optional kind-0 profile to a FeedPost. */
 export function eventToFeedPost(e: Event, prof?: NostrProfile): FeedPost {
