@@ -1,4 +1,3 @@
-import type { SocialPost } from "@rougechain/sdk";
 import { useTranslation } from "react-i18next";
 import PostCard from "./PostCard";
 import PostSkeleton from "./PostSkeleton";
@@ -6,10 +5,12 @@ import { isRenderablePost } from "@/hooks/useSocial";
 import { useSponsoredPosts } from "@/hooks/usePromote";
 import SponsoredPost from "./SponsoredPost";
 import { decodeBody } from "@/lib/envelope";
+import { isNostrPost, type FeedPost } from "@/lib/nostrFeed";
+import NostrPostCard from "./NostrPostCard";
 import { type ReactNode } from "react";
 
 interface Props {
-  posts: SocialPost[] | undefined;
+  posts: FeedPost[] | undefined;
   isLoading: boolean;
   isError?: boolean;
   emptyState?: ReactNode;
@@ -50,6 +51,7 @@ export default function FeedList({
   }
 
   const visible = (posts ?? []).filter((p) => {
+    if (isNostrPost(p)) return true; // mixed-in Nostr notes bypass the envelope filters
     if (!isRenderablePost(p)) return false;
     const kind = decodeBody(p.body).kind;
     if (kind === "profile" || kind === "story" || kind === "note") return false;
@@ -67,27 +69,28 @@ export default function FeedList({
 
 /** Renders the posts, optionally interspersing sponsored (boosted) posts. Split
  *  out so the sponsored hooks only run when a feed opts in (Home/Explore). */
-function FeedBody({ visible, showSponsored }: { visible: SocialPost[]; showSponsored?: boolean }) {
+function FeedBody({ visible, showSponsored }: { visible: FeedPost[]; showSponsored?: boolean }) {
   const { data: sponsored } = useSponsoredPosts();
   const shownIds = new Set(visible.map((p) => p.id));
   // Don't double-show a boosted post that's already organically in the feed.
   const ads = showSponsored ? (sponsored ?? []).filter((p) => !shownIds.has(p.id)) : [];
 
-  if (ads.length === 0) {
-    return (
-      <div>
-        {visible.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
-      </div>
+  const renderPost = (post: FeedPost) =>
+    isNostrPost(post) ? (
+      <NostrPostCard key={post.id} post={post} />
+    ) : (
+      <PostCard key={post.id} post={post} />
     );
+
+  if (ads.length === 0) {
+    return <div>{visible.map(renderPost)}</div>;
   }
 
   // Slot a sponsored post in after the 2nd post, then every 5.
   const out: React.ReactNode[] = [];
   let ad = 0;
   visible.forEach((post, i) => {
-    out.push(<PostCard key={post.id} post={post} />);
+    out.push(renderPost(post));
     if (ad < ads.length && (i === 1 || (i > 1 && (i - 1) % 5 === 0))) {
       const a = ads[ad++];
       out.push(<SponsoredPost key={`ad-${a.id}`} post={a} />);

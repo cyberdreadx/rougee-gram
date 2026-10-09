@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Compass, Camera } from "lucide-react";
-import { useFollowingFeed, useGlobalTimeline } from "@/hooks/useSocial";
+import { useFollowingFeed } from "@/hooks/useSocial";
+import { useDiscoverFeed } from "@/hooks/useNostrFeed";
 import { useCreatePost } from "@/components/CreatePost";
 import FeedList from "@/components/FeedList";
 import StoriesTray from "@/components/StoriesTray";
@@ -14,7 +15,7 @@ export default function Home() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("following");
   const following = useFollowingFeed();
-  const discover = useGlobalTimeline();
+  const discover = useDiscoverFeed();
   const { open } = useCreatePost();
 
   const active = tab === "following" ? following : discover;
