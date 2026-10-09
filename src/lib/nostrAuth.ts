@@ -95,8 +95,79 @@ export function buildRepost(
   };
 }
 
-export async function publishEvent(owner: string, template: EventTemplate): Promise<Event> {
+/** Which note a kind-1 reply answers (NIP-10: reply marker, else root, else last e). */
+export function replyTargetOf(ev: { tags: string[][] }): string | undefined {
+  const es = ev.tags.filter((t) => t[0] === "e" && t[1]);
+  return (
+    es.find((t) => t[3] === "reply")?.[1] ??
+    es.find((t) => t[3] === "root")?.[1] ??
+    es[es.length - 1]?.[1]
+  );
+}
+
+/** A reply to a (top-level) note — NIP-10 root marker + author mention. */
+export function buildReply(
+  parent: { id: string; pubkey: string },
+  text: string,
+  relayHint = NOSTR_RELAYS[0],
+): EventTemplate {
+  return {
+    kind: 1,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [
+      ["e", parent.id, relayHint, "root"],
+      ["p", parent.pubkey],
+    ],
+    content: text.trim(),
+  };
+}
+
+const metaKey = (pubkey: string) => `rougee_nostr_meta_${pubkey}`;
+
+/**
+ * Publish a kind-0 profile for the local key once, so a rougee user shows up as
+ * a real identity (name + avatar) in other Nostr clients instead of an opaque
+ * key. Never touches an extension key — that's the user's own Nostr profile.
+ */
+export async function ensureNostrProfile(
+  signer: NostrSigner,
+  meta: { name?: string; picture?: string },
+): Promise<void> {
+  if (signer.viaExtension || localStorage.getItem(metaKey(signer.pubkey))) return;
+  const ev = await signer.sign({
+    kind: 0,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [],
+    content: JSON.stringify({
+      name: meta.name || "rougee user",
+      ...(meta.picture ? { picture: meta.picture } : {}),
+      about: "on rougee.app",
+      website: "https://rougee.app",
+    }),
+  });
+  const results = await Promise.allSettled(getPool().publish(NOSTR_RELAYS, ev));
+  if (results.some((r) => r.status === "fulfilled")) {
+    try {
+      localStorage.setItem(metaKey(signer.pubkey), "1");
+    } catch {
+      /* ignore quota */
+    }
+  }
+}
+
+export async function publishEvent(
+  owner: string,
+  template: EventTemplate,
+  profileMeta?: { name?: string; picture?: string },
+): Promise<Event> {
   const signer = await getSigner(owner);
+  if (template.kind !== 0 && profileMeta) {
+    try {
+      await ensureNostrProfile(signer, profileMeta);
+    } catch {
+      /* profile is best-effort; don't block the interaction */
+    }
+  }
   const ev = await signer.sign(template);
   const results = await Promise.allSettled(getPool().publish(NOSTR_RELAYS, ev));
   if (!results.some((r) => r.status === "fulfilled")) {
