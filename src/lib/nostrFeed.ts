@@ -1,9 +1,10 @@
 /**
  * Nostr content for the Discover feed. rougee-gram's native timeline is sparse,
- * so we mix in recent image notes (kind 1 with media) from public Nostr relays —
- * real, flowing content that makes the feed feel alive. These are read-only for
- * now: a Nostr post carries a `nostr` marker and PostCard renders a dedicated,
- * interaction-gated variant (keys/likes/tips stay on RougeChain).
+ * so we stream in recent image notes (kind 1 with media) from public Nostr
+ * relays — real, flowing content that makes the feed feel alive. New arrivals
+ * are held and surfaced via a "N new posts" pill (see useNostrStream), the way
+ * GLTCH's feed does. Read-only for now: a Nostr post carries a `nostr` marker
+ * and NostrPostCard renders a dedicated, interaction-gated variant.
  */
 import { SimplePool, type Event } from "nostr-tools";
 import type { SocialPost } from "@rougechain/sdk";
@@ -18,17 +19,17 @@ export const NOSTR_RELAYS = [
 /** Prefix on a mixed-in Nostr post's id, so rouge-only code can skip it. */
 export const NOSTR_ID_PREFIX = "nostr:";
 
+export interface NostrProfile {
+  name?: string;
+  picture?: string;
+}
+
 export interface NostrMeta {
-  /** author x-only pubkey (hex) */
-  pubkey: string;
-  /** display name — from kind-0, else a short pubkey */
-  name: string;
-  /** avatar url from kind-0, if any */
-  avatar?: string;
-  /** image urls pulled from the note (imeta tags + inline urls) */
-  images: string[];
-  /** link out to the note on a Nostr web client */
-  noteUrl: string;
+  pubkey: string; // author x-only pubkey (hex)
+  name: string; // display name — from kind-0, else a short pubkey
+  avatar?: string; // avatar url from kind-0, if any
+  images: string[]; // image urls pulled from the note
+  noteUrl: string; // link out to a Nostr web client
 }
 
 /** A feed item: a native RougeChain post, or a mixed-in Nostr note (has `nostr`). */
@@ -38,12 +39,12 @@ export const isNostrPost = (p: { id: string }): boolean =>
   p.id.startsWith(NOSTR_ID_PREFIX);
 
 let pool: SimplePool | null = null;
-const getPool = (): SimplePool => (pool ??= new SimplePool());
+export const getPool = (): SimplePool => (pool ??= new SimplePool());
 
 const IMG_RE =
   /(https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp|avif)(?:\?[^\s]*)?)/gi;
 
-function imagesOf(e: Event): string[] {
+export function imagesOf(e: Event): string[] {
   const urls = new Set<string>();
   for (const tag of e.tags) {
     // NIP-92 imeta: ["imeta", "url https://…", "m image/jpeg", …]
@@ -66,6 +67,79 @@ function textOf(content: string, images: string[]): string {
 
 const shortPk = (hex: string): string => `${hex.slice(0, 8)}…${hex.slice(-4)}`;
 
+const MAX_NOTE_CHARS = 2000;
+
+/** Drop app traffic masquerading as notes (JSON blobs, long opaque tokens). */
+export function isMachineNote(content: string): boolean {
+  const t = content.trim();
+  if ((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))) {
+    try {
+      JSON.parse(t);
+      return true;
+    } catch {
+      /* not JSON — keep */
+    }
+  }
+  return t.length >= 64 && !/\s/.test(t) && /^[A-Za-z0-9+/=_-]+$/.test(t);
+}
+
+/** A renderable Discover item: an image post, not a reply, not machine/junk. */
+export function isFeedNote(e: Event): boolean {
+  if (e.tags.some((t) => t[0] === "e" || t[0] === "content-warning")) return false;
+  if (e.content.trim().length > MAX_NOTE_CHARS) return false;
+  if (isMachineNote(e.content)) return false;
+  return imagesOf(e).length > 0;
+}
+
+/** Lowercase hashtags from #t tags + inline #tags in the content. */
+export function hashtagsOf(e: Event): string[] {
+  const out = new Set<string>();
+  for (const t of e.tags) if (t[0] === "t" && t[1]) out.add(t[1].toLowerCase());
+  for (const m of e.content.matchAll(/#([a-z0-9_]{2,30})/gi)) out.add(m[1].toLowerCase());
+  return [...out];
+}
+
+/** Curated Discover topic chips; `id: null` = the random firehose. */
+export const DISCOVER_TOPICS: { id: string | null; label: string }[] = [
+  { id: null, label: "All" },
+  { id: "art", label: "#art" },
+  { id: "photography", label: "#photography" },
+  { id: "music", label: "#music" },
+  { id: "memes", label: "#memes" },
+  { id: "cyberpunk", label: "#cyberpunk" },
+  { id: "nostr", label: "#nostr" },
+  { id: "bitcoin", label: "#bitcoin" },
+];
+
+/** Map a kind-1 event + optional kind-0 profile to a FeedPost. */
+export function eventToFeedPost(e: Event, prof?: NostrProfile): FeedPost {
+  const images = imagesOf(e);
+  return {
+    id: `${NOSTR_ID_PREFIX}${e.id}`,
+    author_pubkey: e.pubkey,
+    body: textOf(e.content, images),
+    reply_to_id: null,
+    created_at: String(e.created_at),
+    nostr: {
+      pubkey: e.pubkey,
+      name: prof?.name?.trim() || shortPk(e.pubkey),
+      avatar: prof?.picture,
+      images,
+      noteUrl: `https://njump.me/${e.id}`,
+    },
+  };
+}
+
+/** Parse a kind-0 profile event's content. */
+export function parseProfile(content: string): NostrProfile | null {
+  try {
+    const j = JSON.parse(content) as { name?: string; display_name?: string; picture?: string };
+    return { name: j.display_name || j.name, picture: j.picture };
+  } catch {
+    return null;
+  }
+}
+
 /** Milliseconds from a rouge (string) or nostr (seconds) created_at. */
 export function toMs(input: string | number | undefined): number {
   if (input == null) return 0;
@@ -73,61 +147,4 @@ export function toMs(input: string | number | undefined): number {
   if (Number.isFinite(n)) return n < 1e12 ? n * 1000 : n;
   const parsed = Date.parse(String(input));
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-/**
- * Recent Nostr image notes mapped to FeedPost. Pulls kind-1 notes with media,
- * drops replies, and resolves kind-0 profiles for author name/avatar.
- */
-export async function fetchNostrFeed(limit = 40, maxWait = 4500): Promise<FeedPost[]> {
-  const p = getPool();
-  const notes = await p.querySync(
-    NOSTR_RELAYS,
-    { kinds: [1], limit: limit * 4 },
-    { maxWait },
-  );
-
-  const picked = notes
-    .filter((e) => !e.tags.some((t) => t[0] === "e")) // skip replies
-    .map((e) => ({ e, images: imagesOf(e) }))
-    .filter((x) => x.images.length > 0)
-    .sort((a, b) => b.e.created_at - a.e.created_at)
-    .slice(0, limit);
-
-  const authors = [...new Set(picked.map((x) => x.e.pubkey))];
-  const profiles = new Map<string, { name?: string; picture?: string }>();
-  if (authors.length) {
-    const metas = await p.querySync(
-      NOSTR_RELAYS,
-      { kinds: [0], authors },
-      { maxWait },
-    );
-    for (const m of metas) {
-      if (profiles.has(m.pubkey)) continue;
-      try {
-        const j = JSON.parse(m.content) as { name?: string; display_name?: string; picture?: string };
-        profiles.set(m.pubkey, { name: j.display_name || j.name, picture: j.picture });
-      } catch {
-        /* ignore malformed profile */
-      }
-    }
-  }
-
-  return picked.map(({ e, images }) => {
-    const prof = profiles.get(e.pubkey);
-    return {
-      id: `${NOSTR_ID_PREFIX}${e.id}`,
-      author_pubkey: e.pubkey,
-      body: textOf(e.content, images),
-      reply_to_id: null,
-      created_at: String(e.created_at),
-      nostr: {
-        pubkey: e.pubkey,
-        name: prof?.name?.trim() || shortPk(e.pubkey),
-        avatar: prof?.picture,
-        images,
-        noteUrl: `https://njump.me/${e.id}`,
-      },
-    } satisfies FeedPost;
-  });
 }

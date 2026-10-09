@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Compass, Camera } from "lucide-react";
+import { Compass, Camera, ArrowUp } from "lucide-react";
 import { useFollowingFeed } from "@/hooks/useSocial";
 import { useDiscoverFeed } from "@/hooks/useNostrFeed";
+import { DISCOVER_TOPICS } from "@/lib/nostrFeed";
 import { useCreatePost } from "@/components/CreatePost";
 import FeedList from "@/components/FeedList";
 import StoriesTray from "@/components/StoriesTray";
@@ -14,8 +15,9 @@ type Tab = "following" | "discover";
 export default function Home() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("following");
+  const [topic, setTopic] = useState<string | null>(null);
   const following = useFollowingFeed();
-  const discover = useDiscoverFeed();
+  const discover = useDiscoverFeed(topic);
   const { open } = useCreatePost();
 
   const active = tab === "following" ? following : discover;
@@ -33,6 +35,39 @@ export default function Home() {
           {t("home.discover")}
         </TabButton>
       </div>
+
+      {tab === "discover" && (
+        <div
+          className="flex gap-2 overflow-x-auto border-b border-ink-border px-3 py-2"
+          style={{ scrollbarWidth: "none" }}
+        >
+          {DISCOVER_TOPICS.map((tp) => (
+            <TopicChip key={tp.label} active={topic === tp.id} onClick={() => setTopic(tp.id)}>
+              {tp.label}
+            </TopicChip>
+          ))}
+          {discover.trending
+            .filter((tag) => !DISCOVER_TOPICS.some((d) => d.id === tag))
+            .map((tag) => (
+              <TopicChip key={`tr-${tag}`} active={topic === tag} onClick={() => setTopic(tag)}>
+                #{tag}
+              </TopicChip>
+            ))}
+        </div>
+      )}
+
+      {tab === "discover" && discover.newCount > 0 && (
+        <button
+          onClick={() => {
+            discover.showNew();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className="fixed left-1/2 top-24 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-rouge-600 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-rouge-600/30 transition hover:bg-rouge-500"
+        >
+          <ArrowUp className="h-3.5 w-3.5" />
+          {discover.newCount} new {discover.newCount === 1 ? "post" : "posts"}
+        </button>
+      )}
 
       <FeedList
         posts={active.data}
@@ -103,6 +138,30 @@ function TabButton({
       {active && (
         <span className="absolute inset-x-0 bottom-0 mx-auto h-0.5 w-16 rounded-full bg-rouge-500" />
       )}
+    </button>
+  );
+}
+
+function TopicChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+        active
+          ? "border-rouge-500 bg-rouge-600/15 text-rouge-300"
+          : "border-ink-border text-ink-muted hover:text-white",
+      )}
+    >
+      {children}
     </button>
   );
 }
