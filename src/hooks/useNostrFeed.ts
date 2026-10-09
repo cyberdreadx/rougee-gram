@@ -56,15 +56,20 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
     setEvents(new Map());
     setPending(new Map());
     const pool = getPool();
-    let caughtUp = false;
+    // Posts that already existed when the feed opened are backlog → shown
+    // immediately; only notes published *after* are held as "new". This keeps
+    // the initial load fully populated regardless of multi-relay EOSE timing.
+    const openedAt = Math.floor(Date.now() / 1000);
     let buffer: Event[] = [];
 
     const flushBuffer = () => {
       if (!buffer.length) return;
       const batch = buffer;
       buffer = [];
-      if (caughtUp) setPending((prev) => capNewest(addAll(prev, batch)));
-      else setEvents((prev) => capNewest(addAll(prev, batch)));
+      const backlog = batch.filter((e) => e.created_at <= openedAt);
+      const fresh = batch.filter((e) => e.created_at > openedAt);
+      if (backlog.length) setEvents((prev) => capNewest(addAll(prev, backlog)));
+      if (fresh.length) setPending((prev) => capNewest(addAll(prev, fresh)));
     };
     const timer = setInterval(flushBuffer, FLUSH_MS);
 
@@ -79,7 +84,6 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
       },
       oneose: () => {
         flushBuffer();
-        caughtUp = true;
       },
     });
 
