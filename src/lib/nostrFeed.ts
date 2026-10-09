@@ -22,6 +22,7 @@ export const NOSTR_ID_PREFIX = "nostr:";
 export interface NostrProfile {
   name?: string;
   picture?: string;
+  about?: string;
 }
 
 export interface NostrMeta {
@@ -136,8 +137,13 @@ export function eventToFeedPost(e: Event, prof?: NostrProfile): FeedPost {
 /** Parse a kind-0 profile event's content. */
 export function parseProfile(content: string): NostrProfile | null {
   try {
-    const j = JSON.parse(content) as { name?: string; display_name?: string; picture?: string };
-    return { name: j.display_name || j.name, picture: j.picture };
+    const j = JSON.parse(content) as {
+      name?: string;
+      display_name?: string;
+      picture?: string;
+      about?: string;
+    };
+    return { name: j.display_name || j.name, picture: j.picture, about: j.about };
   } catch {
     return null;
   }

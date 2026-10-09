@@ -10,6 +10,7 @@ import Activity from "./pages/Activity";
 import Messages from "./pages/Messages";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
+import NostrProfile from "./pages/NostrProfile";
 import PostDetail from "./pages/PostDetail";
 import Settings from "./pages/Settings";
 import Splash from "./components/Splash";
@@ -37,6 +38,7 @@ export default function App() {
         {DMS_ENABLED && <Route path="/messages/:id" element={<Chat />} />}
         <Route path="/p/:postId" element={<PostDetail />} />
         <Route path="/u/:address" element={<Profile />} />
+        <Route path="/nostr/:pubkey" element={<NostrProfile />} />
         <Route path="/tag/:tag" element={<TagPage />} />
         <Route path="/location/:loc" element={<LocationPage />} />
         <Route path="/settings" element={<Settings />} />

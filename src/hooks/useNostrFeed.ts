@@ -251,6 +251,51 @@ export function useNoteThread(eventId: string, open: boolean): Event[] {
   return replies;
 }
 
+/** One Nostr author's recent notes + their kind-0 profile (for their rougee profile page). */
+export function useNostrAuthor(pubkey: string | undefined) {
+  const [notes, setNotes] = useState<Event[]>([]);
+  const [profile, setProfile] = useState<NostrProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!pubkey) return;
+    setNotes([]);
+    setProfile(null);
+    setLoading(true);
+    const pool = getPool();
+    const seen = new Map<string, Event>();
+    const sub = pool.subscribeMany(
+      NOSTR_RELAYS,
+      { kinds: [1], authors: [pubkey], limit: 60 },
+      {
+        onevent: (e) => {
+          if (e.tags.some((t) => t[0] === "e") || seen.has(e.id)) return; // top-level only
+          seen.set(e.id, e);
+          setNotes([...seen.values()].sort((a, b) => b.created_at - a.created_at));
+        },
+        oneose: () => setLoading(false),
+      },
+    );
+    (async () => {
+      try {
+        const metas = await pool.querySync(NOSTR_RELAYS, { kinds: [0], authors: [pubkey] }, { maxWait: 4000 });
+        const newest = metas.sort((a, b) => b.created_at - a.created_at)[0];
+        if (newest) setProfile(parseProfile(newest.content));
+      } catch {
+        /* profile optional */
+      }
+    })();
+    return () => sub.close();
+  }, [pubkey]);
+
+  const feedPosts = useMemo<FeedPost[]>(
+    () => notes.map((e) => eventToFeedPost(e, profile ?? undefined)),
+    [notes, profile],
+  );
+
+  return { notes: feedPosts, profile, loading };
+}
+
 /**
  * Discover = native RougeChain global timeline + a live stream of Nostr image
  * notes, interleaved newest-first. `newCount`/`showNew` drive the "N new" pill.
