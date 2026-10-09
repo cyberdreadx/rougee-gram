@@ -14,6 +14,9 @@ export const NOSTR_RELAYS = [
   "wss://relay.primal.net",
   "wss://nos.lol",
   "wss://relay.nostr.band",
+  "wss://relay.snort.social",
+  "wss://nostr.mom",
+  "wss://offchain.pub",
 ];
 
 /** Prefix on a mixed-in Nostr post's id, so rouge-only code can skip it. */
@@ -23,6 +26,9 @@ export interface NostrProfile {
   name?: string;
   picture?: string;
   about?: string;
+  nip05?: string;
+  banner?: string;
+  website?: string;
 }
 
 export interface NostrMeta {
@@ -164,8 +170,18 @@ export function parseProfile(content: string): NostrProfile | null {
       display_name?: string;
       picture?: string;
       about?: string;
+      nip05?: string;
+      banner?: string;
+      website?: string;
     };
-    return { name: j.display_name || j.name, picture: j.picture, about: j.about };
+    return {
+      name: j.display_name || j.name,
+      picture: j.picture,
+      about: j.about,
+      nip05: j.nip05,
+      banner: j.banner,
+      website: j.website,
+    };
   } catch {
     return null;
   }

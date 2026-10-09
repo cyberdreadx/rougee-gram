@@ -40,7 +40,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   const n = post.nostr;
   const owner = address || "anon";
   const eventId = eventIdOf(post.id);
-  const replies = useNoteThread(eventId, showComments);
+  const { replies, profiles: replyProfiles } = useNoteThread(eventId, showComments);
 
   // Populate the viewer's Nostr identity from their rougee profile on first use.
   // Resolving the avatar must never throw — it would otherwise block the action.
@@ -230,15 +230,35 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
             <p className="text-xs text-ink-muted">No comments yet — be the first.</p>
           ) : (
             <div className="flex flex-col gap-3">
-              {replies.map((rep) => (
-                <div key={rep.id} className="text-sm">
-                  <span className="font-semibold">{shortNpub(rep.pubkey)}</span>{" "}
-                  <span className="whitespace-pre-wrap break-words">
-                    <RichText text={rep.content} />
-                  </span>
-                  <div className="text-[10px] text-ink-muted">{timeAgo(rep.created_at)}</div>
-                </div>
-              ))}
+              {replies.map((rep) => {
+                const rp = replyProfiles.get(rep.pubkey);
+                const rname = rp?.name?.trim() || shortNpub(rep.pubkey);
+                return (
+                  <div key={rep.id} className="flex gap-2.5 text-sm">
+                    <Link to={`/nostr/${rep.pubkey}`} className="shrink-0">
+                      {rp?.picture ? (
+                        <img
+                          src={rp.picture}
+                          alt=""
+                          loading="lazy"
+                          className="h-7 w-7 rounded-full object-cover"
+                        />
+                      ) : (
+                        <Avatar seed={rep.pubkey} name={rname} size={28} />
+                      )}
+                    </Link>
+                    <div className="min-w-0 flex-1">
+                      <Link to={`/nostr/${rep.pubkey}`} className="font-semibold hover:underline">
+                        {rname}
+                      </Link>{" "}
+                      <span className="whitespace-pre-wrap break-words">
+                        <RichText text={rep.content} />
+                      </span>
+                      <div className="text-[10px] text-ink-muted">{timeAgo(rep.created_at)}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
           <div className="mt-3 flex items-center gap-2">

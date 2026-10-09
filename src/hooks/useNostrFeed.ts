@@ -171,6 +171,7 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
             const target = replyTargetOf(e);
             if (target && idSet.has(target)) addTo(setReplies, target, e.id);
           } else if (e.kind === 7) {
+            if (e.content.trim() === "-") return; // NIP-25 downvote — not a like
             const target = [...es].reverse().find((id) => idSet.has(id));
             if (target) addTo(setReactions, target, e.pubkey);
           } else if (e.kind === 6) {
@@ -227,14 +228,17 @@ export function useActed() {
 }
 
 /** Live replies to one note (kind-1 with #e), fetched only while `open`. */
-export function useNoteThread(eventId: string, open: boolean): Event[] {
+export function useNoteThread(eventId: string, open: boolean) {
   const [replies, setReplies] = useState<Event[]>([]);
+  const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   useEffect(() => {
     if (!open || !eventId) {
       setReplies([]);
+      setProfiles(new Map());
       return;
     }
     const seen = new Map<string, Event>();
+    const wantAuthors = new Set<string>();
     const sub = getPool().subscribeMany(
       NOSTR_RELAYS,
       { kinds: [1], "#e": [eventId] },
@@ -242,13 +246,37 @@ export function useNoteThread(eventId: string, open: boolean): Event[] {
         onevent: (e) => {
           if (replyTargetOf(e) !== eventId || seen.has(e.id)) return;
           seen.set(e.id, e);
+          wantAuthors.add(e.pubkey);
           setReplies([...seen.values()].sort((a, b) => a.created_at - b.created_at));
         },
       },
     );
-    return () => sub.close();
+    // resolve reply-author profiles (name + avatar)
+    const pid = setInterval(async () => {
+      const want = [...wantAuthors].slice(0, 40);
+      if (!want.length) return;
+      want.forEach((pk) => wantAuthors.delete(pk));
+      try {
+        const metas = await getPool().querySync(NOSTR_RELAYS, { kinds: [0], authors: want }, { maxWait: 4000 });
+        setProfiles((prev) => {
+          const next = new Map(prev);
+          for (const m of metas) {
+            if (next.has(m.pubkey)) continue;
+            const p = parseProfile(m.content);
+            if (p) next.set(m.pubkey, p);
+          }
+          return next;
+        });
+      } catch {
+        /* relays flaky */
+      }
+    }, 1200);
+    return () => {
+      sub.close();
+      clearInterval(pid);
+    };
   }, [eventId, open]);
-  return replies;
+  return { replies, profiles };
 }
 
 /** One Nostr author's recent notes + their kind-0 profile (for their rougee profile page). */

@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Globe, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, Globe, ExternalLink, Loader2, Link as LinkIcon } from "lucide-react";
 import { useNostrAuthor } from "@/hooks/useNostrFeed";
 import { npub, shortNpub } from "@/lib/nostrAuth";
 import NostrPostCard from "@/components/NostrPostCard";
@@ -28,6 +28,10 @@ export default function NostrProfile() {
         </span>
       </div>
 
+      {profile?.banner && (
+        <img src={profile.banner} alt="" className="h-28 w-full object-cover" />
+      )}
+
       <div className="flex items-start gap-4 px-4 py-4">
         {profile?.picture ? (
           <img
@@ -40,19 +44,37 @@ export default function NostrProfile() {
         )}
         <div className="min-w-0 flex-1">
           <div className="text-lg font-semibold">{name}</div>
+          {profile?.nip05 && (
+            <div className="truncate text-xs text-ink-muted">
+              {profile.nip05.replace(/^_@/, "")}
+            </div>
+          )}
           {profile?.about && (
             <p className="mt-1 whitespace-pre-wrap break-words text-sm text-ink-muted">
               {profile.about}
             </p>
           )}
-          <a
-            href={njump}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> View on Nostr
-          </a>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
+            {profile?.website && (
+              <a
+                href={profile.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 hover:text-ink"
+              >
+                <LinkIcon className="h-3.5 w-3.5" />
+                {profile.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              </a>
+            )}
+            <a
+              href={njump}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 hover:text-ink"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> View on Nostr
+            </a>
+          </div>
         </div>
       </div>
 
