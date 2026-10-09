@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useParams, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Loader2,
   Settings,
@@ -59,10 +59,20 @@ export default function Profile() {
   const location = useLocation();
   const navigate = useNavigate();
   const knownPubkey = (location.state as { pubkey?: string } | null)?.pubkey;
-  const { publicKey: myPubkey } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { publicKey: myPubkey, address: myAddress } = useAuth();
 
-  const resolved = useResolvePubkey(address, knownPubkey);
-  const pubkey = resolved.data?.publicKey || knownPubkey || "";
+  // A brand-new wallet has no on-chain footprint yet, so resolveAddress can't map its
+  // rouge1 address (a one-way hash) back to a pubkey. Two fallbacks so a profile still
+  // renders instead of "Couldn't find that account":
+  //   - it's our own address → use the pubkey we already hold from the session
+  //   - a share link carried the pubkey as ?pk= → trust it (a pubkey is public)
+  const isMine = Boolean(myPubkey) && (address === myAddress || address === myPubkey);
+  const pkParam = searchParams.get("pk") || undefined;
+  const effectiveKnown = knownPubkey ?? pkParam ?? (isMine ? myPubkey : undefined);
+
+  const resolved = useResolvePubkey(address, effectiveKnown);
+  const pubkey = resolved.data?.publicKey || effectiveKnown || "";
 
   const { data: profile } = useProfile(pubkey || undefined);
   const stats = useArtistStats(pubkey || undefined);
@@ -184,7 +194,7 @@ export default function Profile() {
             className="btn-soft flex h-10 w-11 shrink-0 items-center justify-center p-0"
             iconClassName="h-4 w-4"
           />
-          <ShareProfileButton address={profile?.address ?? address ?? ""} />
+          <ShareProfileButton address={profile?.address ?? address ?? ""} pubkey={pubkey} />
           {!isMe && pubkey && <BlockButton pubkey={pubkey} />}
         </div>
       </div>
@@ -501,12 +511,14 @@ function EditProfileButton({ profile }: { profile?: import("@/lib/profile").Prof
   );
 }
 
-function ShareProfileButton({ address }: { address: string }) {
+function ShareProfileButton({ address, pubkey }: { address: string; pubkey?: string }) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [done, setDone] = useState(false);
   function share() {
-    const url = `${location.origin}/u/${address}`;
+    // Carry the pubkey so the profile resolves even before the wallet has any on-chain
+    // activity (the pubkey is public; the address is a one-way hash of it).
+    const url = `${location.origin}/u/${address}${pubkey ? `?pk=${pubkey}` : ""}`;
     navigator.clipboard.writeText(url);
     setDone(true);
     toast(t("profile.linkCopied"), "success");
