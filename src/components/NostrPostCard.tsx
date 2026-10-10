@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Globe, ExternalLink, Heart, Repeat2, MessageCircle, Send } from "lucide-react";
+import { Globe, ExternalLink, Heart, Repeat2, MessageCircle, Send, Bookmark } from "lucide-react";
 import type { FeedPost } from "@/lib/nostrFeed";
 import { timeAgo, shortAddress } from "@/lib/format";
 import { useAuth } from "@/store/auth";
@@ -15,6 +15,7 @@ import {
   eventIdOf,
   shortNpub,
 } from "@/lib/nostrAuth";
+import { useIsSaved, useToggleSave } from "@/hooks/useSaved";
 import { resolveMediaUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import Avatar from "./Avatar";
@@ -31,6 +32,8 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   const { address } = useAuth();
   const myProfile = useMyProfile();
   const acted = useActed()[post.id];
+  const isSaved = useIsSaved(post.id);
+  const toggleSave = useToggleSave();
   const [brokenAvatar, setBrokenAvatar] = useState(false);
   const [busy, setBusy] = useState<null | "like" | "repost">(null);
   const [showComments, setShowComments] = useState(false);
@@ -212,6 +215,13 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
         >
           <Repeat2 className="h-5 w-5" />
           {repostCount > 0 && <span className="text-xs">{repostCount}</span>}
+        </button>
+        <button
+          onClick={() => toggleSave(post.id)}
+          className={cn("transition-colors hover:text-amber-400", isSaved && "text-amber-400")}
+          aria-label={isSaved ? "Remove from saved" : "Save"}
+        >
+          <Bookmark className={cn("h-5 w-5", isSaved && "fill-current")} />
         </button>
         <a
           href={n.noteUrl}

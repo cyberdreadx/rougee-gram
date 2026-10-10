@@ -92,7 +92,7 @@ export function useToggleSave(): (postId: string) => boolean {
 /** Fetches the SocialPost objects for the current account's saved ids. */
 export function useSavedPosts() {
   const { publicKey } = useAuth();
-  const ids = useSavedIds();
+  const ids = useSavedIds().filter((id) => !id.startsWith("nostr:")); // Nostr saves resolve elsewhere
   return useQuery({
     queryKey: ["savedPosts", publicKey, ids],
     enabled: ids.length > 0,

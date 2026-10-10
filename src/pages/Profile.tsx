@@ -21,6 +21,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useUserPosts, useArtistStats, useToggleFollow } from "@/hooks/useSocial";
 import { useStartConversation } from "@/hooks/useMessenger";
 import { useSavedPosts } from "@/hooks/useSaved";
+import { useSavedNostrPosts } from "@/hooks/useNostrFeed";
+import NostrPostCard from "@/components/NostrPostCard";
 import TipButton from "@/components/TipButton";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
@@ -385,12 +387,30 @@ function TextPostList({
 function SavedGrid() {
   const { t } = useTranslation();
   const saved = useSavedPosts();
+  const nostrSaved = useSavedNostrPosts();
+  const hasRouge = (saved.data?.length ?? 0) > 0;
+  const hasNostr = nostrSaved.length > 0;
+
+  if (!saved.isLoading && !hasRouge && !hasNostr) {
+    return <PhotoGrid posts={[]} isLoading={false} emptyLabel={t("profile.savedEmpty")} />;
+  }
   return (
-    <PhotoGrid
-      posts={saved.data}
-      isLoading={saved.isLoading}
-      emptyLabel={t("profile.savedEmpty")}
-    />
+    <>
+      {(saved.isLoading || hasRouge) && (
+        <PhotoGrid
+          posts={saved.data}
+          isLoading={saved.isLoading}
+          emptyLabel={t("profile.savedEmpty")}
+        />
+      )}
+      {hasNostr && (
+        <div className="border-t border-ink-border">
+          {nostrSaved.map((p) => (
+            <NostrPostCard key={p.id} post={p} />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

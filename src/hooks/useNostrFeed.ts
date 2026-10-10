@@ -11,6 +11,7 @@ import { getActed, subscribeActed, replyTargetOf } from "@/lib/nostrAuth";
 import { getNostrSocial, subscribeNostrSocial } from "@/lib/nostrSocial";
 import {
   NOSTR_RELAYS,
+  NOSTR_ID_PREFIX,
   getPool,
   isFeedNote,
   eventToFeedPost,
@@ -21,6 +22,7 @@ import {
   type NostrProfile,
 } from "@/lib/nostrFeed";
 import { useGlobalTimeline } from "./useSocial";
+import { useSavedIds } from "./useSaved";
 
 const MAX_EVENTS = 300;
 /** Apply incoming events in batches so a busy relay doesn't re-render per event. */
@@ -231,6 +233,58 @@ export function useActed() {
 /** The viewer's Nostr follows + mutes (reactive). */
 export function useNostrSocial() {
   return useSyncExternalStore(subscribeNostrSocial, getNostrSocial, getNostrSocial);
+}
+
+/** Saved (bookmarked) Nostr posts, fetched by id from relays, in saved order. */
+export function useSavedNostrPosts(): FeedPost[] {
+  const savedIds = useSavedIds();
+  const eventIds = useMemo(
+    () =>
+      savedIds
+        .filter((id) => id.startsWith(NOSTR_ID_PREFIX))
+        .map((id) => id.slice(NOSTR_ID_PREFIX.length)),
+    [savedIds],
+  );
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const key = eventIds.join(",");
+  useEffect(() => {
+    if (!eventIds.length) {
+      setPosts([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const pool = getPool();
+        const evs = await pool.querySync(NOSTR_RELAYS, { ids: eventIds }, { maxWait: 4000 });
+        const authors = [...new Set(evs.map((e) => e.pubkey))];
+        const metas = authors.length
+          ? await pool.querySync(NOSTR_RELAYS, { kinds: [0], authors }, { maxWait: 4000 })
+          : [];
+        const profs = new Map<string, NostrProfile>();
+        for (const m of metas) {
+          if (profs.has(m.pubkey)) continue;
+          const p = parseProfile(m.content);
+          if (p) profs.set(m.pubkey, p);
+        }
+        if (cancelled) return;
+        const byId = new Map(evs.map((e) => [e.id, e]));
+        setPosts(
+          eventIds
+            .map((id) => byId.get(id))
+            .filter((e): e is Event => Boolean(e))
+            .map((e) => eventToFeedPost(e, profs.get(e.pubkey))),
+        );
+      } catch {
+        /* relays flaky */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return posts;
 }
 
 /** Live replies to one note (kind-1 with #e), fetched only while `open`. */
