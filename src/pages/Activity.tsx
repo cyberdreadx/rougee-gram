@@ -1,12 +1,16 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Loader2, Heart, Users, Grid3x3, MessageCircle, Coins } from "lucide-react";
+import { Loader2, Heart, Users, Grid3x3, MessageCircle, Repeat2, Globe, Coins } from "lucide-react";
 import {
   useActivity,
   type ActivityComment,
   type ActivityTip,
 } from "@/hooks/useSocial";
 import { useProfile } from "@/hooks/useProfile";
+import { useNostrNotifications } from "@/hooks/useNostrFeed";
+import { markNotificationsRead, type NostrNotification } from "@/lib/nostrNotifications";
+import { shortNpub } from "@/lib/nostrAuth";
 import { decodeBody } from "@/lib/envelope";
 import { timeAgo, formatCount } from "@/lib/format";
 import Avatar from "@/components/Avatar";
@@ -16,6 +20,12 @@ import UserLink from "@/components/UserLink";
 export default function Activity() {
   const { t } = useTranslation();
   const { data, isLoading, isError } = useActivity();
+  const { items: notifs } = useNostrNotifications();
+
+  // Opening Activity clears the unread badge.
+  useEffect(() => {
+    markNotificationsRead();
+  }, [notifs.length]);
 
   return (
     <div>
@@ -23,6 +33,19 @@ export default function Activity() {
         <h1 className="text-base font-semibold">{t("activity.title")}</h1>
         <p className="text-xs text-ink-muted">{t("activity.subtitle")}</p>
       </header>
+
+      {notifs.length > 0 && (
+        <>
+          <h2 className="flex items-center gap-1.5 px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+            <Globe className="h-3.5 w-3.5" /> Nostr
+          </h2>
+          <div className="divide-y divide-ink-border/60">
+            {notifs.map((n) => (
+              <NostrNotifRow key={n.id} item={n} />
+            ))}
+          </div>
+        </>
+      )}
 
       {isLoading && (
         <div className="flex justify-center py-16">
@@ -127,6 +150,44 @@ function postThumb(post: { body: string }): string | undefined {
       : decoded.kind === "carousel"
         ? decoded.data.items[0]?.cid
         : undefined;
+}
+
+function NostrNotifRow({ item }: { item: NostrNotification }) {
+  const name = item.profile?.name?.trim() || shortNpub(item.fromPubkey);
+  const verb =
+    item.type === "like"
+      ? "liked your post"
+      : item.type === "repost"
+        ? "reposted your post"
+        : "replied";
+  const Icon = item.type === "like" ? Heart : item.type === "repost" ? Repeat2 : MessageCircle;
+  const tone =
+    item.type === "like" ? "text-rose-400" : item.type === "repost" ? "text-emerald-400" : "text-sky-400";
+  return (
+    <Link
+      to={`/nostr/${item.fromPubkey}`}
+      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
+    >
+      <div className="relative shrink-0">
+        {item.profile?.picture ? (
+          <img src={item.profile.picture} alt="" loading="lazy" className="h-9 w-9 rounded-full object-cover" />
+        ) : (
+          <Avatar seed={item.fromPubkey} name={name} size={38} />
+        )}
+        <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-ink p-0.5">
+          <Icon className={`h-3.5 w-3.5 ${tone}`} />
+        </span>
+      </div>
+      <div className="min-w-0 flex-1 leading-snug">
+        <p className="truncate text-sm">
+          <span className="font-semibold">{name}</span>{" "}
+          <span className="text-ink-muted">{verb}</span>
+          {item.content ? <span className="text-ink-muted"> {item.content}</span> : null}
+        </p>
+        <span className="text-xs text-ink-muted">{timeAgo(item.created_at)}</span>
+      </div>
+    </Link>
+  );
 }
 
 function FollowerRow({ pubkey }: { pubkey: string }) {

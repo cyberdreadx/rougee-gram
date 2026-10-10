@@ -9,6 +9,7 @@ import {
 import type { Event } from "nostr-tools";
 import { getActed, subscribeActed, replyTargetOf } from "@/lib/nostrAuth";
 import { getNostrSocial, subscribeNostrSocial } from "@/lib/nostrSocial";
+import { getNotificationsState, subscribeNotifications } from "@/lib/nostrNotifications";
 import {
   NOSTR_RELAYS,
   NOSTR_ID_PREFIX,
@@ -254,6 +255,11 @@ export function useActed() {
 /** The viewer's Nostr follows + mutes (reactive). */
 export function useNostrSocial() {
   return useSyncExternalStore(subscribeNostrSocial, getNostrSocial, getNostrSocial);
+}
+
+/** Nostr notifications (likes/reposts/replies to the viewer) + unread count. */
+export function useNostrNotifications() {
+  return useSyncExternalStore(subscribeNotifications, getNotificationsState, getNotificationsState);
 }
 
 /** Saved (bookmarked) Nostr posts, fetched by id from relays, in saved order. */

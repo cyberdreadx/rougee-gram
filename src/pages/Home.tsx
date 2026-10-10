@@ -77,10 +77,10 @@ export default function Home() {
             discover.showNew();
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          className="fixed left-1/2 top-24 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-rouge-600 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-rouge-600/30 transition hover:bg-rouge-500"
+          className="fixed left-1/2 top-[calc(var(--top-bar-h)+3.25rem)] z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-ink-border bg-ink/80 px-3 py-1 text-[11px] font-medium text-ink-muted shadow-sm backdrop-blur transition hover:border-rouge-500/50 hover:text-white md:top-14"
         >
-          <ArrowUp className="h-3.5 w-3.5" />
-          {discover.newCount} new {discover.newCount === 1 ? "post" : "posts"}
+          <ArrowUp className="h-3 w-3 text-rouge-400" />
+          {discover.newCount} new
         </button>
       )}
 

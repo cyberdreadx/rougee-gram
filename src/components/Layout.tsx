@@ -12,10 +12,17 @@ import { cn } from "@/lib/utils";
 import { shortAddress } from "@/lib/format";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useUnreadCount } from "@/hooks/useMessenger";
+import { useNostrNotifications } from "@/hooks/useNostrFeed";
+import { startNostrNotifications } from "@/lib/nostrNotifications";
 import { DMS_ENABLED } from "@/lib/features";
 
 export default function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const { address } = useAuth();
+  // Start listening for likes/reposts/replies to the viewer's Nostr posts.
+  useEffect(() => {
+    startNostrNotifications(address || "anon");
+  }, [address]);
   return (
     <CreatePostProvider>
       <div className="min-h-screen bg-ink">
@@ -51,6 +58,7 @@ function DesktopSidebar() {
   const { open } = useCreatePost();
   const profile = useMyProfile();
   const unread = useUnreadCount();
+  const { unread: notifUnread } = useNostrNotifications();
 
   return (
     <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col gap-1 p-4 md:flex">
@@ -67,7 +75,7 @@ function DesktopSidebar() {
         <PlusSquare className="h-6 w-6" />
         {t("nav.create")}
       </button>
-      <SideLink to="/activity" label={t("nav.activity")} icon={Heart} end={false} />
+      <SideLink to="/activity" label={t("nav.activity")} icon={Heart} end={false} badge={notifUnread} />
       {DMS_ENABLED && (
         <SideLink to="/messages" label={t("nav.messages")} icon={Send} end={false} badge={unread} />
       )}
@@ -197,16 +205,20 @@ function MobileTopBar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const unread = useUnreadCount();
+  const { unread: notifUnread } = useNostrNotifications();
   return (
     <header className="glass-soft sticky top-0 z-30 flex h-[var(--top-bar-h)] items-center justify-between border-b px-4 md:hidden">
       <Logo size={28} withWordmark />
       <div className="flex items-center gap-1">
         <button
           onClick={() => navigate("/activity")}
-          className="btn-ghost h-9 w-9 p-0"
+          className="btn-ghost relative h-9 w-9 p-0"
           aria-label={t("nav.activity")}
         >
           <Heart className="h-6 w-6" />
+          {notifUnread > 0 && (
+            <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-rouge-500 ring-2 ring-ink" />
+          )}
         </button>
         {DMS_ENABLED && (
           <button
