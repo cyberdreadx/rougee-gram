@@ -28,6 +28,7 @@ import { useAuth } from "@/store/auth";
 import { useMyProfile } from "@/hooks/useProfile";
 import { mirrorPostToNostr, getMirrorPref, setMirrorPref } from "@/lib/nostrMirror";
 import { recordMentions, extractMentions } from "@/lib/mentions";
+import MentionCaption from "./MentionCaption";
 import Avatar from "./Avatar";
 import { useToast } from "./Toast";
 import Modal from "./Modal";
@@ -833,16 +834,13 @@ function CreatePostDialog({
           ) : null}
 
           <div>
-            <textarea
+            <MentionCaption
               className="input h-24 resize-none"
               placeholder={t("create.writeCaption")}
               value={caption}
               maxLength={CAPTION_LIMIT}
-              onChange={(e) => setCaption(e.target.value)}
+              onChange={setCaption}
               disabled={busy}
-              autoCapitalize="sentences"
-              autoCorrect="on"
-              spellCheck
             />
             <div className="mt-1 text-right text-xs text-ink-muted">
               {caption.length}/{CAPTION_LIMIT}
