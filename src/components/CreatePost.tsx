@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useMyProfile } from "@/hooks/useProfile";
+import { mirrorPostToNostr, getMirrorPref, setMirrorPref } from "@/lib/nostrMirror";
 import Avatar from "./Avatar";
 import { useToast } from "./Toast";
 import Modal from "./Modal";
@@ -119,7 +120,9 @@ function CreatePostDialog({
   const isStory = mode === "story";
   const isReelMode = mode === "reel";
   const isTextMode = mode === "text";
-  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const { wallet, publicKey, isExtensionWallet, address } = useAuth();
+  const myProfile = useMyProfile();
+  const [mirror, setMirror] = useState(getMirrorPref());
   const { toast } = useToast();
   const client = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -515,6 +518,9 @@ function CreatePostDialog({
       }
     }
     invalidateFeeds(client, publicKey);
+    if (mirror) {
+      mirrorPostToNostr(address || "anon", parts.join("\n\n"), { name: myProfile?.name }).catch(() => {});
+    }
     toast(parts.length > 1 ? t("create.threadPosted") : t("create.posted"), "success");
     reset();
     onClose();
@@ -531,6 +537,11 @@ function CreatePostDialog({
     }
     if (!res.success) throw new Error(res.error || t("create.postFailed"));
     invalidateFeeds(client, publicKey);
+
+    // Opt-in: broadcast a copy to Nostr (skip ads + ephemeral stories).
+    if (!isAd && !isStory && mirror) {
+      mirrorPostToNostr(address || "anon", body, { name: myProfile?.name }).catch(() => {});
+    }
 
     // A "dark post" ad lives on-chain but is hidden from the author's profile
     // and every organic feed — it only surfaces once it's boosted. Jump the
@@ -828,6 +839,21 @@ function CreatePostDialog({
               {caption.length}/{CAPTION_LIMIT}
             </div>
           </div>
+
+          {!isStory && !isAd && (
+            <label className="mt-3 flex items-center justify-between gap-3 text-sm">
+              <span className="text-ink">Also post to Nostr</span>
+              <input
+                type="checkbox"
+                checked={mirror}
+                onChange={(e) => {
+                  setMirror(e.target.checked);
+                  setMirrorPref(e.target.checked);
+                }}
+                className="h-5 w-5 accent-rouge-600"
+              />
+            </label>
+          )}
 
           {!isStory && (
             <LocationAutocomplete value={location} onChange={setLocation} disabled={busy} />

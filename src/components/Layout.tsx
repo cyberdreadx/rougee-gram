@@ -197,14 +197,8 @@ function MobileTopBar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const unread = useUnreadCount();
-  const hidden = useHideOnScroll();
   return (
-    <header
-      className={cn(
-        "glass-soft sticky top-0 z-30 flex h-[var(--top-bar-h)] items-center justify-between border-b px-4 transition-transform duration-300 md:hidden",
-        hidden ? "-translate-y-full" : "translate-y-0",
-      )}
-    >
+    <header className="glass-soft sticky top-0 z-30 flex h-[var(--top-bar-h)] items-center justify-between border-b px-4 md:hidden">
       <Logo size={28} withWordmark />
       <div className="flex items-center gap-1">
         <button
