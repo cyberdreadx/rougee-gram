@@ -11,6 +11,7 @@ import { invalidateProfile } from "@/lib/profile";
 import { decodeBody, isAdPost } from "@/lib/envelope";
 import * as write from "@/lib/write";
 import { recordTip, getPostTips } from "@/lib/tips";
+import { recordShare, getShareCount } from "@/lib/shares";
 
 export const qk = {
   timeline: ["timeline"] as const,
@@ -22,6 +23,7 @@ export const qk = {
   artistStats: (pubkey: string, viewer: string) =>
     ["artistStats", pubkey, viewer] as const,
   postTips: (id: string) => ["postTips", id] as const,
+  shares: (id: string) => ["shares", id] as const,
 };
 
 const PAGE = 50;
@@ -275,6 +277,26 @@ export function usePostTips(postId: string) {
     queryKey: qk.postTips(postId),
     queryFn: () => getPostTips(postId),
     staleTime: 60_000,
+  });
+}
+
+/** Per-post share count (from the share-counter Worker). */
+export function useShareCount(postId: string) {
+  return useQuery({
+    queryKey: qk.shares(postId),
+    queryFn: () => getShareCount(postId),
+    staleTime: 60_000,
+  });
+}
+
+/** Record a share and optimistically bump the cached count. */
+export function useRecordShare(postId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => recordShare(postId),
+    onSuccess: (count) => {
+      if (typeof count === "number") client.setQueryData(qk.shares(postId), count);
+    },
   });
 }
 

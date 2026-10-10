@@ -1,0 +1,22 @@
+# Cloudflare Worker: RouGee share counter (per-post share tally).
+#
+# Sharing a post isn't an on-chain action, so the count lives off-chain here —
+# a lightweight vanity counter (like views). POST /share increments; GET /shares
+# reads. KV keyed by network+postId.
+#
+# Setup:
+#   npx wrangler kv namespace create SHARES
+#     -> put the returned id below under [[kv_namespaces]]
+#   npx wrangler deploy --config workers/shares/wrangler.toml
+#   # then set VITE_SHARES_WORKER_URL to the deployed URL (netlify.toml / .env).
+name = "rougee-shares"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "SHARES"
+id = "8020ab300e614fa8a26a0d5d81dab001"
+
+[vars]
+ALLOW_ORIGIN = "*"

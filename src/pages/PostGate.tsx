@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Lock, Heart, MessageCircle, Coins, Loader2 } from "lucide-react";
+import { Lock, Heart, MessageCircle, Coins, Share2, Loader2 } from "lucide-react";
 import { useAuth } from "@/store/auth";
-import { usePost, usePostStats, usePostTips } from "@/hooks/useSocial";
+import { usePost, usePostStats, usePostTips, useShareCount } from "@/hooks/useSocial";
 import { useProfile } from "@/hooks/useProfile";
 import { decodeBody } from "@/lib/envelope";
 import { formatCount, timeAgo, shortAddress } from "@/lib/format";
@@ -42,6 +42,7 @@ export default function PostGate({ postId }: { postId: string }) {
   const post = data?.post;
   const { data: stats } = usePostStats(postId);
   const { data: tips } = usePostTips(postId);
+  const { data: shares } = useShareCount(postId);
   const { data: profile } = useProfile(post?.author_pubkey);
 
   // Once they choose to sign in, hand off to the real flow (URL stays /p/:id).
@@ -119,6 +120,11 @@ export default function PostGate({ postId }: { postId: string }) {
               <span className="flex items-center gap-1.5">
                 <MessageCircle className="h-4 w-4" /> {formatCount(stats?.replies ?? 0)}
               </span>
+              {(shares ?? 0) > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <Share2 className="h-4 w-4" /> {formatCount(shares!)}
+                </span>
+              )}
               {(tips?.total ?? 0) > 0 && (
                 <span className="flex items-center gap-1.5 text-amber-300">
                   <Coins className="h-4 w-4" /> {formatCount(tips!.total)} XRGE

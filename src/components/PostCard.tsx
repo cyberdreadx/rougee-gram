@@ -22,6 +22,8 @@ import {
   useToggleLike,
   useToggleRepost,
   useDeletePost,
+  useShareCount,
+  useRecordShare,
 } from "@/hooks/useSocial";
 import Modal from "./Modal";
 import type { Tipper } from "@/lib/tips";
@@ -531,6 +533,8 @@ function TipperItem({ tipper }: { tipper: Tipper }) {
 function ShareButton({ postId }: { postId: string }) {
   const { toast } = useToast();
   const [done, setDone] = useState(false);
+  const { data: count } = useShareCount(postId);
+  const record = useRecordShare(postId);
   function share() {
     const url = `${location.origin}/p/${postId}`;
     if (navigator.share) {
@@ -539,16 +543,18 @@ function ShareButton({ postId }: { postId: string }) {
       navigator.clipboard.writeText(url);
       toast("Link copied", "success");
     }
+    record.mutate(); // tally the share (best-effort)
     setDone(true);
     setTimeout(() => setDone(false), 1500);
   }
   return (
     <button
       onClick={share}
-      className="text-white hover:text-ink-muted"
+      className="flex items-center gap-1.5 text-white hover:text-ink-muted"
       aria-label="Share"
     >
       {done ? <Check className="h-6 w-6 text-emerald-400" /> : <Share2 className="h-6 w-6" />}
+      {(count ?? 0) > 0 && <span className="text-sm">{formatCount(count!)}</span>}
     </button>
   );
 }
