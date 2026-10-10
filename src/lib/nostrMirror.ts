@@ -1,8 +1,8 @@
 /**
  * Mirror a just-published rougee-gram post out to Nostr as a kind-1 note, so a
- * creator's content flows to the wider Nostr network too. Opt-in (see the
- * composer toggle), best-effort, signed with the viewer's Nostr key. Media is
- * referenced by its public IPFS-gateway URL (local-only refs are skipped).
+ * creator's content flows to the wider Nostr network too. On by default (see
+ * the composer toggle), best-effort, signed with the viewer's Nostr key. Media
+ * is referenced by its public IPFS-gateway URL (local-only refs are skipped).
  */
 import { decodeBody } from "./envelope";
 import { resolveMediaUrl } from "./media";
@@ -10,11 +10,13 @@ import { getSigner, ensureNostrProfile } from "./nostrAuth";
 import { NOSTR_RELAYS, getPool } from "./nostrFeed";
 
 const PREF_KEY = "rougee:mirror-nostr";
+// Default ON: new posts reach Nostr unless the creator explicitly turns it off
+// (a stored "0"). Only an explicit opt-out disables it.
 export const getMirrorPref = (): boolean => {
   try {
-    return localStorage.getItem(PREF_KEY) === "1";
+    return localStorage.getItem(PREF_KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 };
 export const setMirrorPref = (on: boolean): void => {
