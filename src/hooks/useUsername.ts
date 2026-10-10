@@ -5,6 +5,7 @@ import {
   registerUsername,
   releaseUsername,
 } from "@/lib/username";
+import { indexUsername } from "@/lib/directory";
 
 const usernameKey = (pubkey: string) => ["username", pubkey] as const;
 
@@ -34,7 +35,8 @@ export function useRegisterUsername() {
       if (!res.success) throw new Error(res.error || "Couldn't claim that username.");
       return res;
     },
-    onSuccess: () => {
+    onSuccess: (_res, name) => {
+      indexUsername(name); // add to the @mention search directory immediately
       client.invalidateQueries({ queryKey: usernameKey(publicKey) });
     },
   });

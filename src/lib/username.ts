@@ -2,6 +2,7 @@ import type { ApiResponse } from "@rougechain/sdk";
 import { rc } from "./rouge";
 import * as ext from "./extensionSigner";
 import type { Writer } from "./write";
+import { indexUsername } from "./directory";
 
 /**
  * On-chain usernames (@handles) via RougeChain's native name registry — a
@@ -32,7 +33,9 @@ export function validateUsername(raw: string): string | null {
 export async function reverseUsername(pubkey: string): Promise<string | null> {
   if (!pubkey) return null;
   try {
-    return await rc().mail.reverseLookup(pubkey);
+    const name = await rc().mail.reverseLookup(pubkey);
+    if (name) indexUsername(name); // grow the @mention search directory (deduped)
+    return name;
   } catch {
     return null;
   }

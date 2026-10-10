@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/store/auth";
 import { rc } from "@/lib/rouge";
 import { reverseUsername } from "@/lib/username";
+import { searchUsers } from "@/lib/directory";
 
 export interface MentionSuggestion {
   handle: string;
@@ -64,6 +65,15 @@ export function useMentionAutocomplete(value: string, onChange: (v: string) => v
   const client = useQueryClient();
   const [suggestions, setSuggestions] = useState<MentionSuggestion[]>([]);
   const token = useRef<{ start: number; len: number } | null>(null);
+  const partialRef = useRef("");
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const merge = (a: MentionSuggestion[], b: MentionSuggestion[]) => {
+    const seen = new Set(a.map((s) => s.handle));
+    const out = [...a];
+    for (const s of b) if (s.handle && !seen.has(s.handle)) (seen.add(s.handle), out.push(s));
+    return out.slice(0, 8);
+  };
 
   const candidates = useCallback(
     (prefix: string): MentionSuggestion[] => {
@@ -96,14 +106,24 @@ export function useMentionAutocomplete(value: string, onChange: (v: string) => v
     (text: string, caret: number) => {
       const before = text.slice(0, caret);
       const m = before.match(/(?:^|[^a-zA-Z0-9_@])@([a-z0-9_]{1,20})$/i);
-      if (m) {
-        const partial = m[1];
-        token.current = { start: caret - partial.length - 1, len: partial.length + 1 };
-        setSuggestions(candidates(partial));
-      } else {
+      if (timer.current) clearTimeout(timer.current);
+      if (!m) {
         token.current = null;
+        partialRef.current = "";
         setSuggestions([]);
+        return;
       }
+      const partial = m[1];
+      token.current = { start: caret - partial.length - 1, len: partial.length + 1 };
+      partialRef.current = partial;
+      const local = candidates(partial); // instant, from cache
+      setSuggestions(local);
+      // Then search the directory (everyone), debounced; merge when it returns.
+      timer.current = setTimeout(async () => {
+        const results = await searchUsers(partial, 8);
+        if (partialRef.current !== partial) return; // stale — user typed on
+        setSuggestions(merge(local, results));
+      }, 220);
     },
     [candidates],
   );

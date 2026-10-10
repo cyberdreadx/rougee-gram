@@ -32,6 +32,8 @@ export interface RuntimeConfig {
   translateWorkerUrl: string;
   /** RouGee mentions Worker base URL ("@handle mentioned you"). */
   mentionsWorkerUrl: string;
+  /** RouGee username directory Worker base URL (prefix search for @mentions). */
+  directoryWorkerUrl: string;
 }
 
 /** Well-known RougeChain networks selectable at runtime in Settings. */
@@ -66,6 +68,7 @@ const defaults: RuntimeConfig = {
   sharesWorkerUrl: import.meta.env.VITE_SHARES_WORKER_URL || "",
   translateWorkerUrl: import.meta.env.VITE_TRANSLATE_WORKER_URL || "",
   mentionsWorkerUrl: import.meta.env.VITE_MENTIONS_WORKER_URL || "",
+  directoryWorkerUrl: import.meta.env.VITE_DIRECTORY_WORKER_URL || "",
 };
 
 // One-time migration key: users who ran the app when the default was testnet may
@@ -88,6 +91,7 @@ const DEPLOY_ONLY: (keyof RuntimeConfig)[] = [
   "sharesWorkerUrl",
   "translateWorkerUrl",
   "mentionsWorkerUrl",
+  "directoryWorkerUrl",
 ];
 
 function load(): RuntimeConfig {

@@ -1,0 +1,25 @@
+# Cloudflare Worker: RouGee username directory (prefix search for @mentions).
+#
+# The node has no name enumeration, so this index is crowd-filled: every handle
+# the app registers or resolves is POSTed to /index and re-verified on-chain
+# before being stored (pubkey kept in key metadata). /search does a KV list by
+# prefix. Entries expire after 90 days so released handles fade out.
+#
+# Setup:
+#   npx wrangler kv namespace create DIRECTORY
+#     -> put the returned id below under [[kv_namespaces]]
+#   npx wrangler deploy --config workers/directory/wrangler.toml
+#   # then set VITE_DIRECTORY_WORKER_URL to the deployed URL (netlify.toml / .env).
+name = "rougee-directory"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "DIRECTORY"
+id = "6dfd41ccb51441bcb3113f13af5fffc0"
+
+[vars]
+NODE_TESTNET = "https://testnet.rougechain.io/api"
+NODE_MAINNET = "https://api.rougechain.io/api"
+ALLOW_ORIGIN = "*"
