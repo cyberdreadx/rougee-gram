@@ -71,17 +71,30 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
     const openedAt = Math.floor(Date.now() / 1000);
     let buffer: Event[] = [];
     let primed = false; // paint the first batch quickly, then settle into batching
+    let caughtUp = false; // after the initial load, ALL new arrivals are held (the pill)
+    let eosed = false;
 
     const flushBuffer = () => {
       if (!buffer.length) return;
       const batch = buffer;
       buffer = [];
+      if (caughtUp) {
+        // Initial load is done — everything new waits behind the pill, even a
+        // late-propagating note whose created_at predates when the feed opened.
+        setPending((prev) => capNewest(addAll(prev, batch)));
+        return;
+      }
       const backlog = batch.filter((e) => e.created_at <= openedAt);
       const fresh = batch.filter((e) => e.created_at > openedAt);
       if (backlog.length) setEvents((prev) => capNewest(addAll(prev, backlog)));
       if (fresh.length) setPending((prev) => capNewest(addAll(prev, fresh)));
     };
     const timer = setInterval(flushBuffer, FLUSH_MS);
+    // Fallback: if no relay ever EOSEs, still stop showing new posts after a bit.
+    const catchUpFallback = setTimeout(() => {
+      flushBuffer();
+      caughtUp = true;
+    }, 8000);
 
     const filter = topic
       ? { kinds: [1], "#t": [topic], limit: 200 }
@@ -98,11 +111,19 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
       },
       oneose: () => {
         flushBuffer();
+        if (eosed) return;
+        eosed = true;
+        // Grace window to absorb stragglers from slower relays, then hold.
+        setTimeout(() => {
+          flushBuffer();
+          caughtUp = true;
+        }, 2500);
       },
     });
 
     return () => {
       clearInterval(timer);
+      clearTimeout(catchUpFallback);
       sub.close();
     };
   }, [enabled, topic]);
