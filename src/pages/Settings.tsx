@@ -20,6 +20,7 @@ import {
   AtSign,
   Languages,
   ChevronDown,
+  Compass,
 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { useAuth } from "@/store/auth";
@@ -39,6 +40,7 @@ import { changePassword } from "@/lib/keystore";
 import { clearProfileCache } from "@/lib/profile";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { getHomeTab, setHomeTab, type HomeTab } from "@/lib/homeTab";
 import { useVerified } from "@/hooks/useVerified";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { startVerify, confirmVerify } from "@/lib/verifyApi";
@@ -99,6 +101,8 @@ export default function Settings() {
         <UsernameSection />
 
         <LanguageSection />
+
+        <FeedSection />
 
         <SecuritySection address={address} isExtensionWallet={isExtensionWallet} />
 
@@ -250,6 +254,31 @@ function UsernameSection() {
           </p>
         </div>
       )}
+    </Section>
+  );
+}
+
+function FeedSection() {
+  const [tab, setTab] = useState<HomeTab>(getHomeTab());
+  return (
+    <Section icon={<Compass className="h-4 w-4" />} title="Home feed">
+      <p className="text-sm text-ink-muted">Which tab opens first on Home.</p>
+      <div className="relative">
+        <select
+          className="input w-full appearance-none pr-9"
+          value={tab}
+          onChange={(e) => {
+            const v = e.target.value as HomeTab;
+            setTab(v);
+            setHomeTab(v);
+          }}
+          aria-label="Default home feed"
+        >
+          <option value="discover">Discover</option>
+          <option value="following">Following</option>
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+      </div>
     </Section>
   );
 }

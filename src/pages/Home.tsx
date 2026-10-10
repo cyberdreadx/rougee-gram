@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/store/auth";
 import { loadNostrLists } from "@/lib/nostrSocial";
+import { getHomeTab, setHomeTab } from "@/lib/homeTab";
 import { Link } from "react-router-dom";
 import { Compass, Camera, ArrowUp } from "lucide-react";
 import { useFollowingFeed } from "@/hooks/useSocial";
@@ -14,30 +15,15 @@ import { cn } from "@/lib/utils";
 
 type Tab = "following" | "discover";
 
-const HOME_TAB_KEY = "rougee:home-tab";
-function initialHomeTab(): Tab {
-  try {
-    const v = localStorage.getItem(HOME_TAB_KEY);
-    if (v === "following" || v === "discover") return v;
-  } catch {
-    /* localStorage unavailable */
-  }
-  return "discover"; // Discover leads — it's where the activity is
-}
-
 export default function Home() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>(initialHomeTab);
+  const [tab, setTab] = useState<Tab>(getHomeTab);
   const [topic, setTopic] = useState<string | null>(null);
 
   // Remember the chosen tab so each person lands on what they prefer.
   const selectTab = (next: Tab) => {
     setTab(next);
-    try {
-      localStorage.setItem(HOME_TAB_KEY, next);
-    } catch {
-      /* ignore */
-    }
+    setHomeTab(next);
   };
   const following = useFollowingFeed();
   const discover = useDiscoverFeed(topic);
