@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Loader2, Heart, Users, Grid3x3, MessageCircle, Repeat2, Globe, AtSign, Coins } from "lucide-react";
@@ -24,6 +25,13 @@ export default function Activity() {
   const { data, isLoading, isError } = useActivity();
   const { items: notifs } = useNostrNotifications();
   const { items: mentions, markRead: markMentionsRead } = useMentions();
+  const client = useQueryClient();
+
+  // useActivity advances the "followers seen" snapshot as it loads; once it has,
+  // refresh the follow-unread badge so it clears.
+  useEffect(() => {
+    if (data) client.invalidateQueries({ queryKey: ["followUnread"] });
+  }, [data, client]);
 
   // Opening Activity clears the unread badges.
   useEffect(() => {

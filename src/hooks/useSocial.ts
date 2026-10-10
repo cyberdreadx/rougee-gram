@@ -12,6 +12,7 @@ import { decodeBody, isAdPost } from "@/lib/envelope";
 import * as write from "@/lib/write";
 import { recordTip, getPostTips } from "@/lib/tips";
 import { recordShare, getShareCount } from "@/lib/shares";
+import { recordMentions, extractMentions } from "@/lib/mentions";
 
 export const qk = {
   timeline: ["timeline"] as const,
@@ -310,6 +311,9 @@ export function useAddComment(postId: string) {
       if (!body) throw new Error("Empty comment");
       const res = await write.createPost({ wallet, publicKey, isExtensionWallet }, body, postId);
       if (!res.success) throw new Error(res.error || "Comment failed");
+      // Notify any @mentioned users (chain-verified server-side; best-effort).
+      const newId = write.newPostId(res);
+      if (newId) recordMentions(newId, extractMentions(body));
       return res;
     },
     onSuccess: () => {
@@ -526,4 +530,32 @@ export function useActivity() {
       };
     },
   });
+}
+
+/**
+ * Count of followers gained since Activity was last opened — for the nav badge.
+ * Read-only: unlike useActivity it never advances the "seen" snapshot, so the
+ * badge persists until the user actually opens Activity (which does advance it).
+ */
+export function useFollowUnread(): number {
+  const { publicKey } = useAuth();
+  const q = useQuery({
+    queryKey: ["followUnread", publicKey],
+    enabled: Boolean(publicKey),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    queryFn: async (): Promise<number> => {
+      const seen = readSeenFollowers(publicKey);
+      if (!seen) return 0; // baseline not seeded yet (first Activity open seeds it)
+      const current: string[] = [];
+      for (let off = 0; off < 600; off += 200) {
+        const page = await rc().social.getUserFollowers(publicKey, 200, off);
+        if (!page.length) break;
+        current.push(...page);
+        if (page.length < 200) break;
+      }
+      return current.filter((f) => !seen.has(f)).length;
+    },
+  });
+  return q.data ?? 0;
 }

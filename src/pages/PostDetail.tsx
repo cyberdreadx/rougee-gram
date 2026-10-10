@@ -30,6 +30,7 @@ import {
 } from "@/lib/envelope";
 import { processImage } from "@/lib/image";
 import { putImage } from "@/lib/media";
+import { useMentionAutocomplete } from "@/hooks/useMentionAutocomplete";
 import { cn } from "@/lib/utils";
 import type { SocialPost } from "@rougechain/sdk";
 
@@ -243,6 +244,8 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
   const [uploading, setUploading] = useState(false);
   const [showGif, setShowGif] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mentions = useMentionAutocomplete(text, setText);
 
   const hasMedia = Boolean(img || gif);
   const canSend = (text.trim() || hasMedia) && !add.isPending && !uploading;
@@ -326,23 +329,52 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
               </button>
             </>
           )}
-          <input
-            className="input flex-1"
-            placeholder={t("post.addComment")}
-            value={text}
-            maxLength={2000}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            disabled={add.isPending}
-            autoCapitalize="sentences"
-            autoCorrect="on"
-            spellCheck
-          />
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              className="input w-full"
+              placeholder={t("post.addComment")}
+              value={text}
+              maxLength={2000}
+              onChange={(e) => {
+                setText(e.target.value);
+                mentions.detect(e.target.value, e.target.selectionStart ?? e.target.value.length);
+              }}
+              onKeyUp={(e) => {
+                const el = e.target as HTMLInputElement;
+                mentions.detect(el.value, el.selectionStart ?? 0);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              onBlur={() => setTimeout(mentions.clear, 150)}
+              disabled={add.isPending}
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              spellCheck
+            />
+            {mentions.suggestions.length > 0 && (
+              <div className="absolute bottom-full left-0 z-30 mb-1 w-56 overflow-hidden rounded-lg border border-ink-border bg-ink-card shadow-lg">
+                {mentions.suggestions.map((s) => (
+                  <button
+                    key={s.pubkey}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      mentions.pick(s.handle, inputRef.current);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-white/5"
+                  >
+                    <Avatar seed={s.pubkey} size={24} />
+                    <span className="font-medium">@{s.handle}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             className="btn-primary h-10 w-10 shrink-0 p-0"
             onClick={submit}
