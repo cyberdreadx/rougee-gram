@@ -1,8 +1,9 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./store/auth";
 import Layout from "./components/Layout";
 import Onboarding from "./pages/Onboarding";
 import Unlock from "./pages/Unlock";
+import PostGate from "./pages/PostGate";
 import Home from "./pages/Home";
 import Explore from "./pages/Explore";
 import Reels from "./pages/Reels";
@@ -22,8 +23,16 @@ import LocationPage from "./pages/LocationPage";
 
 export default function App() {
   const { status } = useAuth();
+  const { pathname } = useLocation();
 
   if (status === "loading") return <Splash />;
+  // A shared post link opened without an account shows a gated teaser (author +
+  // stats, photo blurred) instead of the bare Welcome screen. The URL stays
+  // /p/:id, so finishing signup from there lands on the real post.
+  if (status === "onboarding" || status === "locked") {
+    const sharedPost = pathname.match(/^\/p\/([^/]+)/)?.[1];
+    if (sharedPost) return <PostGate postId={sharedPost} />;
+  }
   if (status === "onboarding") return <Onboarding />;
   if (status === "locked") return <Unlock />;
 
