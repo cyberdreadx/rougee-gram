@@ -41,6 +41,7 @@ import { clearProfileCache } from "@/lib/profile";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getHomeTab, setHomeTab, type HomeTab } from "@/lib/homeTab";
+import { getSigner, npub as toNpub } from "@/lib/nostrAuth";
 import { useVerified } from "@/hooks/useVerified";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { startVerify, confirmVerify } from "@/lib/verifyApi";
@@ -103,6 +104,8 @@ export default function Settings() {
         <LanguageSection />
 
         <FeedSection />
+
+        <NostrIdentitySection address={address} />
 
         <SecuritySection address={address} isExtensionWallet={isExtensionWallet} />
 
@@ -279,6 +282,35 @@ function FeedSection() {
         </select>
         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
       </div>
+    </Section>
+  );
+}
+
+function NostrIdentitySection({ address }: { address: string }) {
+  const [npub, setNpub] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    getSigner(address || "anon")
+      .then((s) => active && setNpub(toNpub(s.pubkey)))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [address]);
+
+  return (
+    <Section icon={<Globe className="h-4 w-4" />} title="Your Nostr identity">
+      <p className="text-sm text-ink-muted">
+        Your posts mirror to Nostr under this key. Share your npub so others can find and
+        follow you — and so likes, reposts and replies show up in Activity.
+      </p>
+      {npub ? (
+        <CopyRow label="npub" value={npub} />
+      ) : (
+        <div className="flex justify-center py-2">
+          <Loader2 className="h-4 w-4 animate-spin text-ink-muted" />
+        </div>
+      )}
     </Section>
   );
 }
