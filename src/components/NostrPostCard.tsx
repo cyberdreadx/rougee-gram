@@ -21,6 +21,7 @@ import { resolveMediaUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import Avatar from "./Avatar";
 import RichText from "./RichText";
+import TranslateText from "./TranslateText";
 
 /**
  * A Nostr note mixed into the Discover feed. Identity/avatar come from the
@@ -188,9 +189,12 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
 
       {/* text */}
       {post.body.trim() && (
-        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
-          <RichText text={post.body} />
-        </p>
+        <>
+          <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
+            <RichText text={post.body} />
+          </p>
+          <TranslateText text={post.body} className="mt-1" />
+        </>
       )}
 
       {/* videos — play inline, in-app */}

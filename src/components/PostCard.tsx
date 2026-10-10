@@ -38,6 +38,7 @@ import SaveButton from "./SaveButton";
 import TipButton from "./TipButton";
 import Handle from "./Handle";
 import RichText from "./RichText";
+import TranslateText from "./TranslateText";
 import BoostModal from "./BoostModal";
 import { promoteEnabled, recordClick } from "@/lib/promote";
 import Caption from "./Caption";
@@ -372,6 +373,7 @@ function TextPostCard({
           )}
         </p>
       </div>
+      <TranslateText text={post.body} className="mt-1" />
 
       {/* actions */}
       <div className="flex items-center gap-4 pt-3">

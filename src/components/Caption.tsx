@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import UserLink from "./UserLink";
 import RichText from "./RichText";
+import TranslateText from "./TranslateText";
 
 export default function Caption({
   authorPubkey,
@@ -18,20 +19,23 @@ export default function Caption({
   const shown = expanded || !isLong ? text : text.slice(0, clamp).trimEnd();
 
   return (
-    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-      <UserLink pubkey={authorPubkey} className="mr-1.5 font-semibold" />
-      <RichText text={shown} />
-      {isLong && !expanded && (
-        <>
-          …{" "}
-          <button
-            className="text-ink-muted hover:underline"
-            onClick={() => setExpanded(true)}
-          >
-            {t("common.more")}
-          </button>
-        </>
-      )}
-    </p>
+    <>
+      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+        <UserLink pubkey={authorPubkey} className="mr-1.5 font-semibold" />
+        <RichText text={shown} />
+        {isLong && !expanded && (
+          <>
+            …{" "}
+            <button
+              className="text-ink-muted hover:underline"
+              onClick={() => setExpanded(true)}
+            >
+              {t("common.more")}
+            </button>
+          </>
+        )}
+      </p>
+      <TranslateText text={text} className="mt-1" />
+    </>
   );
 }

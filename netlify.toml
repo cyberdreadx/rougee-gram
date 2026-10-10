@@ -44,6 +44,10 @@
   # Share-counter Worker (per-post share tally). See workers/shares.
   VITE_SHARES_WORKER_URL = "https://rougee-shares.rougee.workers.dev"
 
+  # Translation Worker (Workers AI — translate posts to the viewer's language).
+  # See workers/translate.
+  VITE_TRANSLATE_WORKER_URL = "https://rougee-translate.rougee.workers.dev"
+
   # Promote Worker (watch-to-earn ads / boosted posts). See workers/promote.
   VITE_PROMOTE_WORKER_URL = "https://rougee-promote.rougee.workers.dev"
 
