@@ -4,7 +4,8 @@ import { Globe, ExternalLink, Heart, Repeat2, MessageCircle, Send, Bookmark } fr
 import type { FeedPost } from "@/lib/nostrFeed";
 import { timeAgo, shortAddress } from "@/lib/format";
 import { useAuth } from "@/store/auth";
-import { useActed, useNoteThread } from "@/hooks/useNostrFeed";
+import { useActed, useNoteThread, useNostrSocial } from "@/hooks/useNostrFeed";
+import { setFollow, setBookmark } from "@/lib/nostrSocial";
 import { useMyProfile } from "@/hooks/useProfile";
 import {
   buildReaction,
@@ -34,6 +35,8 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   const acted = useActed()[post.id];
   const isSaved = useIsSaved(post.id);
   const toggleSave = useToggleSave();
+  const { follows } = useNostrSocial();
+  const [followBusy, setFollowBusy] = useState(false);
   const [brokenAvatar, setBrokenAvatar] = useState(false);
   const [busy, setBusy] = useState<null | "like" | "repost">(null);
   const [showComments, setShowComments] = useState(false);
@@ -100,8 +103,20 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
     }
   };
 
+  const onSave = () => {
+    const nowSaved = toggleSave(post.id); // local Saved collection
+    setBookmark(owner, eventId, nowSaved).catch(() => {}); // + portable NIP-51 bookmark
+  };
+  const onFollow = async () => {
+    if (!n) return;
+    setFollowBusy(true);
+    await setFollow(owner, n.pubkey, !follows.has(n.pubkey));
+    setFollowBusy(false);
+  };
+
   if (!n) return null;
   const images = n.images.slice(0, 4);
+  const following = follows.has(n.pubkey);
   const videos = n.videos.slice(0, 2);
   const likeCount = Math.max(n.likeCount ?? 0, acted?.liked ? 1 : 0);
   const replyCount = Math.max(n.replyCount ?? 0, replies.length);
@@ -135,6 +150,18 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           </div>
           <div className="text-xs text-ink-muted">{timeAgo(post.created_at)}</div>
         </div>
+        <button
+          onClick={onFollow}
+          disabled={followBusy}
+          className={cn(
+            "shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition disabled:opacity-60",
+            following
+              ? "border border-ink-border text-ink-muted"
+              : "bg-rouge-600 text-white hover:bg-rouge-500",
+          )}
+        >
+          {following ? "Following" : "Follow"}
+        </button>
       </div>
 
       {/* text */}
@@ -217,7 +244,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           {repostCount > 0 && <span className="text-xs">{repostCount}</span>}
         </button>
         <button
-          onClick={() => toggleSave(post.id)}
+          onClick={onSave}
           className={cn("transition-colors hover:text-amber-400", isSaved && "text-amber-400")}
           aria-label={isSaved ? "Remove from saved" : "Save"}
         >

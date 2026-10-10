@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Home, Compass, Search, PlusSquare, Settings, LogOut, Film, Heart, Send } from "lucide-react";
@@ -167,12 +167,44 @@ function RightRail() {
   );
 }
 
+/** Hide the mobile chrome while scrolling down, reveal it when scrolling up. */
+function useHideOnScroll(threshold = 8): boolean {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let lastY = window.scrollY;
+    let ticking = false;
+    const update = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - lastY) > threshold) {
+        setHidden(y > lastY && y > 64); // down (past a bit) hides; up reveals
+        lastY = y;
+      }
+      ticking = false;
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [threshold]);
+  return hidden;
+}
+
 function MobileTopBar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const unread = useUnreadCount();
+  const hidden = useHideOnScroll();
   return (
-    <header className="glass-soft sticky top-0 z-30 flex h-[var(--top-bar-h)] items-center justify-between border-b px-4 md:hidden">
+    <header
+      className={cn(
+        "glass-soft sticky top-0 z-30 flex h-[var(--top-bar-h)] items-center justify-between border-b px-4 transition-transform duration-300 md:hidden",
+        hidden ? "-translate-y-full" : "translate-y-0",
+      )}
+    >
       <Logo size={28} withWordmark />
       <div className="flex items-center gap-1">
         <button
@@ -204,9 +236,15 @@ function MobileBottomNav() {
   const { address } = useAuth();
   const { open } = useCreatePost();
   const profile = useMyProfile();
+  const hidden = useHideOnScroll();
 
   return (
-    <nav className="glass-soft fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t px-2 pt-2.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] md:hidden">
+    <nav
+      className={cn(
+        "glass-soft fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t px-2 pt-2.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] transition-transform duration-300 md:hidden",
+        hidden ? "translate-y-full" : "translate-y-0",
+      )}
+    >
       {/* Home fills solid when active — Instagram's signature tab behavior. */}
       <BottomLink to="/" end icon={Home} label={t("nav.home")} fillOnActive />
       <BottomLink to="/explore" icon={Search} label={t("nav.explore")} />

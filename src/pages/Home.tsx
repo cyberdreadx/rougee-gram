@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/store/auth";
+import { loadNostrLists } from "@/lib/nostrSocial";
 import { Link } from "react-router-dom";
 import { Compass, Camera, ArrowUp } from "lucide-react";
 import { useFollowingFeed } from "@/hooks/useSocial";
@@ -40,6 +42,12 @@ export default function Home() {
   const following = useFollowingFeed();
   const discover = useDiscoverFeed(topic);
   const { open } = useCreatePost();
+  const { address } = useAuth();
+
+  // Load the viewer's Nostr follows / mutes / bookmarks once, for the cards.
+  useEffect(() => {
+    loadNostrLists(address || "anon");
+  }, [address]);
 
   const active = tab === "following" ? following : discover;
 
