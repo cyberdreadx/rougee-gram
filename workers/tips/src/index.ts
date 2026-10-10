@@ -15,7 +15,7 @@
  * transfer carries no memo/post reference. Amounts and senders are still
  * chain-truth — we never trust a client-reported amount.
  */
-import { RougeChain } from "@rougechain/sdk";
+import { RougeChain, pubkeyToAddress } from "@rougechain/sdk";
 
 export interface Env {
   TIPS: KVNamespace;
@@ -92,7 +92,18 @@ async function resolveToPubkey(nodeApi: string, input: string): Promise<string |
   }
 }
 
-/** Whether a transfer recipient (address or pubkey) is the given post author. */
+/** Whether a transfer recipient (address or pubkey) is the given post author.
+ *
+ * Matched from both directions so a tip verifies even when the recipient's
+ * rouge1 address hasn't been indexed yet (a new/quiet wallet is unresolvable
+ * address→pubkey until it has its own on-chain activity):
+ *   1. recipient is already the raw author pubkey;
+ *   2. address→pubkey via the on-chain index (works once indexed);
+ *   3. pubkey→address derived deterministically from the author's pubkey
+ *      (bech32m(SHA-256(pubkey)), no index needed) and compared to the
+ *      recipient address. The author side is always derivable, so this catches
+ *      exactly the case where (2) fails for an unindexed recipient.
+ */
 async function recipientIsAuthor(
   nodeApi: string,
   recipient: string,
@@ -100,7 +111,16 @@ async function recipientIsAuthor(
 ): Promise<boolean> {
   if (recipient === authorPubkey) return true; // already a raw pubkey
   const resolved = await resolveToPubkey(nodeApi, recipient);
-  return resolved === authorPubkey;
+  if (resolved && resolved === authorPubkey) return true;
+  // Derive the author's address from their pubkey and compare directly — this
+  // needs no index, so it works even for a brand-new recipient address.
+  try {
+    const authorAddr = await pubkeyToAddress(authorPubkey);
+    if (authorAddr && authorAddr.toLowerCase() === recipient.toLowerCase()) return true;
+  } catch {
+    /* derivation unavailable — fall through */
+  }
+  return false;
 }
 
 interface StoredTip {
