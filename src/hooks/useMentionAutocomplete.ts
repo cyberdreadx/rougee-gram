@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/store/auth";
 import { rc } from "@/lib/rouge";
-import { reverseUsername } from "@/lib/username";
-import { searchUsers } from "@/lib/directory";
+import { reverseUsername, resolveUsername } from "@/lib/username";
+import { searchUsers, indexUsername } from "@/lib/directory";
 
 export interface MentionSuggestion {
   handle: string;
@@ -120,10 +120,21 @@ export function useMentionAutocomplete(value: string, onChange: (v: string) => v
       setSuggestions(local);
       // Then search the directory (everyone), debounced; merge when it returns.
       timer.current = setTimeout(async () => {
-        const results = await searchUsers(partial, 8);
+        let results = await searchUsers(partial, 8);
         if (partialRef.current !== partial) return; // stale — user typed on
+        // Self-heal: if the directory doesn't know this yet but it's a full valid
+        // handle, resolve it exactly and index it so it shows now + populates for
+        // prefix search next time.
+        if (results.length === 0 && partial.length >= 3) {
+          const owner = await resolveUsername(partial).catch(() => null);
+          if (partialRef.current !== partial) return;
+          if (owner?.pubkey) {
+            results = [{ handle: partial, pubkey: owner.pubkey }];
+            indexUsername(partial);
+          }
+        }
         setSuggestions(merge(local, results));
-      }, 220);
+      }, 200);
     },
     [candidates],
   );
