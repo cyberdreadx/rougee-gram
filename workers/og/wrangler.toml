@@ -1,0 +1,27 @@
+# Cloudflare Worker: RouGee per-post Open Graph image.
+#
+# Renders a 1200x630 share card for /p/:postId — the post's photo BLURRED
+# (SVG Gaussian blur, applied by resvg so the real image never leaks even if
+# image-resizing is off) under a "Make a RouGee account to view this photo"
+# call-to-action. The Netlify edge function points og:image here.
+#
+# Deploy:
+#   npx wrangler deploy --config workers/og/wrangler.toml
+name = "rougee-og"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+# Bundle the TTF as a Data module (import -> ArrayBuffer). .wasm is handled by
+# wrangler's built-in rule (import -> WebAssembly.Module).
+[[rules]]
+type = "Data"
+globs = ["**/*.ttf"]
+fallthrough = true
+
+[vars]
+NODE_TESTNET = "https://testnet.rougechain.io/api"
+NODE_MAINNET = "https://api.rougechain.io/api"
+# Media Worker base (matches the app's VITE_CF_WORKER_URL); cf:<key> -> <base>/f/<key>
+CF_MEDIA = "https://rougee-gram-media.rougee.workers.dev"
+IPFS_GATEWAY = "https://ipfs.io/ipfs/"

@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260915.1",
+    "@resvg/resvg-wasm": "^2.6.2",
     "@types/node": "^20.19.43",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
