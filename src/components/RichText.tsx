@@ -1,10 +1,14 @@
 import { Link } from "react-router-dom";
 import { HASHTAG_RE } from "@/lib/discover";
 
+/** http(s) URLs. Global + capturing so String.split keeps them as segments. */
+const URL_RE = /(https?:\/\/[^\s<]+[^\s<.,!?)\]}'"])/g;
+
 /**
- * Renders post text with #hashtags linkified to their tag page. Splitting on a
- * capturing regex keeps the tags as their own segments. Non-tag text is emitted
- * verbatim (whitespace/newlines preserved by the caller's `whitespace-pre-wrap`).
+ * Renders post text with #hashtags linkified to their tag page and http(s)
+ * URLs turned into clickable external links. Splitting on capturing regexes
+ * keeps the matches as their own segments; non-match text is emitted verbatim
+ * (whitespace/newlines preserved by the caller's `whitespace-pre-wrap`).
  */
 export default function RichText({ text }: { text: string }) {
   const parts = text.split(HASHTAG_RE);
@@ -24,7 +28,33 @@ export default function RichText({ text }: { text: string }) {
             </Link>
           );
         }
-        return <span key={i}>{part}</span>;
+        return <Linkified key={i} text={part} />;
+      })}
+    </>
+  );
+}
+
+/** Splits a plain-text run on URLs and renders them as external links. */
+function Linkified({ text }: { text: string }) {
+  const segs = text.split(URL_RE);
+  return (
+    <>
+      {segs.map((seg, i) => {
+        if (/^https?:\/\//.test(seg)) {
+          return (
+            <a
+              key={i}
+              href={seg}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-rouge-400 hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {seg.replace(/^https?:\/\//, "")}
+            </a>
+          );
+        }
+        return <span key={i}>{seg}</span>;
       })}
     </>
   );

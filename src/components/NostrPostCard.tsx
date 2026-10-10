@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Globe, ExternalLink, Heart, Repeat2, MessageCircle, Send, Bookmark } from "lucide-react";
+import { Globe, ExternalLink, Heart, Repeat2, MessageCircle, Send, Bookmark, X } from "lucide-react";
 import type { FeedPost } from "@/lib/nostrFeed";
 import { timeAgo, shortAddress } from "@/lib/format";
 import { useAuth } from "@/store/auth";
@@ -42,11 +42,26 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [sending, setSending] = useState(false);
+  const [brokenImgs, setBrokenImgs] = useState<Set<string>>(new Set());
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [optimistic, setOptimistic] = useState<
+    { id: string; pubkey: string; content: string; created_at: number; realId?: string }[]
+  >([]);
 
   const n = post.nostr;
   const owner = address || "anon";
   const eventId = eventIdOf(post.id);
   const { replies, profiles: replyProfiles } = useNoteThread(eventId, showComments);
+
+  // Replies + your just-sent (optimistic) ones, deduped once the relay echoes them back.
+  const threadReplies = useMemo(() => {
+    const realIds = new Set(replies.map((r) => r.id));
+    const opt = optimistic.filter((o) => !o.realId || !realIds.has(o.realId));
+    return [
+      ...replies.map((r) => ({ id: r.id, pubkey: r.pubkey, content: r.content, created_at: r.created_at })),
+      ...opt,
+    ].sort((a, b) => a.created_at - b.created_at);
+  }, [replies, optimistic]);
 
   // Populate the viewer's Nostr identity from their rougee profile on first use.
   // Resolving the avatar must never throw — it would otherwise block the action.
@@ -93,11 +108,18 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
     const text = commentText.trim();
     if (!n || !text || sending) return;
     setSending(true);
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    // Optimistic: show it immediately as "You".
+    setOptimistic((prev) => [
+      ...prev,
+      { id: tempId, pubkey: "", content: text, created_at: Math.floor(Date.now() / 1000) },
+    ]);
+    setCommentText("");
     try {
-      await publishEvent(owner, buildReply({ id: eventId, pubkey: n.pubkey }, text), await buildMeta());
-      setCommentText(""); // the thread subscription surfaces it once relays echo it back
+      const ev = await publishEvent(owner, buildReply({ id: eventId, pubkey: n.pubkey }, text), await buildMeta());
+      setOptimistic((prev) => prev.map((o) => (o.id === tempId ? { ...o, realId: ev.id } : o)));
     } catch {
-      /* relay rejected */
+      setOptimistic((prev) => prev.filter((o) => o.id !== tempId)); // failed → drop it
     } finally {
       setSending(false);
     }
@@ -115,11 +137,11 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   };
 
   if (!n) return null;
-  const images = n.images.slice(0, 4);
+  const images = n.images.slice(0, 4).filter((u) => !brokenImgs.has(u)); // drop ones that 404 / aren't images
   const following = follows.has(n.pubkey);
   const videos = n.videos.slice(0, 2);
   const likeCount = Math.max(n.likeCount ?? 0, acted?.liked ? 1 : 0);
-  const replyCount = Math.max(n.replyCount ?? 0, replies.length);
+  const replyCount = Math.max(n.replyCount ?? 0, threadReplies.length);
   const repostCount = Math.max(n.repostCount ?? 0, acted?.reposted ? 1 : 0);
 
   return (
@@ -197,8 +219,10 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
               src={url}
               alt=""
               loading="lazy"
+              onClick={() => setLightbox(url)}
+              onError={() => setBrokenImgs((prev) => new Set(prev).add(url))}
               className={
-                "w-full object-cover " +
+                "w-full cursor-zoom-in object-cover " +
                 (images.length === 1 ? "max-h-[70vh]" : "aspect-square")
               }
             />
@@ -263,31 +287,42 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
       {/* comments (Nostr replies) */}
       {showComments && (
         <div className="mt-3 border-t border-ink-border pt-3">
-          {replies.length === 0 ? (
+          {threadReplies.length === 0 ? (
             <p className="text-xs text-ink-muted">No comments yet — be the first.</p>
           ) : (
             <div className="flex flex-col gap-3">
-              {replies.map((rep) => {
-                const rp = replyProfiles.get(rep.pubkey);
-                const rname = rp?.name?.trim() || shortNpub(rep.pubkey);
+              {threadReplies.map((rep) => {
+                const mine = !rep.pubkey; // optimistic / your just-sent reply
+                const rp = mine ? undefined : replyProfiles.get(rep.pubkey);
+                const rname = mine ? "You" : rp?.name?.trim() || shortNpub(rep.pubkey);
                 return (
                   <div key={rep.id} className="flex gap-2.5 text-sm">
-                    <Link to={`/nostr/${rep.pubkey}`} className="shrink-0">
-                      {rp?.picture ? (
-                        <img
-                          src={rp.picture}
-                          alt=""
-                          loading="lazy"
-                          className="h-7 w-7 rounded-full object-cover"
-                        />
-                      ) : (
-                        <Avatar seed={rep.pubkey} name={rname} size={28} />
-                      )}
-                    </Link>
+                    {mine ? (
+                      <div className="shrink-0">
+                        <Avatar seed="you" name="You" size={28} />
+                      </div>
+                    ) : (
+                      <Link to={`/nostr/${rep.pubkey}`} className="shrink-0">
+                        {rp?.picture ? (
+                          <img
+                            src={rp.picture}
+                            alt=""
+                            loading="lazy"
+                            className="h-7 w-7 rounded-full object-cover"
+                          />
+                        ) : (
+                          <Avatar seed={rep.pubkey} name={rname} size={28} />
+                        )}
+                      </Link>
+                    )}
                     <div className="min-w-0 flex-1">
-                      <Link to={`/nostr/${rep.pubkey}`} className="font-semibold hover:underline">
-                        {rname}
-                      </Link>{" "}
+                      {mine ? (
+                        <span className="font-semibold">You</span>
+                      ) : (
+                        <Link to={`/nostr/${rep.pubkey}`} className="font-semibold hover:underline">
+                          {rname}
+                        </Link>
+                      )}{" "}
                       <span className="whitespace-pre-wrap break-words">
                         <RichText text={rep.content} />
                       </span>
@@ -318,6 +353,30 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
               <Send className="h-4 w-4" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* tap-to-expand lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setLightbox(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <img
+            src={lightbox}
+            alt=""
+            className="max-h-[92vh] max-w-full rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
       )}
     </article>
