@@ -13,6 +13,7 @@ import { shortAddress } from "@/lib/format";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useUnreadCount } from "@/hooks/useMessenger";
 import { useNostrNotifications } from "@/hooks/useNostrFeed";
+import { useMentions } from "@/hooks/useMentions";
 import { startNostrNotifications } from "@/lib/nostrNotifications";
 import { DMS_ENABLED } from "@/lib/features";
 
@@ -59,6 +60,7 @@ function DesktopSidebar() {
   const profile = useMyProfile();
   const unread = useUnreadCount();
   const { unread: notifUnread } = useNostrNotifications();
+  const { unread: mentionUnread } = useMentions();
 
   return (
     <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col gap-1 p-4 md:flex">
@@ -75,7 +77,7 @@ function DesktopSidebar() {
         <PlusSquare className="h-6 w-6" />
         {t("nav.create")}
       </button>
-      <SideLink to="/activity" label={t("nav.activity")} icon={Heart} end={false} badge={notifUnread} />
+      <SideLink to="/activity" label={t("nav.activity")} icon={Heart} end={false} badge={notifUnread + mentionUnread} />
       {DMS_ENABLED && (
         <SideLink to="/messages" label={t("nav.messages")} icon={Send} end={false} badge={unread} />
       )}
@@ -206,6 +208,7 @@ function MobileTopBar() {
   const navigate = useNavigate();
   const unread = useUnreadCount();
   const { unread: notifUnread } = useNostrNotifications();
+  const { unread: mentionUnread } = useMentions();
   return (
     <header className="glass-soft sticky top-0 z-30 flex h-[var(--top-bar-h)] items-center justify-between border-b px-4 md:hidden">
       <Logo size={28} withWordmark />
@@ -216,7 +219,7 @@ function MobileTopBar() {
           aria-label={t("nav.activity")}
         >
           <Heart className="h-6 w-6" />
-          {notifUnread > 0 && (
+          {notifUnread + mentionUnread > 0 && (
             <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-rouge-500 ring-2 ring-ink" />
           )}
         </button>

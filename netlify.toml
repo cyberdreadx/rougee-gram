@@ -48,6 +48,9 @@
   # See workers/translate.
   VITE_TRANSLATE_WORKER_URL = "https://rougee-translate.rougee.workers.dev"
 
+  # Mentions Worker ("@handle mentioned you", chain-verified). See workers/mentions.
+  VITE_MENTIONS_WORKER_URL = "https://rougee-mentions.rougee.workers.dev"
+
   # Promote Worker (watch-to-earn ads / boosted posts). See workers/promote.
   VITE_PROMOTE_WORKER_URL = "https://rougee-promote.rougee.workers.dev"
 

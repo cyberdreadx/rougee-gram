@@ -27,6 +27,7 @@ import {
 import { useAuth } from "@/store/auth";
 import { useMyProfile } from "@/hooks/useProfile";
 import { mirrorPostToNostr, getMirrorPref, setMirrorPref } from "@/lib/nostrMirror";
+import { recordMentions, extractMentions } from "@/lib/mentions";
 import Avatar from "./Avatar";
 import { useToast } from "./Toast";
 import Modal from "./Modal";
@@ -518,6 +519,8 @@ function CreatePostDialog({
       }
     }
     invalidateFeeds(client, publicKey);
+    // Notify any @mentioned users (chain-verified server-side; best-effort).
+    if (rootId) recordMentions(rootId, extractMentions(parts.join("\n\n")));
     if (mirror) {
       mirrorPostToNostr(address || "anon", parts.join("\n\n"), { name: myProfile?.name }).catch(() => {});
     }
@@ -537,6 +540,12 @@ function CreatePostDialog({
     }
     if (!res.success) throw new Error(res.error || t("create.postFailed"));
     invalidateFeeds(client, publicKey);
+
+    // Notify any @mentioned users (chain-verified server-side; best-effort).
+    if (!isAd && !isStory) {
+      const newId = write.newPostId(res);
+      if (newId) recordMentions(newId, extractMentions(body));
+    }
 
     // Opt-in: broadcast a copy to Nostr (skip ads + ephemeral stories).
     if (!isAd && !isStory && mirror) {

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Loader2, Heart, Users, Grid3x3, MessageCircle, Repeat2, Globe, Coins } from "lucide-react";
+import { Loader2, Heart, Users, Grid3x3, MessageCircle, Repeat2, Globe, AtSign, Coins } from "lucide-react";
 import {
   useActivity,
   type ActivityComment,
@@ -9,7 +9,9 @@ import {
 } from "@/hooks/useSocial";
 import { useProfile } from "@/hooks/useProfile";
 import { useNostrNotifications } from "@/hooks/useNostrFeed";
+import { useMentions } from "@/hooks/useMentions";
 import { markNotificationsRead, type NostrNotification } from "@/lib/nostrNotifications";
+import { type Mention } from "@/lib/mentions";
 import { shortNpub } from "@/lib/nostrAuth";
 import { decodeBody } from "@/lib/envelope";
 import { timeAgo, formatCount } from "@/lib/format";
@@ -21,11 +23,15 @@ export default function Activity() {
   const { t } = useTranslation();
   const { data, isLoading, isError } = useActivity();
   const { items: notifs } = useNostrNotifications();
+  const { items: mentions, markRead: markMentionsRead } = useMentions();
 
-  // Opening Activity clears the unread badge.
+  // Opening Activity clears the unread badges.
   useEffect(() => {
     markNotificationsRead();
   }, [notifs.length]);
+  useEffect(() => {
+    markMentionsRead();
+  }, [mentions.length, markMentionsRead]);
 
   return (
     <div>
@@ -42,6 +48,19 @@ export default function Activity() {
           <div className="divide-y divide-ink-border/60">
             {notifs.map((n) => (
               <NostrNotifRow key={n.id} item={n} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {mentions.length > 0 && (
+        <>
+          <h2 className="flex items-center gap-1.5 px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+            <AtSign className="h-3.5 w-3.5" /> Mentions
+          </h2>
+          <div className="divide-y divide-ink-border/60">
+            {mentions.map((m) => (
+              <MentionRow key={m.postId} item={m} />
             ))}
           </div>
         </>
@@ -185,6 +204,30 @@ function NostrNotifRow({ item }: { item: NostrNotification }) {
           {item.content ? <span className="text-ink-muted"> {item.content}</span> : null}
         </p>
         <span className="text-xs text-ink-muted">{timeAgo(item.created_at)}</span>
+      </div>
+    </Link>
+  );
+}
+
+function MentionRow({ item }: { item: Mention }) {
+  const { data: profile } = useProfile(item.from);
+  return (
+    <Link
+      to={`/p/${item.postId}`}
+      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
+    >
+      <div className="relative shrink-0">
+        <Avatar refUri={profile?.avatarRef} seed={item.from} name={profile?.name} size={38} />
+        <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-ink p-0.5">
+          <AtSign className="h-3.5 w-3.5 text-rouge-400" />
+        </span>
+      </div>
+      <div className="min-w-0 flex-1 leading-snug">
+        <p className="truncate text-sm">
+          <UserLink pubkey={item.from} className="font-semibold" />{" "}
+          <span className="text-ink-muted">mentioned you in a post</span>
+        </p>
+        <span className="text-xs text-ink-muted">{timeAgo(item.at)}</span>
       </div>
     </Link>
   );

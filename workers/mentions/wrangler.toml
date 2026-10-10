@@ -1,0 +1,26 @@
+# Cloudflare Worker: RouGee mentions ("@handle mentioned you").
+#
+# On-chain posts carry no mention index, so it lives off-chain here. POST /mention
+# records that a post mentions some handles — VERIFIED against the chain (the
+# Worker fetches the post and only records handles that actually appear as
+# @handle in its body), so mentions can't be faked. GET /mentions lists the
+# posts that mention a handle.
+#
+# Setup:
+#   npx wrangler kv namespace create MENTIONS
+#     -> put the returned id below under [[kv_namespaces]]
+#   npx wrangler deploy --config workers/mentions/wrangler.toml
+#   # then set VITE_MENTIONS_WORKER_URL to the deployed URL (netlify.toml / .env).
+name = "rougee-mentions"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "MENTIONS"
+id = "b0d832650b0b4995b16cbc725b7222f4"
+
+[vars]
+NODE_TESTNET = "https://testnet.rougechain.io/api"
+NODE_MAINNET = "https://api.rougechain.io/api"
+ALLOW_ORIGIN = "*"
