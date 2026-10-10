@@ -29,6 +29,7 @@ import { useMyProfile } from "@/hooks/useProfile";
 import { mirrorPostToNostr, getMirrorPref, setMirrorPref } from "@/lib/nostrMirror";
 import { recordMentions, extractMentions } from "@/lib/mentions";
 import MentionCaption from "./MentionCaption";
+import { usePrefetchMentionCandidates } from "@/hooks/useMentionAutocomplete";
 import Avatar from "./Avatar";
 import { useToast } from "./Toast";
 import Modal from "./Modal";
@@ -141,6 +142,7 @@ function CreatePostDialog({
   const [vinfo, setVinfo] = useState<ProcessedVideo | null>(null);
   const [processing, setProcessing] = useState(false);
   const [caption, setCaption] = useState("");
+  usePrefetchMentionCandidates(); // warm @mention suggestions from who you follow
   const [hideLikes, setHideLikes] = useState(false);
   const [noComments, setNoComments] = useState(false);
   const [noMediaComments, setNoMediaComments] = useState(false);

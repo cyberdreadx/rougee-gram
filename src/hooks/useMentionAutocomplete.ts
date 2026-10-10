@@ -1,9 +1,57 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/store/auth";
+import { rc } from "@/lib/rouge";
+import { reverseUsername } from "@/lib/username";
 
 export interface MentionSuggestion {
   handle: string;
   pubkey: string;
+}
+
+/**
+ * Warm the @mention candidate pool: resolve handles for the people the viewer
+ * follows into the react-query username cache (the same cache the autocomplete
+ * reads). The node has no username prefix-search, so "people you follow" is the
+ * practical pool. Runs once per session (prefetchQuery respects staleTime), and
+ * is throttled so it doesn't burst the node.
+ */
+export function usePrefetchMentionCandidates() {
+  const { publicKey } = useAuth();
+  const client = useQueryClient();
+  useEffect(() => {
+    if (!publicKey) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const following: string[] = await client.fetchQuery({
+          queryKey: ["following", publicKey],
+          queryFn: () => rc().social.getUserFollowing(publicKey),
+          staleTime: 5 * 60_000,
+        });
+        const pubkeys = following.slice(0, 200);
+        let i = 0;
+        const worker = async () => {
+          while (!cancelled && i < pubkeys.length) {
+            const pk = pubkeys[i++];
+            await client
+              .prefetchQuery({
+                queryKey: ["username", pk],
+                queryFn: () => reverseUsername(pk),
+                staleTime: 5 * 60_000,
+              })
+              .catch(() => {});
+          }
+        };
+        await Promise.all(Array.from({ length: 6 }, worker)); // 6-way concurrency
+      } catch {
+        /* no following / offline — autocomplete just stays sparse */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [publicKey, client]);
 }
 
 /**

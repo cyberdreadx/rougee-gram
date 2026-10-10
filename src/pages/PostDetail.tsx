@@ -30,7 +30,7 @@ import {
 } from "@/lib/envelope";
 import { processImage } from "@/lib/image";
 import { putImage } from "@/lib/media";
-import { useMentionAutocomplete } from "@/hooks/useMentionAutocomplete";
+import { useMentionAutocomplete, usePrefetchMentionCandidates } from "@/hooks/useMentionAutocomplete";
 import { cn } from "@/lib/utils";
 import type { SocialPost } from "@rougechain/sdk";
 
@@ -246,6 +246,7 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
   const fileRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const mentions = useMentionAutocomplete(text, setText);
+  usePrefetchMentionCandidates(); // warm @mention suggestions from who you follow
 
   const hasMedia = Boolean(img || gif);
   const canSend = (text.trim() || hasMedia) && !add.isPending && !uploading;
