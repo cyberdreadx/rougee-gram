@@ -60,6 +60,44 @@ export async function resolveTxId(res: unknown, senderPubkey: string): Promise<s
   return null;
 }
 
+// Known RougeChain chain ids, used only as a fallback when the node's
+// `/api/health` can't be reached. The node is always the source of truth.
+const KNOWN_CHAIN_IDS: Record<string, string> = {
+  "https://api.rougechain.io/api": "rougechain-mainnet-1",
+  "https://testnet.rougechain.io/api": "rougechain-devnet-1",
+};
+
+const chainIdCache = new Map<string, string>();
+
+/**
+ * The chain id of the currently-configured network (e.g. "rougechain-mainnet-1").
+ *
+ * A signed payload that carries its `chainId` is bound to one network — Qwalla
+ * (and the node) warn when it's missing, since the signature isn't tied to any
+ * chain. The authoritative value is the node's `GET /api/health` → `chain_id`;
+ * we cache it per API URL. Falls back to the known mainnet/testnet ids, then to
+ * null (sign without a chainId — the pre-binding behavior the node still
+ * accepts). We never guess: a wrong chainId makes the node reject the tx.
+ */
+export async function getChainId(): Promise<string | null> {
+  const base = getConfig().apiUrl.replace(/\/+$/, "");
+  const cached = chainIdCache.get(base);
+  if (cached) return cached;
+  try {
+    const res = await fetch(`${base}/health`);
+    if (res.ok) {
+      const d = (await res.json()) as { chain_id?: unknown };
+      if (typeof d.chain_id === "string" && d.chain_id) {
+        chainIdCache.set(base, d.chain_id);
+        return d.chain_id;
+      }
+    }
+  } catch {
+    /* node unreachable — fall back to a known id if we have one */
+  }
+  return KNOWN_CHAIN_IDS[base] ?? null;
+}
+
 /** Request testnet tokens. Safe to call repeatedly; ignores "already funded". */
 export async function requestFaucet(wallet: WalletKeys): Promise<boolean> {
   try {

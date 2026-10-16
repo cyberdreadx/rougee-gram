@@ -7,7 +7,7 @@
  * response parsing matches the rest of the app. Adapted from qRougee.
  */
 import type { SignedTransaction } from "@rougechain/sdk";
-import { rc } from "./rouge";
+import { rc, getChainId } from "./rouge";
 
 interface Payload {
   [key: string]: unknown;
@@ -126,9 +126,13 @@ async function signAndSubmit(
 ) {
   const provider = getProvider();
   if (!provider) throw new Error("RougeChain extension not available.");
+  // Bind the signature to the active network: a payload carrying its `chainId`
+  // is valid on that one chain only (Qwalla warns on a payload with none).
+  const chainId = await getChainId();
   const payload: Payload = {
     ...fields,
     from: publicKey,
+    ...(chainId ? { chainId } : {}),
     timestamp: Date.now(),
     nonce: nonce(),
   };
@@ -223,7 +227,14 @@ export async function signPayload(
 ): Promise<SignedTransaction> {
   const provider = getProvider();
   if (!provider) throw new Error("RougeChain wallet not available.");
-  const payload: Payload = { ...fields, from: publicKey, timestamp: Date.now(), nonce: nonce() };
+  const chainId = await getChainId();
+  const payload: Payload = {
+    ...fields,
+    from: publicKey,
+    ...(chainId ? { chainId } : {}),
+    timestamp: Date.now(),
+    nonce: nonce(),
+  };
   const result = await provider.signTransaction(payload);
   if (!result?.signature) throw new Error("Wallet did not return a signature.");
   return {
@@ -242,7 +253,14 @@ async function signAndPost(
 ): Promise<Record<string, unknown>> {
   const provider = getProvider();
   if (!provider) throw new Error("RougeChain wallet not available.");
-  const payload: Payload = { ...fields, from: publicKey, timestamp: Date.now(), nonce: nonce() };
+  const chainId = await getChainId();
+  const payload: Payload = {
+    ...fields,
+    from: publicKey,
+    ...(chainId ? { chainId } : {}),
+    timestamp: Date.now(),
+    nonce: nonce(),
+  };
   // NOTE: these are read requests, but they're signed via the normal (prompting)
   // signTransaction path on purpose. A "silent read-signing" shortcut is UNSAFE
   // with the current node: read and destructive payloads are byte-identical

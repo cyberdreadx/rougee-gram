@@ -16,10 +16,15 @@ interface Gif {
   id: string;
   preview: string;
   full: string;
+  /** Intrinsic size of the full GIF, so a post can reserve its aspect ratio. */
+  w?: number;
+  h?: number;
 }
 
 interface GiphyImage {
   url?: string;
+  width?: string;
+  height?: string;
 }
 interface GiphyItem {
   id: string;
@@ -34,7 +39,7 @@ export default function GifPicker({
   onSelect,
   onClose,
 }: {
-  onSelect: (url: string) => void;
+  onSelect: (url: string, dims?: { w: number; h: number }) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -56,11 +61,18 @@ export default function GifPicker({
         if (!res.ok) throw new Error("bad response");
         const data = (await res.json()) as { data?: GiphyItem[] };
         if (!active) return;
-        const items: Gif[] = (data.data ?? []).map((g) => ({
-          id: g.id,
-          preview: g.images?.fixed_width_small?.url || g.images?.fixed_width?.url || "",
-          full: g.images?.original?.url || "",
-        }));
+        const items: Gif[] = (data.data ?? []).map((g) => {
+          const orig = g.images?.original;
+          const w = orig?.width ? parseInt(orig.width, 10) : undefined;
+          const h = orig?.height ? parseInt(orig.height, 10) : undefined;
+          return {
+            id: g.id,
+            preview: g.images?.fixed_width_small?.url || g.images?.fixed_width?.url || "",
+            full: orig?.url || "",
+            w: w && Number.isFinite(w) ? w : undefined,
+            h: h && Number.isFinite(h) ? h : undefined,
+          };
+        });
         setGifs(items.filter((g) => g.full));
         if (items.length === 0 && q.trim()) setError(t("gif.noResults"));
       } catch {
@@ -104,7 +116,7 @@ export default function GifPicker({
               <button
                 key={g.id}
                 onClick={() => {
-                  onSelect(g.full);
+                  onSelect(g.full, g.w && g.h ? { w: g.w, h: g.h } : undefined);
                   onClose();
                 }}
                 className="block w-full overflow-hidden rounded-lg bg-ink-soft"

@@ -62,6 +62,25 @@ export async function processImage(
   return { blob, width: dw, height: dh, mime };
 }
 
+/**
+ * Read an image's intrinsic pixel size without re-encoding it — used for
+ * animated GIFs, which we upload as-is (canvas re-encoding would flatten the
+ * animation to a single frame). Returns null if the size can't be read.
+ */
+export async function readImageSize(
+  file: File | Blob,
+): Promise<{ w: number; h: number } | null> {
+  try {
+    const bitmap = await loadBitmap(file);
+    const w = bitmap.width;
+    const h = bitmap.height;
+    if ("close" in bitmap) (bitmap as ImageBitmap).close?.();
+    return w && h ? { w, h } : null;
+  } catch {
+    return null;
+  }
+}
+
 async function loadBitmap(file: File | Blob): Promise<ImageBitmap | HTMLImageElement> {
   if ("createImageBitmap" in window) {
     try {

@@ -23,6 +23,7 @@ import {
   Plus,
   Trash2,
   Rocket,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useMyProfile } from "@/hooks/useProfile";
@@ -33,7 +34,8 @@ import { usePrefetchMentionCandidates } from "@/hooks/useMentionAutocomplete";
 import Avatar from "./Avatar";
 import { useToast } from "./Toast";
 import Modal from "./Modal";
-import { processImage } from "@/lib/image";
+import { processImage, readImageSize } from "@/lib/image";
+import GifPicker from "./GifPicker";
 import {
   processVideo,
   isVideoFile,
@@ -136,6 +138,14 @@ function CreatePostDialog({
   const [moreUrls, setMoreUrls] = useState<string[]>([]);
   const [square, setSquare] = useState(false);
   const [isReel, setIsReel] = useState(false);
+  // GIF-as-post state. Two sources, both posted as an animated photo envelope:
+  //  • gifPick    — a GIPHY URL chosen from the picker (no upload; GIPHY hosts it)
+  //  • a .gif file — kept in `file` with `isGifFile` set, uploaded raw (NOT run
+  //    through processImage, which canvas-re-encodes and would flatten animation)
+  const [isGifFile, setIsGifFile] = useState(false);
+  const [gifDims, setGifDims] = useState<{ w: number; h: number } | null>(null);
+  const [gifPick, setGifPick] = useState<{ url: string; w?: number; h?: number } | null>(null);
+  const [showGifPicker, setShowGifPicker] = useState(false);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [crop916, setCrop916] = useState(false);
@@ -178,6 +188,8 @@ function CreatePostDialog({
   }
 
   const backend = activeBackend();
+  // Posting an animated GIF: a GIPHY pick (no file) or an uploaded .gif file.
+  const gifMode = !!gifPick || isGifFile;
   const kind = file
     ? isVideoFile(file)
       ? "video"
@@ -207,6 +219,28 @@ function CreatePostDialog({
       setVinfo(null);
       setSquare(false);
       setIsReel(false);
+      setIsGifFile(false);
+      setGifDims(null);
+      setGifPick(null);
+
+      // Animated GIFs post as a photo, but keep their animation: store the raw
+      // file (uploaded as-is later) instead of carousel/processed-image paths.
+      // Stories/reels don't support animated GIFs, so only in regular post mode.
+      if (isImg && first.type === "image/gif" && !isStory && !isReelMode) {
+        setFile(first);
+        setIsGifFile(true);
+        setMoreImages([]);
+        setMoreUrls((prev) => {
+          prev.forEach((u) => URL.revokeObjectURL(u));
+          return [];
+        });
+        setPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(first);
+        });
+        readImageSize(first).then(setGifDims).catch(() => setGifDims(null));
+        return;
+      }
 
       if (isVid) {
         setFile(first);
@@ -283,6 +317,9 @@ function CreatePostDialog({
     setShowSounds(false);
     setSquare(false);
     setIsReel(false);
+    setIsGifFile(false);
+    setGifDims(null);
+    setGifPick(null);
     setTrimStart(0);
     setTrimEnd(0);
     setCrop916(false);
@@ -330,6 +367,45 @@ function CreatePostDialog({
       cta: buildAdCta(),
     });
     await submit(body);
+  }
+
+  /** Post an animated GIF (from the GIPHY picker or an uploaded .gif file) as a
+   *  photo-type post. GIPHY GIFs keep their remote URL as the cid; uploaded GIFs
+   *  are stored raw (no re-encode) so the animation survives. */
+  async function shareGif() {
+    if (!wallet) return;
+    let cid: string;
+    let w: number | undefined;
+    let h: number | undefined;
+    if (gifPick) {
+      cid = gifPick.url;
+      w = gifPick.w;
+      h = gifPick.h;
+    } else if (file) {
+      setStage(uploadStage());
+      const media = await putImage(file, "gif");
+      cid = media.ref;
+      w = gifDims?.w;
+      h = gifDims?.h;
+    } else {
+      return;
+    }
+    setStage(t("create.signingPosting"));
+    await submit(
+      encodePhoto({
+        cid,
+        mime: "image/gif",
+        w,
+        h,
+        cap: caption.trim() || undefined,
+        hl: hideLikes || undefined,
+        nc: noComments || undefined,
+        nmc: noMediaComments || undefined,
+        loc: location.trim() || undefined,
+        ad: isAd || undefined,
+        cta: buildAdCta(),
+      }),
+    );
   }
 
   async function shareVideo() {
@@ -585,10 +661,11 @@ function CreatePostDialog({
 
   async function share() {
     if (!wallet || processing) return;
-    if (!isTextMode && !file) return;
+    if (!isTextMode && !file && !gifPick) return;
     setBusy(true);
     try {
       if (isTextMode) await shareText();
+      else if (gifMode) await shareGif();
       else if (isStory) await shareStory();
       else if (kind === "video") await shareVideo();
       else if (kind === "carousel") await shareCarousel();
@@ -641,11 +718,43 @@ function CreatePostDialog({
           stage={stage}
           onShare={share}
         />
-      ) : !file ? (
-        <DropZone onFiles={pickFiles} onBrowse={() => fileInput.current?.click()} mode={mode} />
+      ) : !file && !gifPick ? (
+        <div className="space-y-3">
+          <DropZone onFiles={pickFiles} onBrowse={() => fileInput.current?.click()} mode={mode} />
+          {mode === "post" && (
+            <button
+              type="button"
+              onClick={() => setShowGifPicker(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-ink-soft py-3 text-sm font-medium text-ink hover:bg-white/5"
+            >
+              <Sparkles className="h-4 w-4 text-rouge-400" />
+              {t("create.chooseGif")}
+            </button>
+          )}
+        </div>
       ) : (
         <div className="space-y-4">
-          {kind === "carousel" ? (
+          {gifMode ? (
+            <div className="relative">
+              <div className="flex max-h-[52vh] items-center justify-center overflow-hidden rounded-xl bg-black">
+                <img
+                  src={gifPick?.url || previewUrl}
+                  alt={t("create.previewAlt")}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <span className="absolute left-2 top-2 rounded-md bg-black/60 px-2 py-1 text-xs font-bold uppercase tracking-wide text-white backdrop-blur">
+                GIF
+              </span>
+              <button
+                onClick={() => reset()}
+                disabled={busy}
+                className="absolute right-2 top-2 rounded-lg bg-black/60 p-2 text-white backdrop-blur hover:bg-black/80"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : kind === "carousel" ? (
             <div className="relative">
               <div className="hide-scrollbar flex gap-2 overflow-x-auto rounded-xl bg-black p-2">
                 {carouselUrls.map((u, i) => (
@@ -786,7 +895,7 @@ function CreatePostDialog({
             </div>
           )}
 
-          {tooBig && (
+          {tooBig && file && (
             <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               {t("create.largeFile", { size: formatBytes(file.size) })}
@@ -1054,6 +1163,24 @@ function CreatePostDialog({
 
       {editing && previewUrl && (
         <PhotoEditor src={previewUrl} onSave={handleEdited} onClose={() => setEditing(false)} />
+      )}
+
+      {showGifPicker && (
+        <GifPicker
+          onSelect={(url, dims) => {
+            // Switch to a GIPHY GIF: drop any pending file selection, keep caption.
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            moreUrls.forEach((u) => URL.revokeObjectURL(u));
+            setFile(null);
+            setPreviewUrl("");
+            setIsGifFile(false);
+            setGifDims(null);
+            setMoreImages([]);
+            setMoreUrls([]);
+            setGifPick({ url, w: dims?.w, h: dims?.h });
+          }}
+          onClose={() => setShowGifPicker(false)}
+        />
       )}
     </Modal>
   );
