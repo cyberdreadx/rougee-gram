@@ -104,11 +104,16 @@ export default function PostCard({ post }: { post: SocialPost }) {
   const cropped = media.crop === "9:16";
   const liked = stats?.liked ?? false;
   // Reserve the media's real aspect ratio so the feed doesn't jump when it loads.
+  // Carousels use one fixed 4:5 frame (Instagram-style): slides have mixed
+  // ratios, so a single portrait-friendly frame + object-contain shows each one
+  // fully (no per-slide zoom/crop) instead of cropping everything to slide 1.
   const aspectRatio = cropped
     ? "9 / 16"
-    : media.w && media.h
-      ? `${media.w} / ${media.h}`
-      : "1 / 1";
+    : isCarousel
+      ? "4 / 5"
+      : media.w && media.h
+        ? `${media.w} / ${media.h}`
+        : "1 / 1";
 
   function triggerLike() {
     if (!liked) {

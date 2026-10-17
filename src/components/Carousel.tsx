@@ -22,7 +22,9 @@ export default function Carousel({ items }: { items: CarouselItem[] }) {
       >
         {items.map((it, i) => (
           <div key={i} className="h-full w-full flex-shrink-0 snap-center">
-            <MediaImage refUri={it.cid} alt="" className="h-full w-full object-cover" />
+            {/* contain (not cover) so a slide whose ratio differs from the 4:5
+                frame shows in full — letterboxed on the black backing, not zoomed. */}
+            <MediaImage refUri={it.cid} alt="" className="h-full w-full object-contain" />
           </div>
         ))}
       </div>
