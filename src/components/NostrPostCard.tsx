@@ -20,6 +20,7 @@ import { useIsSaved, useToggleSave } from "@/hooks/useSaved";
 import { resolveMediaUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import Avatar from "./Avatar";
+import FeedVideo from "./FeedVideo";
 import RichText from "./RichText";
 import TranslateText from "./TranslateText";
 
@@ -197,15 +198,16 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
         </>
       )}
 
-      {/* videos — play inline, in-app */}
+      {/* videos — same in-feed player as RougeChain posts: inline muted autoplay
+          while on screen, tap = mute, double-tap = like, hold = pause. */}
       {videos.map((url) => (
-        <video
+        <NostrVideo
           key={url}
-          src={url}
-          controls
-          playsInline
-          preload="metadata"
-          className="mt-3 max-h-[70vh] w-full rounded-xl bg-black"
+          url={url}
+          liked={!!acted?.liked}
+          onLike={() => {
+            if (!acted?.liked && busy === null) like();
+          }}
         />
       ))}
 
@@ -384,5 +386,28 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
         </div>
       )}
     </article>
+  );
+}
+
+/**
+ * A Nostr note's video, played with the same in-feed player as RougeChain posts
+ * (FeedVideo: inline muted autoplay on screen, tap = mute, double-tap = like,
+ * hold = pause). Nostr notes carry no dimensions, so the container sizes itself
+ * from the video's intrinsic ratio once metadata loads (16:9 until then).
+ */
+function NostrVideo({ url, liked, onLike }: { url: string; liked: boolean; onLike: () => void }) {
+  const [ar, setAr] = useState<number | null>(null);
+  return (
+    <div
+      className="relative mt-3 w-full overflow-hidden rounded-xl bg-black"
+      style={{ aspectRatio: ar ?? 16 / 9, maxHeight: "70vh" }}
+    >
+      <FeedVideo
+        refUri={url}
+        liked={liked}
+        onLike={onLike}
+        onLoadedMeta={(w, h) => h > 0 && setAr(w / h)}
+      />
+    </div>
   );
 }

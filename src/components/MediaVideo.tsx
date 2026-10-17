@@ -21,6 +21,9 @@ interface Props {
   onRef?: (el: HTMLVideoElement | null) => void;
   onEnded?: () => void;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
+  /** Intrinsic video size once metadata loads — e.g. to size a container whose
+   *  aspect ratio isn't known ahead of time (Nostr notes carry no dimensions). */
+  onLoadedMeta?: (w: number, h: number) => void;
 }
 
 /** Resolves a video media reference (ipfs://… / local://… / https://) plus an
@@ -40,6 +43,7 @@ export default function MediaVideo({
   onRef,
   onEnded,
   onTimeUpdate,
+  onLoadedMeta,
 }: Props) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
@@ -113,6 +117,19 @@ export default function MediaVideo({
     io.observe(el);
     return () => io.disconnect();
   }, [autoPreview, videoUrl]);
+
+  // Report the intrinsic size once metadata is available (for containers that
+  // must size themselves to an unknown video, e.g. Nostr notes).
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el || !onLoadedMeta) return;
+    const report = () => {
+      if (el.videoWidth && el.videoHeight) onLoadedMeta(el.videoWidth, el.videoHeight);
+    };
+    el.addEventListener("loadedmetadata", report);
+    if (el.readyState >= 1) report();
+    return () => el.removeEventListener("loadedmetadata", report);
+  }, [onLoadedMeta, videoUrl]);
 
   // Seek to the trim start once metadata is available.
   useEffect(() => {

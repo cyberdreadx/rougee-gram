@@ -19,6 +19,7 @@ export default function FeedVideo({
   clipEnd,
   liked,
   onLike,
+  onLoadedMeta,
 }: {
   refUri: string;
   poster?: string;
@@ -28,6 +29,8 @@ export default function FeedVideo({
   liked: boolean;
   /** Called on a double-tap like (only when not already liked). */
   onLike: () => void;
+  /** Intrinsic video size once known (to size an unknown-ratio container). */
+  onLoadedMeta?: (w: number, h: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -94,6 +97,7 @@ export default function FeedVideo({
         playsInline
         clipStart={clipStart}
         clipEnd={clipEnd}
+        onLoadedMeta={onLoadedMeta}
       />
 
       {/* gesture layer — tap: mute · double-tap: like · hold: pause.
