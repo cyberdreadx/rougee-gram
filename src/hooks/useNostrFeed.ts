@@ -15,6 +15,9 @@ import {
   NOSTR_ID_PREFIX,
   getPool,
   isFeedNote,
+  isMachineNote,
+  imagesOf,
+  videosOf,
   eventToFeedPost,
   parseProfile,
   hashtagsOf,
@@ -245,6 +248,112 @@ export function useNostrStream(enabled: boolean, topic: string | null = null) {
   }, []);
 
   return { live, pending: pending.size, flush, trending };
+}
+
+/**
+ * Recent top-level notes from the accounts the viewer follows on Nostr (their
+ * kind-3 contact list), newest-first. Powers the Following tab so it spans both
+ * networks — not just RougeChain follows. Includes text and media notes (both
+ * render in NostrPostCard); excludes replies and machine/junk traffic. Empty
+ * (and idle) when the viewer has no Nostr key or follows no one.
+ */
+export function useNostrFollowingFeed(enabled: boolean): {
+  posts: FeedPost[];
+  isLoading: boolean;
+} {
+  const { follows, mutes } = useNostrSocial();
+  const authorsKey = useMemo(() => [...follows].sort().join(","), [follows]);
+  const [events, setEvents] = useState<Map<string, Event>>(new Map());
+  const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
+  const [loading, setLoading] = useState(false);
+  const wantProfiles = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const authors = authorsKey ? authorsKey.split(",") : [];
+    if (!enabled || authors.length === 0) {
+      setEvents(new Map());
+      setLoading(false);
+      return;
+    }
+    setEvents(new Map());
+    setLoading(true);
+    const pool = getPool();
+    let buffer: Event[] = [];
+    const flush = () => {
+      if (!buffer.length) return;
+      const batch = buffer;
+      buffer = [];
+      setEvents((prev) => capNewest(addAll(prev, batch)));
+    };
+    const timer = setInterval(flush, FLUSH_MS);
+    // Stop the spinner even if no relay EOSEs (flaky relay / slow network).
+    const stopLoading = setTimeout(() => setLoading(false), 8000);
+    const sub = pool.subscribeMany(
+      NOSTR_RELAYS,
+      // Nostr REQ filters cap author lists; 500 covers any realistic follow count.
+      { kinds: [1], authors: authors.slice(0, 500), limit: 300 },
+      {
+        onevent: (e) => {
+          if (replyTargetOf(e)) return; // top-level posts only, not replies
+          if (e.tags.some((t) => t[0] === "content-warning")) return;
+          if (isMachineNote(e.content)) return;
+          // Skip empty notes (no text and no media — nothing to render).
+          if (!e.content.trim() && imagesOf(e).length === 0 && videosOf(e).length === 0) return;
+          buffer.push(e);
+          wantProfiles.current.add(e.pubkey);
+        },
+        oneose: () => {
+          flush();
+          setLoading(false);
+        },
+      },
+    );
+    return () => {
+      clearInterval(timer);
+      clearTimeout(stopLoading);
+      sub.close();
+    };
+  }, [enabled, authorsKey]);
+
+  // Author profiles (kind-0) for name + avatar, fetched for newly seen authors.
+  useEffect(() => {
+    if (!enabled) return;
+    const id = setInterval(async () => {
+      const want = [...wantProfiles.current].filter((pk) => !profiles.has(pk)).slice(0, 60);
+      if (!want.length) return;
+      want.forEach((pk) => wantProfiles.current.delete(pk));
+      try {
+        const metas = await getPool().querySync(
+          NOSTR_RELAYS,
+          { kinds: [0], authors: want },
+          { maxWait: 4000 },
+        );
+        setProfiles((prev) => {
+          const next = new Map(prev);
+          for (const m of metas) {
+            if (next.has(m.pubkey)) continue;
+            const p = parseProfile(m.content);
+            if (p) next.set(m.pubkey, p);
+          }
+          return next;
+        });
+      } catch {
+        /* relays flaky; try again next tick */
+      }
+    }, 1500);
+    return () => clearInterval(id);
+  }, [enabled, profiles]);
+
+  const posts = useMemo<FeedPost[]>(
+    () =>
+      [...events.values()]
+        .filter((e) => !mutes.has(e.pubkey)) // respect the viewer's Nostr mute list
+        .sort((a, b) => b.created_at - a.created_at)
+        .map((e) => eventToFeedPost(e, profiles.get(e.pubkey))),
+    [events, profiles, mutes],
+  );
+
+  return { posts, isLoading: loading };
 }
 
 /** What this device has liked/reposted on Nostr (reactive). */

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/store/auth";
 import { loadNostrLists } from "@/lib/nostrSocial";
@@ -6,8 +6,8 @@ import { getHomeTab, setHomeTab } from "@/lib/homeTab";
 import { Link } from "react-router-dom";
 import { Compass, Camera, ArrowUp } from "lucide-react";
 import { useFollowingFeed } from "@/hooks/useSocial";
-import { useDiscoverFeed } from "@/hooks/useNostrFeed";
-import { DISCOVER_TOPICS } from "@/lib/nostrFeed";
+import { useDiscoverFeed, useNostrFollowingFeed } from "@/hooks/useNostrFeed";
+import { DISCOVER_TOPICS, toMs, type FeedPost } from "@/lib/nostrFeed";
 import { useCreatePost } from "@/components/CreatePost";
 import FeedList from "@/components/FeedList";
 import StoriesTray from "@/components/StoriesTray";
@@ -25,7 +25,10 @@ export default function Home() {
     setTab(next);
     setHomeTab(next);
   };
-  const following = useFollowingFeed();
+  const rougeFollowing = useFollowingFeed();
+  // The Following tab spans both networks: RougeChain follows + the accounts you
+  // follow on Nostr. Only subscribe to the Nostr side while that tab is open.
+  const nostrFollowing = useNostrFollowingFeed(tab === "following");
   const discover = useDiscoverFeed(topic);
   const { open } = useCreatePost();
   const { address } = useAuth();
@@ -35,7 +38,32 @@ export default function Home() {
     loadNostrLists(address || "anon");
   }, [address]);
 
-  const active = tab === "following" ? following : discover;
+  // Merge both follow graphs, newest-first, deduped by id.
+  const followingData = useMemo<FeedPost[]>(() => {
+    const rouge = (rougeFollowing.data ?? []) as FeedPost[];
+    const seen = new Set<string>();
+    const out: FeedPost[] = [];
+    for (const p of [...rouge, ...nostrFollowing.posts]) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      out.push(p);
+    }
+    out.sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
+    return out;
+  }, [rougeFollowing.data, nostrFollowing.posts]);
+
+  const active =
+    tab === "following"
+      ? {
+          data: followingData,
+          // Keep the spinner only until we have something to show; let Nostr
+          // notes keep streaming in behind an already-rendered feed.
+          isLoading:
+            rougeFollowing.isLoading ||
+            (nostrFollowing.isLoading && followingData.length === 0),
+          isError: rougeFollowing.isError,
+        }
+      : discover;
 
   return (
     <div>
