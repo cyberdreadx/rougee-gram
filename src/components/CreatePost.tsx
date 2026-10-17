@@ -40,11 +40,12 @@ import {
   processVideo,
   isVideoFile,
   VIDEO_WARN_BYTES,
+  STREAM_WORKER_MAX_BYTES,
   REEL_MAX_SECONDS,
   formatBytes,
   type ProcessedVideo,
 } from "@/lib/video";
-import { putImage, activeBackend, streamEnabled, putStream } from "@/lib/media";
+import { putImage, activeBackend, streamEnabled, putStream, putStreamDirect } from "@/lib/media";
 import {
   encodePhoto,
   encodeVideo,
@@ -411,10 +412,17 @@ function CreatePostDialog({
   async function shareVideo() {
     if (!vinfo || !wallet) return;
 
-    // Cloudflare Stream path — adaptive HLS + auto thumbnail.
+    // Cloudflare Stream path — adaptive HLS + auto thumbnail. Large clips upload
+    // straight to Stream (dodging the ~100MB Worker limit) with a progress %.
     if (streamEnabled()) {
       setStage(t("create.uploadingVideo"));
-      const s = await putStream(vinfo.blob);
+      const s =
+        vinfo.blob.size > STREAM_WORKER_MAX_BYTES
+          ? await putStreamDirect(vinfo.blob, {
+              onProgress: (f) =>
+                setStage(`${t("create.uploadingVideo")} ${Math.round(f * 100)}%`),
+            })
+          : await putStream(vinfo.blob);
       let poster = s.thumbnail;
       if (!poster && vinfo.poster) {
         setStage(t("create.uploadingThumbnail"));
@@ -449,6 +457,13 @@ function CreatePostDialog({
       return;
     }
 
+    // R2 path (Stream off): the Worker proxies the bytes, so the ~100MB cap
+    // applies here. Big videos need Cloudflare Stream (direct upload).
+    if (vinfo.blob.size > STREAM_WORKER_MAX_BYTES) {
+      throw new Error(
+        `This video is ${formatBytes(vinfo.blob.size)} — enable Cloudflare Stream for videos over ${formatBytes(STREAM_WORKER_MAX_BYTES)}.`,
+      );
+    }
     let posterRef: string | undefined;
     if (vinfo.poster) {
       setStage(t("create.uploadingThumbnail"));

@@ -9,8 +9,16 @@
 import { canvasToBlob, supportsWebp } from "./image";
 
 export const REEL_MAX_SECONDS = 90;
+/** Feed videos cap at 3 minutes. Cloudflare Stream bills by DURATION (not file
+ *  size), so the length — not the bytes — is the real cost control. */
+export const VIDEO_MAX_SECONDS = 180;
 export const VIDEO_WARN_BYTES = 25 * 1024 * 1024; // 25 MB — soft warn
-export const VIDEO_MAX_BYTES = 100 * 1024 * 1024; // 100 MB — hard cap
+/** Below this, upload through the Worker (/stream). Above it, upload straight to
+ *  Cloudflare Stream (putStreamDirect) to dodge the ~100MB Worker body limit. */
+export const STREAM_WORKER_MAX_BYTES = 100 * 1024 * 1024; // 100 MB
+/** Hard byte ceiling (abuse guard) — duration is the real limit; direct-to-Stream
+ *  handles anything under this. */
+export const VIDEO_MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
 
 export interface ProcessedVideo {
   /** The original file, unmodified (no transcode). */
@@ -36,10 +44,16 @@ export function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatMins(sec: number): string {
+  const s = Math.round(sec);
+  const m = Math.floor(s / 60);
+  return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
+}
+
 export async function processVideo(file: File | Blob): Promise<ProcessedVideo> {
   if (file.size > VIDEO_MAX_BYTES) {
     throw new Error(
-      `Video is ${formatBytes(file.size)} — over the ${formatBytes(VIDEO_MAX_BYTES)} limit. Trim or compress it first.`,
+      `Video is ${formatBytes(file.size)} — over the ${formatBytes(VIDEO_MAX_BYTES)} limit.`,
     );
   }
 
@@ -60,6 +74,15 @@ export async function processVideo(file: File | Blob): Promise<ProcessedVideo> {
     const width = video.videoWidth || 0;
     const height = video.videoHeight || 0;
     const duration = Number.isFinite(video.duration) ? video.duration : 0;
+
+    // Duration is the real cost control (Stream bills per minute), so cap length
+    // rather than bytes. A tiny tolerance avoids rejecting a clip that's a hair
+    // over due to metadata rounding.
+    if (duration > VIDEO_MAX_SECONDS + 0.5) {
+      throw new Error(
+        `Video is ${formatMins(duration)} — the limit is ${formatMins(VIDEO_MAX_SECONDS)}. Trim it first.`,
+      );
+    }
 
     const poster = await capturePoster(video, width, height).catch(() => null);
 

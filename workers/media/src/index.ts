@@ -122,6 +122,80 @@ export default {
       );
     }
 
+    // ── Cloudflare Stream DIRECT upload (tus) ─────────────────
+    // The client uploads straight to Stream (not through this Worker), so the
+    // ~100MB Worker request-body limit never applies — large videos are capped
+    // only by maxDurationSeconds. We just mint the one-time upload URL here.
+    if (request.method === "POST" && url.pathname === "/stream/direct") {
+      if (env.UPLOAD_SECRET && request.headers.get("X-Upload-Secret") !== env.UPLOAD_SECRET) {
+        return json({ error: "unauthorized" }, 401, env);
+      }
+      if (!env.CF_ACCOUNT_ID || !env.CF_STREAM_TOKEN) {
+        return json({ error: "stream not configured" }, 501, env);
+      }
+      const body = (await request.json().catch(() => ({}))) as {
+        bytes?: number;
+        maxDurationSeconds?: number;
+      };
+      const bytes = Math.floor(Number(body.bytes) || 0);
+      if (!bytes || bytes < 1) return json({ error: "missing byte length" }, 400, env);
+      const maxDur = Math.min(Math.max(1, Math.floor(Number(body.maxDurationSeconds) || 180)), 21600);
+      // tus creation: Stream returns a one-time upload URL in the Location header.
+      const create = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/stream?direct_user=true`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.CF_STREAM_TOKEN}`,
+            "Tus-Resumable": "1.0.0",
+            "Upload-Length": String(bytes),
+            "Upload-Metadata": `maxDurationSeconds ${btoa(String(maxDur))}`,
+          },
+        },
+      );
+      const uploadURL = create.headers.get("Location");
+      const uid = create.headers.get("stream-media-id");
+      if (!create.ok || !uploadURL) {
+        const txt = await create.text().catch(() => "");
+        return json({ error: `stream create failed (${create.status}): ${txt.slice(0, 160)}` }, 502, env);
+      }
+      return json({ uploadURL, uid }, 200, env);
+    }
+
+    // Poll a Stream video's processing status (client waits until readyToStream).
+    if (request.method === "GET" && url.pathname === "/stream/status") {
+      if (!env.CF_ACCOUNT_ID || !env.CF_STREAM_TOKEN) {
+        return json({ error: "stream not configured" }, 501, env);
+      }
+      const uid = (url.searchParams.get("uid") || "").replace(/[^a-z0-9]/gi, "").slice(0, 64);
+      if (!uid) return json({ error: "missing uid" }, 400, env);
+      const r = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/stream/${uid}`,
+        { headers: { Authorization: `Bearer ${env.CF_STREAM_TOKEN}` } },
+      );
+      const d = (await r.json().catch(() => ({}))) as {
+        result?: {
+          readyToStream?: boolean;
+          playback?: { hls?: string };
+          thumbnail?: string;
+          status?: { state?: string; errorReasonText?: string };
+        };
+      };
+      const res = d.result;
+      if (!r.ok || !res) return json({ error: "status unavailable" }, 502, env);
+      return json(
+        {
+          ready: !!res.readyToStream,
+          hls: res.playback?.hls,
+          thumbnail: res.thumbnail,
+          state: res.status?.state,
+          error: res.status?.state === "error" ? res.status?.errorReasonText || "processing failed" : undefined,
+        },
+        200,
+        env,
+      );
+    }
+
     // ── Serve ─────────────────────────────────────────────────
     if (request.method === "GET" && url.pathname.startsWith("/f/")) {
       const objectKey = decodeURIComponent(url.pathname.slice(3));
