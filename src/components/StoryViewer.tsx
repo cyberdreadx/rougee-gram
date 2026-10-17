@@ -298,16 +298,10 @@ export default function StoryViewer({
                 navigate(`/p/${data.ref}`);
                 onClose();
               }}
-              className="mx-auto flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs text-white backdrop-blur hover:bg-white/25"
+              className="mx-auto flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white backdrop-blur hover:bg-white/25"
             >
               <ArrowUpRight className="h-3.5 w-3.5" />
-              {data.refBy ? (
-                <span className="flex items-center gap-1">
-                  {t("stories.from")} <VerifiedName pubkey={data.refBy} className="font-semibold" />
-                </span>
-              ) : (
-                t("stories.viewPost")
-              )}
+              {t("stories.viewPost")}
             </button>
           )}
 

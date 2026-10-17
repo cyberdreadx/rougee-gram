@@ -27,7 +27,7 @@ import {
   useRecordShare,
   useAddToStory,
 } from "@/hooks/useSocial";
-import { storyBodyFromPost } from "@/lib/shareToStory";
+import { canShareToStory } from "@/lib/shareToStory";
 import RepostButton from "./RepostButton";
 import Modal from "./Modal";
 import type { Tipper } from "@/lib/tips";
@@ -625,7 +625,7 @@ function PostMenu({ post }: { post: SocialPost }) {
   const [sharing, setSharing] = useState(false);
   const isMine = publicKey === post.author_pubkey;
   // "Add to your story" needs a wallet and a re-shareable post type.
-  const canStory = !!wallet && storyBodyFromPost(post) !== null;
+  const canStory = !!wallet && canShareToStory(post);
 
   const copyLink = () => {
     navigator.clipboard.writeText(`${location.origin}/p/${post.id}`);
