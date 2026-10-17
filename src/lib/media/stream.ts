@@ -52,27 +52,39 @@ export async function putStreamDirect(
   if (!uploadURL || !uid) throw new Error("Upload server returned no destination.");
 
   // 2. tus upload in 50 MiB chunks (must be a multiple of 256 KiB, except last).
+  //    Resilient to flaky/slow connections: a failed chunk backs off and resumes
+  //    from wherever the server actually got to (HEAD → Upload-Offset), rather
+  //    than restarting the whole upload — the point of a resumable protocol.
   const CHUNK = 50 * 1024 * 1024;
+  const MAX_FAILS = 8;
   let offset = 0;
+  let fails = 0;
   while (offset < blob.size) {
     const end = Math.min(offset + CHUNK, blob.size);
-    const res = await fetch(uploadURL, {
-      method: "PATCH",
-      headers: {
-        "Tus-Resumable": "1.0.0",
-        "Upload-Offset": String(offset),
-        "Content-Type": "application/offset+octet-stream",
-      },
-      body: blob.slice(offset, end),
-    });
-    if (res.status !== 204 && res.status !== 200) {
-      const t = await res.text().catch(() => "");
-      throw new Error(`Upload failed (${res.status}): ${t.slice(0, 160)}`);
+    try {
+      const res = await fetch(uploadURL, {
+        method: "PATCH",
+        headers: {
+          "Tus-Resumable": "1.0.0",
+          "Upload-Offset": String(offset),
+          "Content-Type": "application/offset+octet-stream",
+        },
+        body: blob.slice(offset, end),
+      });
+      if (res.status !== 204 && res.status !== 200) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const reported = Number(res.headers.get("Upload-Offset"));
+      offset = Number.isFinite(reported) && reported > offset ? reported : end;
+      opts.onProgress?.(offset / blob.size);
+    } catch (e) {
+      if (++fails > MAX_FAILS) {
+        throw new Error(`Upload failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      await new Promise((r) => setTimeout(r, Math.min(8000, 1000 * fails)));
+      const serverOffset = await tusOffset(uploadURL);
+      if (serverOffset != null) offset = Math.max(offset, serverOffset); // resume
     }
-    // Trust the server's new offset if exposed; else advance by what we sent.
-    const reported = Number(res.headers.get("Upload-Offset"));
-    offset = Number.isFinite(reported) && reported > offset ? reported : end;
-    opts.onProgress?.(offset / blob.size);
   }
 
   // 3. Poll until Stream finishes transcoding (or errors / times out).
@@ -92,6 +104,18 @@ export async function putStreamDirect(
     if (Date.now() - start > DEADLINE) {
       throw new Error("Video is still processing — try again in a moment.");
     }
+  }
+}
+
+/** Current server-side upload offset for a tus session (for resume), or null. */
+async function tusOffset(uploadURL: string): Promise<number | null> {
+  try {
+    const r = await fetch(uploadURL, { method: "HEAD", headers: { "Tus-Resumable": "1.0.0" } });
+    if (!r.ok) return null;
+    const o = Number(r.headers.get("Upload-Offset"));
+    return Number.isFinite(o) ? o : null;
+  } catch {
+    return null;
   }
 }
 
