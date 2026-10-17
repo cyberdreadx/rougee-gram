@@ -269,6 +269,8 @@
   "stories": {
     "yourStory": "Your story",
     "viewStory": "View story",
+    "from": "From",
+    "viewPost": "View post",
     "mute": "Mute",
     "unmute": "Unmute",
     "story": "story",

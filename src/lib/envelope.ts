@@ -154,9 +154,10 @@ export const CAROUSEL_MAX = 10;
 export interface StoryEnvelope {
   v: 1;
   t: "story";
-  /** Media reference URI (image or video): ipfs://… / local://… / https://… */
-  cid: string;
-  mime: string;
+  /** Media reference URI (image or video): ipfs://… / local://… / https://…
+   *  Optional: a post re-shared as a text card (see `txt`) has no media. */
+  cid?: string;
+  mime?: string;
   w?: number;
   h?: number;
   /** Duration in seconds (video stories) */
@@ -165,6 +166,12 @@ export interface StoryEnvelope {
   poster?: string;
   /** Optional caption / text overlay */
   cap?: string;
+  /** Text-card story (a re-shared text/repost with no media): the text shown. */
+  txt?: string;
+  /** "Add to your story" re-share: original post id (tap-through to it). */
+  ref?: string;
+  /** "Add to your story" re-share: original author pubkey (attribution). */
+  refBy?: string;
 }
 
 /** A single "link in bio" — an external URL with an optional display label. */
@@ -442,7 +449,12 @@ export function decodeBody(body: string): Decoded {
       ) {
         return { kind: "carousel", data: obj as unknown as CarouselEnvelope };
       }
-      if (obj && obj.v === 1 && obj.t === "story" && typeof obj.cid === "string") {
+      if (
+        obj &&
+        obj.v === 1 &&
+        obj.t === "story" &&
+        (typeof obj.cid === "string" || typeof obj.txt === "string")
+      ) {
         return { kind: "story", data: obj as unknown as StoryEnvelope };
       }
       if (obj && obj.v === 1 && obj.t === "note" && typeof obj.txt === "string") {

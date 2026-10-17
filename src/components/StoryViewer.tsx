@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { X, Volume2, VolumeX, Send, Eye, Loader2 } from "lucide-react";
+import { X, Volume2, VolumeX, Send, Eye, Loader2, ArrowUpRight } from "lucide-react";
 import { decodeBody, type StoryEnvelope } from "@/lib/envelope";
 import { markStoriesSeen, type StoryGroup } from "@/hooks/useStories";
 import { useProfile } from "@/hooks/useProfile";
@@ -49,6 +50,7 @@ export default function StoryViewer({
   const dmCapable = useDmCapable();
   const sendReply = useSendStoryReply();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const group = groups[gi];
   const story = group?.stories[si];
@@ -247,27 +249,36 @@ export default function StoryViewer({
           onPointerCancel={() => setPaused(false)}
           onPointerLeave={() => setPaused(false)}
         >
-          {isVideo ? (
-            <MediaVideo
-              key={story.id}
-              onRef={(el) => (videoRef.current = el)}
-              refUri={data.cid}
-              poster={data.poster}
-              className="max-h-full w-full object-contain"
-              autoPlay
-              muted={muted}
-              controls={false}
-              playsInline
-              onEnded={next}
-              onTimeUpdate={(ct, dur) => dur && setProgress(Math.min(1, ct / dur))}
-            />
+          {data.cid ? (
+            isVideo ? (
+              <MediaVideo
+                key={story.id}
+                onRef={(el) => (videoRef.current = el)}
+                refUri={data.cid}
+                poster={data.poster}
+                className="max-h-full w-full object-contain"
+                autoPlay
+                muted={muted}
+                controls={false}
+                playsInline
+                onEnded={next}
+                onTimeUpdate={(ct, dur) => dur && setProgress(Math.min(1, ct / dur))}
+              />
+            ) : (
+              <MediaImage
+                key={story.id}
+                refUri={data.cid}
+                alt={data.cap || t("stories.story")}
+                className="max-h-full w-full object-contain"
+              />
+            )
           ) : (
-            <MediaImage
-              key={story.id}
-              refUri={data.cid}
-              alt={data.cap || t("stories.story")}
-              className="max-h-full w-full object-contain"
-            />
+            // Text-card story (a re-shared text / quote post with no media).
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-rouge-700 via-rouge-900 to-black px-8">
+              <p className="max-h-full overflow-y-auto whitespace-pre-wrap break-words text-center text-xl font-medium leading-relaxed text-white">
+                {data.txt}
+              </p>
+            </div>
           )}
         </div>
 
@@ -278,6 +289,27 @@ export default function StoryViewer({
           onPointerUp={(e) => e.stopPropagation()}
         >
           {data.cap && <p className="px-1 text-center text-sm text-white">{data.cap}</p>}
+
+          {/* Attribution for a re-shared post ("Add to your story") — tap through
+              to the original. */}
+          {data.ref && (
+            <button
+              onClick={() => {
+                navigate(`/p/${data.ref}`);
+                onClose();
+              }}
+              className="mx-auto flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs text-white backdrop-blur hover:bg-white/25"
+            >
+              <ArrowUpRight className="h-3.5 w-3.5" />
+              {data.refBy ? (
+                <span className="flex items-center gap-1">
+                  {t("stories.from")} <VerifiedName pubkey={data.refBy} className="font-semibold" />
+                </span>
+              ) : (
+                t("stories.viewPost")
+              )}
+            </button>
+          )}
 
           {isMine ? (
             storyEngageEnabled() && (

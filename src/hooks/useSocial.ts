@@ -11,6 +11,7 @@ import { useAuth } from "@/store/auth";
 import { invalidateProfile } from "@/lib/profile";
 import { decodeBody, isAdPost, encodeRepost } from "@/lib/envelope";
 import { myRepostId, recordRepost, clearRepost } from "@/lib/reposts";
+import { storyBodyFromPost } from "@/lib/shareToStory";
 import * as write from "@/lib/write";
 import { recordTip, getPostTips } from "@/lib/tips";
 import { recordShare, getShareCount } from "@/lib/shares";
@@ -250,6 +251,23 @@ export function useRepost(originalId: string) {
   };
 
   return { reposted: Boolean(repostId), busy, repost, undo };
+}
+
+/**
+ * "Add to your story": re-share any post as a story (see storyBodyFromPost).
+ * Media is reused by reference (no re-upload), so it's a single signed post.
+ */
+export function useAddToStory() {
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const client = useQueryClient();
+  return async (post: SocialPost): Promise<void> => {
+    const body = storyBodyFromPost(post);
+    if (!body) throw new Error("This post can't be added to a story.");
+    if (!wallet) throw new Error("Unlock your wallet first.");
+    const res = await write.createPost({ wallet, publicKey, isExtensionWallet }, body);
+    if (!res.success) throw new Error(res.error || "Couldn't add to your story.");
+    invalidateFeeds(client, publicKey);
+  };
 }
 
 export function useToggleFollow(pubkey: string) {

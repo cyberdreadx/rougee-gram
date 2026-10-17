@@ -12,6 +12,7 @@ import {
   Coins,
   Rocket,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { decodeBody, postOptions, postCta, type RepostEnvelope } from "@/lib/envelope";
@@ -24,7 +25,9 @@ import {
   useDeletePost,
   useShareCount,
   useRecordShare,
+  useAddToStory,
 } from "@/hooks/useSocial";
+import { storyBodyFromPost } from "@/lib/shareToStory";
 import RepostButton from "./RepostButton";
 import Modal from "./Modal";
 import type { Tipper } from "@/lib/tips";
@@ -176,7 +179,7 @@ export default function PostCard({
             <span className="font-mono">{shortAddress(profile?.address ?? "", 10, 5)}</span> · {timeAgo(post.created_at)}
           </div>
         </div>
-        <PostMenu postId={post.id} authorPubkey={post.author_pubkey} />
+        <PostMenu post={post} />
       </header>
 
       {/* media */}
@@ -358,7 +361,7 @@ function TextPostCard({
             {timeAgo(post.created_at)}
           </div>
         </div>
-        <PostMenu postId={post.id} authorPubkey={post.author_pubkey} />
+        <PostMenu post={post} />
       </header>
 
       <div
@@ -611,45 +614,66 @@ function ShareButton({ postId }: { postId: string }) {
   );
 }
 
-function PostMenu({
-  postId,
-  authorPubkey,
-}: {
-  postId: string;
-  authorPubkey: string;
-}) {
+function PostMenu({ post }: { post: SocialPost }) {
   const { t } = useTranslation();
-  const { publicKey } = useAuth();
+  const { publicKey, wallet } = useAuth();
   const { toast } = useToast();
   const del = useDeletePost();
+  const addToStory = useAddToStory();
   const [open, setOpen] = useState(false);
   const [boosting, setBoosting] = useState(false);
-  const isMine = publicKey === authorPubkey;
+  const [sharing, setSharing] = useState(false);
+  const isMine = publicKey === post.author_pubkey;
+  // "Add to your story" needs a wallet and a re-shareable post type.
+  const canStory = !!wallet && storyBodyFromPost(post) !== null;
 
-  if (!isMine) {
-    return (
-      <button
-        className="text-ink-muted hover:text-white"
-        onClick={() => {
-          navigator.clipboard.writeText(`${location.origin}/p/${postId}`);
-          toast("Link copied", "success");
-        }}
-      >
-        <MoreHorizontal className="h-5 w-5" />
-      </button>
-    );
-  }
+  const copyLink = () => {
+    navigator.clipboard.writeText(`${location.origin}/p/${post.id}`);
+    toast("Link copied", "success");
+    setOpen(false);
+  };
+
+  const share = async () => {
+    setOpen(false);
+    setSharing(true);
+    try {
+      await addToStory(post);
+      toast("Added to your story", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Couldn't add to your story", "error");
+    } finally {
+      setSharing(false);
+    }
+  };
 
   return (
     <div className="relative">
-      <button className="text-ink-muted hover:text-white" onClick={() => setOpen((o) => !o)}>
+      <button
+        className="text-ink-muted hover:text-white disabled:opacity-50"
+        onClick={() => setOpen((o) => !o)}
+        disabled={sharing}
+      >
         <MoreHorizontal className="h-5 w-5" />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="glass absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl">
-            {promoteEnabled() && (
+          <div className="glass absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-xl">
+            {canStory && (
+              <button
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5"
+                onClick={share}
+              >
+                <Plus className="h-4 w-4 text-rouge-400" /> Add to your story
+              </button>
+            )}
+            <button
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5"
+              onClick={copyLink}
+            >
+              <Share2 className="h-4 w-4" /> Copy link
+            </button>
+            {isMine && promoteEnabled() && (
               <button
                 className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5"
                 onClick={() => {
@@ -660,24 +684,26 @@ function PostMenu({
                 <Rocket className="h-4 w-4 text-rouge-400" /> {t("ads.boostPost")}
               </button>
             )}
-            <button
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-rouge-400 hover:bg-white/5 disabled:opacity-50"
-              disabled={del.isPending}
-              onClick={() => {
-                del.mutate(postId, {
-                  onSuccess: () => toast("Post deleted", "success"),
-                  onError: (e) =>
-                    toast(e instanceof Error ? e.message : "Delete failed", "error"),
-                });
-                setOpen(false);
-              }}
-            >
-              <Trash2 className="h-4 w-4" /> Delete post
-            </button>
+            {isMine && (
+              <button
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-rouge-400 hover:bg-white/5 disabled:opacity-50"
+                disabled={del.isPending}
+                onClick={() => {
+                  del.mutate(post.id, {
+                    onSuccess: () => toast("Post deleted", "success"),
+                    onError: (e) =>
+                      toast(e instanceof Error ? e.message : "Delete failed", "error"),
+                  });
+                  setOpen(false);
+                }}
+              >
+                <Trash2 className="h-4 w-4" /> Delete post
+              </button>
+            )}
           </div>
         </>
       )}
-      {boosting && <BoostModal postId={postId} onClose={() => setBoosting(false)} />}
+      {boosting && <BoostModal postId={post.id} onClose={() => setBoosting(false)} />}
     </div>
   );
 }
