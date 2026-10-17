@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -8,7 +9,8 @@ import type { SocialPost, PostStats, ArtistStats } from "@rougechain/sdk";
 import { rc, resolveTxId } from "@/lib/rouge";
 import { useAuth } from "@/store/auth";
 import { invalidateProfile } from "@/lib/profile";
-import { decodeBody, isAdPost } from "@/lib/envelope";
+import { decodeBody, isAdPost, encodeRepost } from "@/lib/envelope";
+import { myRepostId, recordRepost, clearRepost } from "@/lib/reposts";
 import * as write from "@/lib/write";
 import { recordTip, getPostTips } from "@/lib/tips";
 import { recordShare, getShareCount } from "@/lib/shares";
@@ -198,6 +200,56 @@ export function useToggleRepost(postId: string) {
       client.invalidateQueries({ queryKey: key });
     },
   });
+}
+
+/**
+ * Client-side repost (rebroadcast). Unlike the native repost counter
+ * (`useToggleRepost`), this creates a real post that points at the original, so
+ * it actually shows up in your profile and your followers' feeds. `cap` makes it
+ * a quote-repost. Undo deletes the repost post. Reposted-state is tracked
+ * device-locally (see lib/reposts) so the button reflects it instantly.
+ */
+export function useRepost(originalId: string) {
+  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const client = useQueryClient();
+  const [repostId, setRepostId] = useState<string | undefined>(() =>
+    publicKey ? myRepostId(publicKey, originalId) : undefined,
+  );
+  const [busy, setBusy] = useState(false);
+
+  const repost = async (cap?: string) => {
+    if (!wallet || busy) return;
+    setBusy(true);
+    try {
+      const writer = { wallet, publicKey, isExtensionWallet };
+      const res = await write.createPost(writer, encodeRepost({ ref: originalId, cap }));
+      if (!res.success) throw new Error(res.error || "Repost failed");
+      const id = write.newPostId(res);
+      if (id) {
+        recordRepost(publicKey, originalId, id);
+        setRepostId(id);
+      }
+      invalidateFeeds(client, publicKey);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const undo = async () => {
+    if (!wallet || !repostId || busy) return;
+    setBusy(true);
+    try {
+      const res = await write.deletePost({ wallet, publicKey, isExtensionWallet }, repostId);
+      if (!res.success) throw new Error(res.error || "Couldn't undo repost");
+      clearRepost(publicKey, originalId);
+      setRepostId(undefined);
+      invalidateFeeds(client, publicKey);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return { reposted: Boolean(repostId), busy, repost, undo };
 }
 
 export function useToggleFollow(pubkey: string) {

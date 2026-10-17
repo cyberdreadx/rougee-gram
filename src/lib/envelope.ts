@@ -228,6 +228,22 @@ export function sanitizeLinks(links: ProfileLink[] | undefined): ProfileLink[] {
   return out;
 }
 
+/**
+ * A repost (client-side rebroadcast). RougeChain's native repost is only a
+ * counter — it never surfaces the post in anyone's feed. So a "repost" here is a
+ * real post of its own, authored by the reposter, that points at the original by
+ * id. Because it's a normal post it flows through every feed (profile, following,
+ * global) and timeline ordering for free. With `cap` it's a quote-repost.
+ */
+export interface RepostEnvelope {
+  v: 1;
+  t: "repost";
+  /** Id of the post being reposted. */
+  ref: string;
+  /** Optional quote text (quote-repost). */
+  cap?: string;
+}
+
 /** A "note" — a short, ephemeral text status shown in the DM inbox (à la IG). */
 export interface NoteEnvelope {
   v: 1;
@@ -246,6 +262,7 @@ export type Decoded =
   | { kind: "carousel"; data: CarouselEnvelope }
   | { kind: "story"; data: StoryEnvelope }
   | { kind: "note"; data: NoteEnvelope }
+  | { kind: "repost"; data: RepostEnvelope }
   | { kind: "profile"; data: ProfileEnvelope }
   | { kind: "text"; text: string };
 
@@ -381,6 +398,12 @@ export function decodeComment(body: string): CommentContent {
   return { text: body };
 }
 
+export function encodeRepost(env: Omit<RepostEnvelope, "v" | "t">): string {
+  const full: RepostEnvelope = { v: 1, t: "repost", ...env };
+  if (full.cap) full.cap = full.cap.slice(0, CAPTION_LIMIT);
+  return JSON.stringify(stripUndefined(full));
+}
+
 export function encodeNote(txt: string): string {
   const full: NoteEnvelope = { v: 1, t: "note", txt: txt.slice(0, NOTE_LIMIT) };
   return JSON.stringify(full);
@@ -424,6 +447,9 @@ export function decodeBody(body: string): Decoded {
       }
       if (obj && obj.v === 1 && obj.t === "note" && typeof obj.txt === "string") {
         return { kind: "note", data: obj as unknown as NoteEnvelope };
+      }
+      if (obj && obj.v === 1 && obj.t === "repost" && typeof obj.ref === "string") {
+        return { kind: "repost", data: obj as unknown as RepostEnvelope };
       }
       if (obj && obj.v === 1 && obj.t === "profile") {
         return { kind: "profile", data: obj as unknown as ProfileEnvelope };

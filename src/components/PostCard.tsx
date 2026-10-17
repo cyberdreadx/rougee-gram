@@ -14,17 +14,18 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
-import { decodeBody, postOptions, postCta } from "@/lib/envelope";
+import { decodeBody, postOptions, postCta, type RepostEnvelope } from "@/lib/envelope";
 import { useProfile } from "@/hooks/useProfile";
 import {
+  usePost,
   usePostStats,
   usePostTips,
   useToggleLike,
-  useToggleRepost,
   useDeletePost,
   useShareCount,
   useRecordShare,
 } from "@/hooks/useSocial";
+import RepostButton from "./RepostButton";
 import Modal from "./Modal";
 import type { Tipper } from "@/lib/tips";
 import { useAuth } from "@/store/auth";
@@ -46,7 +47,14 @@ import FeedVideo from "./FeedVideo";
 import { Film, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function PostCard({ post }: { post: SocialPost }) {
+export default function PostCard({
+  post,
+  embedded = false,
+}: {
+  post: SocialPost;
+  /** Rendered inside another card (a repost) — drop the feed separator border. */
+  embedded?: boolean;
+}) {
   const { t } = useTranslation();
   const { publicKey } = useAuth();
   const decoded = decodeBody(post.body);
@@ -54,7 +62,6 @@ export default function PostCard({ post }: { post: SocialPost }) {
   const { data: profile } = useProfile(post.author_pubkey);
   const { data: stats } = usePostStats(post.id);
   const like = useToggleLike(post.id);
-  const repost = useToggleRepost(post.id);
   const navigate = useNavigate();
   const [burst, setBurst] = useState(false);
   const lastTap = useRef(0);
@@ -64,8 +71,11 @@ export default function PostCard({ post }: { post: SocialPost }) {
   if (decoded.kind === "profile" || decoded.kind === "story" || decoded.kind === "note") {
     return null;
   }
+  if (decoded.kind === "repost") {
+    return <RepostCard post={post} data={decoded.data} />;
+  }
   if (decoded.kind === "text") {
-    return <TextPostCard post={post} profile={profile} />;
+    return <TextPostCard post={post} profile={profile} embedded={embedded} />;
   }
 
   const { hideLikes, noComments, location } = postOptions(decoded);
@@ -132,7 +142,9 @@ export default function PostCard({ post }: { post: SocialPost }) {
   }
 
   return (
-    <article className="animate-fade-in border-b border-ink-border/60 py-3 sm:py-4">
+    <article
+      className={cn("animate-fade-in py-3 sm:py-4", !embedded && "border-b border-ink-border/60")}
+    >
       {/* header */}
       <header className="flex items-center gap-3 px-3 sm:px-0">
         <button onClick={() => navigate(profileTarget(profile?.address))}>
@@ -240,16 +252,7 @@ export default function PostCard({ post }: { post: SocialPost }) {
             <MessageCircle className="h-6 w-6" />
           </button>
         )}
-        <button
-          onClick={() => repost.mutate()}
-          className={cn(
-            "transition-transform active:scale-90",
-            stats?.reposted ? "text-emerald-500" : "text-white hover:text-ink-muted",
-          )}
-          aria-label="Repost"
-        >
-          <Repeat2 className="h-6 w-6" />
-        </button>
+        <RepostButton post={post} />
         <TipButton toAddress={profile?.address} toName={profile?.name} postId={post.id} />
         <ShareButton postId={post.id} />
         <SaveButton postId={post.id} className="ml-auto" />
@@ -308,15 +311,17 @@ function TextPostCard({
   post,
   profile,
   isThreadSegment = false,
+  embedded = false,
 }: {
   post: SocialPost;
   profile?: { address: string; name: string; avatarRef: string };
   isThreadSegment?: boolean;
+  /** Rendered inside another card (a repost) — drop the feed separator border. */
+  embedded?: boolean;
 }) {
   const navigate = useNavigate();
   const { data: stats } = usePostStats(post.id);
   const like = useToggleLike(post.id);
-  const repost = useToggleRepost(post.id);
   const [expanded, setExpanded] = useState(false);
   const liked = stats?.liked ?? false;
 
@@ -328,7 +333,7 @@ function TextPostCard({
     <article
       className={cn(
         "animate-fade-in px-3 py-4 sm:px-0",
-        !isThreadSegment && "border-b border-ink-border/60",
+        !isThreadSegment && !embedded && "border-b border-ink-border/60",
       )}
     >
       <header className="flex items-center gap-3">
@@ -399,16 +404,7 @@ function TextPostCard({
         >
           <MessageCircle className="h-6 w-6" />
         </button>
-        <button
-          onClick={() => repost.mutate()}
-          className={cn(
-            "transition-transform active:scale-90",
-            stats?.reposted ? "text-emerald-500" : "text-white hover:text-ink-muted",
-          )}
-          aria-label="Repost"
-        >
-          <Repeat2 className="h-6 w-6" />
-        </button>
+        <RepostButton post={post} />
         <TipButton toAddress={profile?.address} toName={profile?.name} postId={post.id} />
         <ShareButton postId={post.id} />
         <SaveButton postId={post.id} className="ml-auto" />
@@ -445,6 +441,55 @@ function TextPostCard({
 }
 
 export { TextPostCard };
+
+/**
+ * A repost (client-side rebroadcast): a "{name} reposted" line above the
+ * original post, embedded in full. With a quote (`cap`) the comment shows first
+ * and the original is boxed beneath it. The original is fetched by id; a repost
+ * of a repost isn't nested (just links through) to avoid runaway recursion.
+ */
+function RepostCard({ post, data }: { post: SocialPost; data: RepostEnvelope }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { data: reposter } = useProfile(post.author_pubkey);
+  const orig = usePost(data.ref);
+  const origPost = orig.data?.post;
+  const origIsRepost = origPost ? decodeBody(origPost.body).kind === "repost" : false;
+  const name = reposter?.name || shortAddress(reposter?.address ?? post.author_pubkey, 6, 4);
+
+  return (
+    <article className="animate-fade-in border-b border-ink-border/60 pb-1 pt-3">
+      <button
+        onClick={() => navigate(profileTarget(reposter?.address))}
+        className="flex items-center gap-1.5 px-3 text-xs font-medium text-ink-muted hover:text-white sm:px-0"
+      >
+        <Repeat2 className="h-3.5 w-3.5 text-emerald-500" />
+        {t("repost.repostedBy", { name })}
+      </button>
+
+      {data.cap && (
+        <div className="whitespace-pre-wrap break-words px-3 pt-2 text-[15px] leading-relaxed sm:px-0">
+          <RichText text={data.cap} />
+        </div>
+      )}
+
+      <div className={cn(data.cap && "mt-2 overflow-hidden rounded-2xl border border-ink-border/70")}>
+        {orig.isLoading ? (
+          <div className="skeleton m-3 h-72 rounded-xl" />
+        ) : origPost && !origIsRepost ? (
+          <PostCard post={origPost} embedded />
+        ) : (
+          <button
+            onClick={() => origPost && navigate(`/p/${origPost.id}`)}
+            className="block w-full px-3 py-8 text-center text-sm text-ink-muted"
+          >
+            {origIsRepost ? t("repost.repost") : t("repost.unavailable")}
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
 
 /**
  * Tip total + who tipped, shown under a post. Renders nothing until at least one

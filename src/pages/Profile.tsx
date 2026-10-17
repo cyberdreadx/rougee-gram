@@ -28,7 +28,7 @@ import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import Avatar from "@/components/Avatar";
 import PhotoGrid, { toPhotoCells } from "@/components/PhotoGrid";
-import { TextPostCard } from "@/components/PostCard";
+import PostCard, { TextPostCard } from "@/components/PostCard";
 import EditProfile from "@/components/EditProfile";
 import BlockButton from "@/components/BlockButton";
 import NoteEditor from "@/components/NoteEditor";
@@ -357,9 +357,13 @@ function TextPostList({
       </div>
     );
   }
-  const texts = (posts ?? []).filter(
-    (p) => !p.reply_to_id && decodeBody(p.body).kind === "text",
-  );
+  // Text posts + reposts (reposts are the reposter's own posts, shown here as
+  // their "timeline" rather than in the media grid).
+  const texts = (posts ?? []).filter((p) => {
+    if (p.reply_to_id) return false;
+    const k = decodeBody(p.body).kind;
+    return k === "text" || k === "repost";
+  });
   if (texts.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
@@ -377,9 +381,13 @@ function TextPostList({
   }
   return (
     <div className="mx-auto max-w-[620px] px-3 sm:px-0">
-      {texts.map((p) => (
-        <TextPostCard key={p.id} post={p} profile={profile} />
-      ))}
+      {texts.map((p) =>
+        decodeBody(p.body).kind === "repost" ? (
+          <PostCard key={p.id} post={p} />
+        ) : (
+          <TextPostCard key={p.id} post={p} profile={profile} />
+        ),
+      )}
     </div>
   );
 }

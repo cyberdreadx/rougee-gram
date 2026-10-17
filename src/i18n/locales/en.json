@@ -119,6 +119,19 @@
     "loadError": "Couldn't load GIFs",
     "powered": "Powered by GIPHY"
   },
+  "repost": {
+    "repost": "Repost",
+    "quote": "Quote",
+    "undo": "Undo repost",
+    "done": "Reposted",
+    "undone": "Removed repost",
+    "failed": "Couldn't repost",
+    "locked": "Unlock your wallet first",
+    "quotePlaceholder": "Add a comment…",
+    "reposted": "Reposted",
+    "repostedBy": "{{name}} reposted",
+    "unavailable": "This post is no longer available"
+  },
   "sound": {
     "title": "Add a sound",
     "search": "Search tracks or artists",
