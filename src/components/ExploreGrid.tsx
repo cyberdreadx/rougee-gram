@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Play, Film, Copy, Rocket } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
-import { toMediaCells } from "./PhotoGrid";
+import { toMediaCells, cellAspect } from "./PhotoGrid";
 import MediaImage from "./MediaImage";
 import MediaVideo from "./MediaVideo";
 import { useSponsoredPosts } from "@/hooks/usePromote";
@@ -14,11 +14,8 @@ import { useToast } from "./Toast";
 type Cell = ReturnType<typeof toMediaCells>[number];
 
 /**
- * Explore grid: a uniform square photo grid. (An earlier "featured" 2-row mosaic
- * tile collapsed into an empty gap when there were few posts — the tall tile
- * borrowed its height from neighboring square tiles that didn't exist. A plain
- * square grid has no such edge case; bring the mosaic back behind a
- * content-count check if desired once there's reliably enough to fill it.)
+ * Explore grid: a masonry photo grid (CSS columns) that keeps each post's real
+ * aspect ratio — tall stays tall, wide stays wide — matching the profile grid.
  */
 export default function ExploreGrid({
   posts,
@@ -31,10 +28,16 @@ export default function ExploreGrid({
 }) {
   const { t } = useTranslation();
   if (isLoading) {
+    // Varied skeleton heights so the loading state reads as masonry, not a grid.
+    const ratios = [1, 1.4, 0.7, 1, 0.8, 1.3, 1, 0.9, 1.2];
     return (
-      <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
-        {Array.from({ length: 9 }).map((_, i) => (
-          <div key={i} className="skeleton aspect-square" />
+      <div className="columns-3 gap-0.5 [column-fill:_balance] sm:gap-1">
+        {ratios.map((r, i) => (
+          <div
+            key={i}
+            className="skeleton mb-0.5 w-full break-inside-avoid sm:mb-1"
+            style={{ aspectRatio: `${r} / 1` }}
+          />
         ))}
       </div>
     );
@@ -68,7 +71,7 @@ function Grid({ cells, showSponsored }: { cells: Cell[]; showSponsored?: boolean
   });
 
   return (
-    <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
+    <div className="columns-3 gap-0.5 [column-fill:_balance] sm:gap-1">
       {items.map(({ cell, sponsored }, i) => (
         <GridTile key={sponsored ? `ad-${cell.post.id}-${i}` : cell.post.id} cell={cell} sponsored={sponsored} i={i} />
       ))}
@@ -108,8 +111,8 @@ function GridTile({ cell, sponsored, i }: { cell: Cell; sponsored: boolean; i: n
     <Link
       ref={ref}
       to={`/p/${post.id}`}
-      style={{ animationDelay: `${Math.min(i, 11) * 28}ms` }}
-      className="group relative aspect-square animate-fade-in-up overflow-hidden bg-ink-soft"
+      style={{ animationDelay: `${Math.min(i, 11) * 28}ms`, aspectRatio: `${cellAspect(cell)}` }}
+      className="group relative mb-0.5 block w-full break-inside-avoid animate-fade-in-up overflow-hidden rounded-sm bg-ink-soft sm:mb-1"
     >
       {isVideo && videoRef ? (
         <MediaVideo

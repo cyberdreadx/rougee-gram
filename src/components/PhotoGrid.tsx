@@ -68,7 +68,7 @@ export function toMediaCells(posts: SocialPost[] | undefined): Cell[] {
 /** Aspect ratio (w/h) for a cell, clamped to a sane range so an extreme
  *  panorama or sliver can't collapse the column. Defaults to square when the
  *  envelope didn't record dimensions (older posts, posterless video). */
-function cellAspect(c: Cell): number {
+export function cellAspect(c: Cell): number {
   if (!c.w || !c.h) return 1;
   const ar = c.w / c.h;
   if (!Number.isFinite(ar) || ar <= 0) return 1;
