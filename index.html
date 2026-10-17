@@ -10,6 +10,14 @@
     <!-- RougeChain brand fonts: Inter (UI) + JetBrains Mono (mono/code). -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Warm connections to the media hosts so the first photo/video loads
+         without paying DNS+TLS setup. The R2 media Worker serves most images;
+         Cloudflare Stream serves HLS video; Pinata is the IPFS fallback. -->
+    <link rel="preconnect" href="https://rougee-gram-media.rougee.workers.dev" crossorigin />
+    <link rel="preconnect" href="https://gateway.pinata.cloud" crossorigin />
+    <link rel="dns-prefetch" href="https://videodelivery.net" />
+    <link rel="dns-prefetch" href="https://cloudflarestream.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Bebas+Neue&family=Pacifico&display=swap"
       rel="stylesheet"

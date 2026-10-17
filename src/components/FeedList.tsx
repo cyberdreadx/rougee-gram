@@ -6,8 +6,9 @@ import { useSponsoredPosts } from "@/hooks/usePromote";
 import SponsoredPost from "./SponsoredPost";
 import { decodeBody } from "@/lib/envelope";
 import { isNostrPost, type FeedPost } from "@/lib/nostrFeed";
+import { prefetchPosts } from "@/lib/prefetch";
 import NostrPostCard from "./NostrPostCard";
-import { type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 
 interface Props {
   posts: FeedPost[] | undefined;
@@ -67,6 +68,9 @@ export default function FeedList({
   return <FeedBody visible={visible} showSponsored={showSponsored} />;
 }
 
+/** How many posts ahead of the one approaching the viewport to warm. */
+const LOOKAHEAD = 3;
+
 /** Renders the posts, optionally interspersing sponsored (boosted) posts. Split
  *  out so the sponsored hooks only run when a feed opts in (Home/Explore). */
 function FeedBody({ visible, showSponsored }: { visible: FeedPost[]; showSponsored?: boolean }) {
@@ -75,12 +79,38 @@ function FeedBody({ visible, showSponsored }: { visible: FeedPost[]; showSponsor
   // Don't double-show a boosted post that's already organically in the feed.
   const ads = showSponsored ? (sponsored ?? []).filter((p) => !shownIds.has(p.id)) : [];
 
-  const renderPost = (post: FeedPost) =>
-    isNostrPost(post) ? (
-      <NostrPostCard key={post.id} post={post} />
+  // Warm the first few posts' media up front (what the viewer sees + a little
+  // below the fold). A stable signature avoids re-warming on unrelated renders.
+  const sig = visible.map((p) => p.id).join(",");
+  useEffect(() => {
+    prefetchPosts(visible.slice(0, LOOKAHEAD + 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig]);
+
+  // As a post nears the viewport, warm the next LOOKAHEAD posts' media so they're
+  // ready by the time the viewer scrolls to / taps them. Read `visible` through a
+  // ref so the callback stays stable — otherwise every feed re-render would tear
+  // down and rebuild every row's IntersectionObserver.
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const onApproach = useCallback(
+    (index: number) =>
+      prefetchPosts(visibleRef.current.slice(index + 1, index + 1 + LOOKAHEAD)),
+    [],
+  );
+
+  const renderPost = (post: FeedPost, index: number) => {
+    const card = isNostrPost(post) ? (
+      <NostrPostCard post={post} />
     ) : (
-      <PostCard key={post.id} post={post} />
+      <PostCard post={post} />
     );
+    return (
+      <ApproachAnchor key={post.id} index={index} onApproach={onApproach}>
+        {card}
+      </ApproachAnchor>
+    );
+  };
 
   if (ads.length === 0) {
     return <div>{visible.map(renderPost)}</div>;
@@ -90,13 +120,44 @@ function FeedBody({ visible, showSponsored }: { visible: FeedPost[]; showSponsor
   const out: React.ReactNode[] = [];
   let ad = 0;
   visible.forEach((post, i) => {
-    out.push(renderPost(post));
+    out.push(renderPost(post, i));
     if (ad < ads.length && (i === 1 || (i > 1 && (i - 1) % 5 === 0))) {
       const a = ads[ad++];
       out.push(<SponsoredPost key={`ad-${a.id}`} post={a} />);
     }
   });
   return <div>{out}</div>;
+}
+
+/** Fires `onApproach(index)` once when its post is within ~800px of the viewport
+ *  — the hook for prefetching the posts just below it. A plain block wrapper, so
+ *  it doesn't alter card layout. */
+function ApproachAnchor({
+  index,
+  onApproach,
+  children,
+}: {
+  index: number;
+  onApproach: (index: number) => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          onApproach(index);
+          io.disconnect(); // one-shot — only need to warm the next window once
+        }
+      },
+      { rootMargin: "800px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [index, onApproach]);
+  return <div ref={ref}>{children}</div>;
 }
 
 function DefaultEmpty() {
