@@ -24,6 +24,7 @@ import {
   Trash2,
   Rocket,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useMyProfile } from "@/hooks/useProfile";
@@ -46,6 +47,7 @@ import {
   type ProcessedVideo,
 } from "@/lib/video";
 import { putImage, activeBackend, streamEnabled, putStream, putStreamDirect } from "@/lib/media";
+import { putGated, subsEnabled } from "@/lib/subs";
 import {
   encodePhoto,
   encodeVideo,
@@ -159,6 +161,7 @@ function CreatePostDialog({
   const [noMediaComments, setNoMediaComments] = useState(false);
   const [location, setLocation] = useState("");
   const [isAd, setIsAd] = useState(false);
+  const [gated, setGated] = useState(false);
   const [ctaAction, setCtaAction] = useState("learn_more");
   const [ctaUrl, setCtaUrl] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -308,6 +311,7 @@ function CreatePostDialog({
     setHideLikes(false);
     setNoComments(false);
     setIsAd(false);
+    setGated(false);
     setCtaAction("learn_more");
     setCtaUrl("");
     setNoMediaComments(false);
@@ -352,10 +356,12 @@ function CreatePostDialog({
     setStage(t("create.processingImage"));
     const img = await processImage(file, { square, maxSize: 1440, quality: 0.82 });
     setStage(uploadStage());
-    const media = await putImage(img.blob, "photo");
+    // Subscribers-only: upload to the gated store (served only to subscribers).
+    const gate = gated && !isAd && !!publicKey;
+    const cid = gate ? await putGated(img.blob, publicKey) : (await putImage(img.blob, "photo")).ref;
     setStage(t("create.signingPosting"));
     const body = encodePhoto({
-      cid: media.ref,
+      cid,
       mime: img.mime,
       w: img.width,
       h: img.height,
@@ -366,6 +372,7 @@ function CreatePostDialog({
       loc: location.trim() || undefined,
       ad: isAd || undefined,
       cta: buildAdCta(),
+      g: gate || undefined,
     });
     await submit(body);
   }
@@ -1012,6 +1019,36 @@ function CreatePostDialog({
                 {sound ? t("create.changeSound") : t("create.browseSound")}
               </span>
             </button>
+          )}
+
+          {subsEnabled() && kind === "image" && !isStory && !gifMode && !isAd && (
+            <div className="flex items-start justify-between gap-3 rounded-lg bg-ink-soft px-3 py-2.5">
+              <div className="flex min-w-0 items-start gap-2.5">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-rouge-400" />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{t("subs.subscribersOnly")}</div>
+                  <div className="text-xs text-ink-muted">{t("subs.subscribersOnlyDesc")}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={gated}
+                onClick={() => setGated((v) => !v)}
+                disabled={busy}
+                className={cn(
+                  "relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50",
+                  gated ? "bg-rouge-600" : "bg-white/15",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                    gated ? "translate-x-5" : "translate-x-0",
+                  )}
+                />
+              </button>
+            </div>
           )}
 
           {!isStory && promoteEnabled() && (

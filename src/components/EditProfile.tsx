@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Camera, Loader2, Link2, Plus, X } from "lucide-react";
+import { Camera, Loader2, Link2, Plus, X, Lock } from "lucide-react";
 import Modal from "./Modal";
 import Avatar from "./Avatar";
 import { useToast } from "./Toast";
@@ -16,6 +16,7 @@ import {
   normalizeLinkUrl,
   type ProfileLink,
 } from "@/lib/envelope";
+import { subsEnabled } from "@/lib/subs";
 
 export default function EditProfile({
   profile,
@@ -35,6 +36,7 @@ export default function EditProfile({
   const [localPreview, setLocalPreview] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [links, setLinks] = useState<ProfileLink[]>(profile.links);
+  const [subPrice, setSubPrice] = useState(profile.subPrice ? String(profile.subPrice) : "");
 
   function updateLink(i: number, patch: Partial<ProfileLink>) {
     setLinks((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
@@ -69,8 +71,17 @@ export default function EditProfile({
       toast(t("edit.invalidLink", { url: bad.url }), "error");
       return;
     }
+    const price = Math.max(0, Math.floor(Number(subPrice) || 0));
     update.mutate(
-      { name, bio, avatarRef, links: filled, vfy: profile.vfy },
+      {
+        name,
+        bio,
+        avatarRef,
+        links: filled,
+        vfy: profile.vfy,
+        pins: profile.pins, // preserve pins across profile edits
+        subPrice: price,
+      },
       {
         onSuccess: () => {
           toast(t("edit.saved"), "success");
@@ -192,6 +203,29 @@ export default function EditProfile({
             </button>
           )}
         </div>
+
+        {subsEnabled() && (
+          <div>
+            <label className="label flex items-center gap-1.5">
+              <Lock className="h-3.5 w-3.5 text-rouge-400" /> {t("subs.monthlyPrice")}
+            </label>
+            <div className="relative">
+              <input
+                className="input w-full pr-14"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                placeholder="0"
+                value={subPrice}
+                onChange={(e) => setSubPrice(e.target.value)}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-muted">
+                XRGE
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-ink-muted">{t("subs.monthlyPriceHint")}</p>
+          </div>
+        )}
 
         <button
           className="btn-primary w-full py-3"

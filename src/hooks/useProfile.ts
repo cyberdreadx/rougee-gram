@@ -30,6 +30,8 @@ export interface ProfileUpdate {
   vfy?: string;
   /** Pinned post ids to preserve/update across edits. */
   pins?: string[];
+  /** Monthly subscription price in XRGE (0 disables creator subscriptions). */
+  subPrice?: number;
 }
 
 /** Publishes a `profile`-type post that becomes the user's current profile. */
@@ -46,6 +48,7 @@ export function useUpdateProfile() {
         links: update.links.length ? update.links : undefined,
         vfy: update.vfy || undefined,
         pins: update.pins?.length ? update.pins : undefined,
+        sub: update.subPrice && update.subPrice > 0 ? update.subPrice : undefined,
       });
       const res = await write.createPost({ wallet, publicKey, isExtensionWallet }, body);
       if (!res.success) throw new Error(res.error || "Failed to save profile");
@@ -78,6 +81,7 @@ export function usePinPost() {
       links: me.links,
       vfy: me.vfy,
       pins: next,
+      subPrice: me.subPrice,
     });
   };
 

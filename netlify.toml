@@ -54,6 +54,14 @@
   # Username directory Worker (prefix search for @mentions). See workers/directory.
   VITE_DIRECTORY_WORKER_URL = "https://rougee-directory.rougee.workers.dev"
 
+  # Creator subscriptions + content gate Worker. See workers/subs.
+  # Blank = feature dormant (no subscribe UI). Set to the deployed URL AFTER:
+  #   npx wrangler kv namespace create SUBS   (put id in workers/subs/wrangler.toml)
+  #   npx wrangler secret put GATE_SECRET --config workers/subs/wrangler.toml
+  #   npx wrangler deploy --config workers/subs/wrangler.toml
+  #   -> then set this to e.g. https://rougee-subs.rougee.workers.dev
+  VITE_SUBS_WORKER_URL = ""
+
   # Promote Worker (watch-to-earn ads / boosted posts). See workers/promote.
   VITE_PROMOTE_WORKER_URL = "https://rougee-promote.rougee.workers.dev"
 

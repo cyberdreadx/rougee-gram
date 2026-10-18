@@ -18,6 +18,7 @@ export interface Profile {
   links: ProfileLink[]; // link-in-bio entries (sanitized)
   vfy: string; // verified-badge attestation (HQ signature hex), "" if none
   pins: string[]; // pinned post ids (shown first on the profile grid)
+  subPrice: number; // monthly subscription price in XRGE (0 = not a creator sub)
 }
 
 const cache = new Map<string, { at: number; profile: Profile }>();
@@ -38,6 +39,7 @@ export async function getProfile(pubkey: string): Promise<Profile> {
     links: [],
     vfy: "",
     pins: [],
+    subPrice: 0,
   };
 
   try {
@@ -52,6 +54,7 @@ export async function getProfile(pubkey: string): Promise<Profile> {
       base.pins = Array.isArray(latest.pins)
         ? latest.pins.filter((id): id is string => typeof id === "string" && !!id).slice(0, 3)
         : [];
+      base.subPrice = typeof latest.sub === "number" && latest.sub > 0 ? Math.floor(latest.sub) : 0;
     }
   } catch {
     /* keep the address-derived defaults */

@@ -41,6 +41,9 @@ export interface PostOptions {
   /** Optional call-to-action button for an ad (Instagram-style "Learn more",
    *  "Shop now", …) linking to an external destination. */
   cta?: AdCta;
+  /** Gated ("subscribers only"): media is a `gate:<creator>/<key>` ref served
+   *  only to the author's active subscribers (see lib/subs). */
+  g?: boolean;
 }
 
 /** An ad's call-to-action button: a preset label + an external destination. */
@@ -200,6 +203,8 @@ export interface ProfileEnvelope {
   vfy?: string;
   /** Pinned post ids (shown first on the profile grid), newest pin first. */
   pins?: string[];
+  /** Monthly subscription price in XRGE (creator subscriptions). 0/undefined = off. */
+  sub?: number;
 }
 
 /** Max posts a user can pin to their profile (Instagram-style). */
@@ -470,6 +475,7 @@ export function encodeProfile(env: Omit<ProfileEnvelope, "v" | "t">): string {
     ? [...new Set(full.pins.filter((id) => typeof id === "string" && id))].slice(0, PINNED_MAX)
     : [];
   full.pins = pins.length ? pins : undefined;
+  full.sub = typeof full.sub === "number" && full.sub > 0 ? Math.floor(full.sub) : undefined;
   return JSON.stringify(stripUndefined(full));
 }
 

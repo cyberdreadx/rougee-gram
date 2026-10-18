@@ -154,6 +154,20 @@
     "saveFailed": "Couldn't save highlight",
     "coverFailed": "Couldn't upload cover"
   },
+  "subs": {
+    "locked": "Subscribers only",
+    "lockedBy": "Subscribe to {{name}} to view",
+    "thisCreator": "this creator",
+    "subscribeFor": "Subscribe · {{price}} XRGE/mo",
+    "subscribed": "Subscribed — unlocked for 30 days",
+    "failed": "Subscription failed",
+    "unavailable": "Content unavailable",
+    "noPrice": "This creator hasn't set a subscription price yet.",
+    "subscribersOnly": "Subscribers only",
+    "subscribersOnlyDesc": "Only your subscribers can view this post.",
+    "monthlyPrice": "Monthly subscription price",
+    "monthlyPriceHint": "What fans pay per month to unlock your subscribers-only posts. Leave 0 to turn subscriptions off."
+  },
   "sound": {
     "title": "Add a sound",
     "search": "Search tracks or artists",

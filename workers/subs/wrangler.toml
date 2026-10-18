@@ -1,0 +1,34 @@
+# Cloudflare Worker: RouGee creator subscriptions + content gate.
+#
+# The on-chain transfer is the proof (like the tips worker): a fan pays the
+# creator in XRGE, POSTs the txId, and this Worker verifies it on-chain before
+# granting a 30-day subscription. Gated media is stored in R2 (shared bucket,
+# `gated/` prefix) and served only with a short-lived HMAC token issued to a
+# verified subscriber.
+#
+# Setup:
+#   npx wrangler kv namespace create SUBS
+#     -> put the returned id below under [[kv_namespaces]]
+#   npx wrangler secret put GATE_SECRET --config workers/subs/wrangler.toml
+#     -> paste a long random string (the gate-token HMAC key)
+#   npx wrangler deploy --config workers/subs/wrangler.toml
+#   # then set VITE_SUBS_WORKER_URL to the deployed URL (netlify.toml / .env).
+name = "rougee-subs"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "SUBS"
+id = "REPLACE_WITH_SUBS_KV_ID"
+
+# Reuse the existing media R2 bucket; gated objects live under the `gated/` prefix.
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "rougee-gram-media"
+
+[vars]
+NODE_TESTNET = "https://testnet.rougechain.io/api"
+NODE_MAINNET = "https://api.rougechain.io/api"
+ALLOW_ORIGIN = "*"
+# GATE_SECRET is a SECRET, not a var — set it with `wrangler secret put`.

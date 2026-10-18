@@ -34,6 +34,8 @@ import {
 } from "@/hooks/useSocial";
 import { canShareToStory } from "@/lib/shareToStory";
 import { recordTaste, tagsFromText, TASTE_WEIGHTS } from "@/lib/taste";
+import { isGatedRef } from "@/lib/subs";
+import GatedMedia from "./GatedMedia";
 import RepostButton from "./RepostButton";
 import Modal from "./Modal";
 import type { Tipper } from "@/lib/tips";
@@ -219,6 +221,13 @@ export default function PostCard({
             clipEnd={media.end}
             liked={liked}
             onLike={() => like.mutate()}
+          />
+        ) : isGatedRef(media.cid) ? (
+          <GatedMedia
+            authorPubkey={post.author_pubkey}
+            cid={media.cid}
+            alt={media.alt || media.cap || "photo"}
+            className="h-full w-full object-cover"
           />
         ) : (
           <MediaImage
