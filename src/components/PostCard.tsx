@@ -76,7 +76,12 @@ export default function PostCard({
 
   // photo / video / carousel render as media cards; plain text as text.
   // profile-metadata, story, and note posts are never shown as feed cards.
-  if (decoded.kind === "profile" || decoded.kind === "story" || decoded.kind === "note") {
+  if (
+    decoded.kind === "profile" ||
+    decoded.kind === "story" ||
+    decoded.kind === "note" ||
+    decoded.kind === "highlight"
+  ) {
     return null;
   }
   if (decoded.kind === "repost") {

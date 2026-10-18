@@ -29,6 +29,7 @@ import { useToast } from "@/components/Toast";
 import Avatar from "@/components/Avatar";
 import PhotoGrid, { toPhotoCells } from "@/components/PhotoGrid";
 import PostCard, { TextPostCard } from "@/components/PostCard";
+import HighlightsRow from "@/components/HighlightsRow";
 import EditProfile from "@/components/EditProfile";
 import BlockButton from "@/components/BlockButton";
 import NoteEditor from "@/components/NoteEditor";
@@ -214,6 +215,9 @@ export default function Profile() {
           {!isMe && pubkey && <BlockButton pubkey={pubkey} />}
         </div>
       </div>
+
+      {/* Story Highlights */}
+      {pubkey && <HighlightsRow pubkey={pubkey} isMe={isMe} />}
 
       {/* Tabs */}
       <div className="flex border-t border-ink-border">

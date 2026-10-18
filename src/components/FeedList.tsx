@@ -55,7 +55,8 @@ export default function FeedList({
     if (isNostrPost(p)) return true; // mixed-in Nostr notes bypass the envelope filters
     if (!isRenderablePost(p)) return false;
     const kind = decodeBody(p.body).kind;
-    if (kind === "profile" || kind === "story" || kind === "note") return false;
+    if (kind === "profile" || kind === "story" || kind === "note" || kind === "highlight")
+      return false;
     if (photosOnly && kind !== "photo") return false;
     if (textOnly && kind !== "text") return false;
     return true;

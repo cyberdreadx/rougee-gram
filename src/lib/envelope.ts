@@ -256,6 +256,31 @@ export interface RepostEnvelope {
   cap?: string;
 }
 
+/**
+ * A Story Highlight — a named, persistent collection of past stories shown on
+ * the profile (stories normally vanish after 24h; a highlight keeps them). Each
+ * highlight is its own on-chain post, identified by a stable `hid` so editing
+ * republishes under the same id (latest wins). `del` tombstones it (the on-chain
+ * post is immutable, so "delete" = publish a tombstone that clients honor).
+ */
+export interface HighlightEnvelope {
+  v: 1;
+  t: "highlight";
+  /** Stable highlight id (random) — edits republish under the same hid. */
+  hid: string;
+  title: string;
+  /** Cover image media reference (auto from the first story, or custom). */
+  cover?: string;
+  /** Story post ids in this highlight, in viewing order. */
+  items: string[];
+  /** Tombstone: removes the highlight. */
+  del?: boolean;
+}
+
+export const HIGHLIGHT_TITLE_LIMIT = 30;
+/** Cap stories per highlight so the envelope stays under POST_BODY_LIMIT. */
+export const HIGHLIGHT_ITEMS_MAX = 50;
+
 /** A "note" — a short, ephemeral text status shown in the DM inbox (à la IG). */
 export interface NoteEnvelope {
   v: 1;
@@ -275,6 +300,7 @@ export type Decoded =
   | { kind: "story"; data: StoryEnvelope }
   | { kind: "note"; data: NoteEnvelope }
   | { kind: "repost"; data: RepostEnvelope }
+  | { kind: "highlight"; data: HighlightEnvelope }
   | { kind: "profile"; data: ProfileEnvelope }
   | { kind: "text"; text: string };
 
@@ -416,6 +442,18 @@ export function encodeRepost(env: Omit<RepostEnvelope, "v" | "t">): string {
   return JSON.stringify(stripUndefined(full));
 }
 
+export function encodeHighlight(env: Omit<HighlightEnvelope, "v" | "t">): string {
+  const full: HighlightEnvelope = { v: 1, t: "highlight", ...env };
+  full.title = (full.title || "").slice(0, HIGHLIGHT_TITLE_LIMIT);
+  full.items = (full.items || []).slice(0, HIGHLIGHT_ITEMS_MAX);
+  if (!full.del) full.del = undefined; // only tombstones carry `del`
+  const json = JSON.stringify(stripUndefined(full));
+  if (json.length > POST_BODY_LIMIT) {
+    throw new Error("Too many stories in this highlight for a single on-chain post.");
+  }
+  return json;
+}
+
 export function encodeNote(txt: string): string {
   const full: NoteEnvelope = { v: 1, t: "note", txt: txt.slice(0, NOTE_LIMIT) };
   return JSON.stringify(full);
@@ -472,6 +510,9 @@ export function decodeBody(body: string): Decoded {
       }
       if (obj && obj.v === 1 && obj.t === "repost" && typeof obj.ref === "string") {
         return { kind: "repost", data: obj as unknown as RepostEnvelope };
+      }
+      if (obj && obj.v === 1 && obj.t === "highlight" && typeof obj.hid === "string") {
+        return { kind: "highlight", data: obj as unknown as HighlightEnvelope };
       }
       if (obj && obj.v === 1 && obj.t === "profile") {
         return { kind: "profile", data: obj as unknown as ProfileEnvelope };

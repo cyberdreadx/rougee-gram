@@ -571,7 +571,7 @@ export function useActivity() {
       const mine = posts.filter((p) => {
         if (p.reply_to_id || isAdPost(p)) return false;
         const k = decodeBody(p.body).kind;
-        return k !== "profile" && k !== "story" && k !== "note";
+        return k !== "profile" && k !== "story" && k !== "note" && k !== "highlight";
       });
       const results = await Promise.all(
         mine.map(async (p) => {
