@@ -1,23 +1,22 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Hash } from "lucide-react";
-import { useGlobalTimeline } from "@/hooks/useSocial";
-import { postHashtags } from "@/lib/discover";
+import { useHashtagFeed } from "@/hooks/useNostrFeed";
 import FeedList from "@/components/FeedList";
 
 /**
- * Posts for a hashtag. No server-side tag index exists, so this filters the
- * recent global timeline client-side — it shows recent matches, not the full
- * history (that needs a node index).
+ * Posts for a hashtag across both networks — live Nostr notes (queried from
+ * relays by the tag) merged with recent RougeChain posts carrying it. No
+ * server-side tag index exists, so the rouge side is limited to the recent
+ * timeline; the Nostr side queries relays directly.
  */
 export default function TagPage() {
   const { t } = useTranslation();
   const { tag = "" } = useParams<{ tag: string }>();
   const navigate = useNavigate();
   const slug = decodeURIComponent(tag).toLowerCase();
-  const { data, isLoading, isError } = useGlobalTimeline();
-
-  const posts = (data ?? []).filter((p) => postHashtags(p).includes(slug));
+  const { posts, loading } = useHashtagFeed(slug);
+  const isLoading = loading;
 
   return (
     <div>
@@ -41,7 +40,6 @@ export default function TagPage() {
       <FeedList
         posts={posts}
         isLoading={isLoading}
-        isError={isError}
         emptyState={
           <div className="px-6 py-16 text-center text-sm text-ink-muted">
             {t("tag.noPosts", { tag: slug })}

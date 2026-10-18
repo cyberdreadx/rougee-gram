@@ -359,6 +359,89 @@ export function useNostrFollowingFeed(enabled: boolean): {
   return { posts, isLoading: loading };
 }
 
+/**
+ * All posts for a hashtag, across BOTH networks: live Nostr notes queried from
+ * relays by `#t` tag, merged with RougeChain posts (global timeline) carrying
+ * the tag. Newest-first, deduped. Powers topic search and the /tag pages — e.g.
+ * searching "anime" actually reaches Nostr, not just the recent rouge timeline.
+ */
+export function useHashtagFeed(
+  tag: string | undefined,
+  enabled = true,
+): { posts: FeedPost[]; loading: boolean } {
+  const global = useGlobalTimeline();
+  const slug = (tag || "").toLowerCase().replace(/^#/, "").trim();
+  const [nostr, setNostr] = useState<FeedPost[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || !slug) {
+      setNostr([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const pool = getPool();
+        const evs = await pool.querySync(
+          NOSTR_RELAYS,
+          { kinds: [1], "#t": [slug], limit: 200 },
+          { maxWait: 5000 },
+        );
+        const seen = new Set<string>();
+        const uniq = evs
+          .filter((e) => {
+            if (replyTargetOf(e) || isMachineNote(e.content)) return false;
+            if (!e.content.trim() && imagesOf(e).length === 0 && videosOf(e).length === 0) return false;
+            if (seen.has(e.id)) return false;
+            seen.add(e.id);
+            return true;
+          })
+          .sort((a, b) => b.created_at - a.created_at)
+          .slice(0, 100);
+        const authors = [...new Set(uniq.map((e) => e.pubkey))];
+        const metas = authors.length
+          ? await pool.querySync(NOSTR_RELAYS, { kinds: [0], authors }, { maxWait: 4000 })
+          : [];
+        const profs = new Map<string, NostrProfile>();
+        for (const m of metas) {
+          if (profs.has(m.pubkey)) continue;
+          const p = parseProfile(m.content);
+          if (p) profs.set(m.pubkey, p);
+        }
+        if (cancelled) return;
+        setNostr(uniq.map((e) => eventToFeedPost(e, profs.get(e.pubkey))));
+      } catch {
+        if (!cancelled) setNostr([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, enabled]);
+
+  const posts = useMemo<FeedPost[]>(() => {
+    if (!slug) return [];
+    const rouge = ((global.data ?? []) as FeedPost[]).filter(
+      (p) => !p.nostr && postHashtags(p).includes(slug),
+    );
+    const byId = new Set<string>();
+    const out: FeedPost[] = [];
+    for (const p of [...rouge, ...nostr]) {
+      if (byId.has(p.id)) continue;
+      byId.add(p.id);
+      out.push(p);
+    }
+    out.sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
+    return out;
+  }, [global.data, nostr, slug]);
+
+  return { posts, loading: loading || (enabled && !!slug && global.isLoading) };
+}
+
 /** What this device has liked/reposted on Nostr (reactive). */
 export function useActed() {
   return useSyncExternalStore(subscribeActed, getActed, getActed);

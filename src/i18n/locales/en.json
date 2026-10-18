@@ -383,7 +383,9 @@
     "confirmPwPlaceholder": "Confirm password"
   },
   "explore": {
-    "searchPlaceholder": "Search people (rouge1… address or handle)",
+    "searchPlaceholder": "Search people or #topics (e.g. anime)",
+    "seeAll": "See all",
+    "noTagPosts": "No posts tagged #{{tag}} yet.",
     "clear": "Clear",
     "latestPosts": "Latest posts",
     "noTextPosts": "No text posts yet.",

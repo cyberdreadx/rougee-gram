@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Search, X, ArrowRight } from "lucide-react";
+import { Search, X, ArrowRight, Hash, Loader2 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { useGlobalTimeline } from "@/hooks/useSocial";
+import { useHashtagFeed } from "@/hooks/useNostrFeed";
 import ExploreGrid from "@/components/ExploreGrid";
 import FeedList from "@/components/FeedList";
 import WhoToFollow from "@/components/WhoToFollow";
@@ -103,9 +104,42 @@ function SearchResults({
     (d) => d.address.toLowerCase().includes(q) || d.handle.includes(q),
   );
   const looksLikeAddress = /^rouge1[0-9a-z]{6,}$/i.test(query.trim());
+  // A single tag-like word (optionally #-prefixed) → search it as a topic.
+  const tagSlug = /^#?[\p{L}\p{N}_]{2,30}$/u.test(query.trim())
+    ? query.trim().toLowerCase().replace(/^#/, "")
+    : "";
+  const hash = useHashtagFeed(tagSlug, !!tagSlug);
 
   return (
     <div className="space-y-4 p-4">
+      {tagSlug && (
+        <div>
+          <Link
+            to={`/tag/${encodeURIComponent(tagSlug)}`}
+            className="mb-2 flex items-center justify-between hover:opacity-90"
+          >
+            <span className="flex items-center gap-1.5 text-sm font-semibold">
+              <Hash className="h-4 w-4 text-rouge-400" />
+              {tagSlug}
+            </span>
+            {hash.posts.length > 0 && (
+              <span className="text-xs font-medium text-rouge-400">{t("explore.seeAll")}</span>
+            )}
+          </Link>
+          {hash.loading && hash.posts.length === 0 ? (
+            <div className="py-6 text-center">
+              <Loader2 className="mx-auto h-4 w-4 animate-spin text-ink-muted" />
+            </div>
+          ) : hash.posts.length > 0 ? (
+            <FeedList posts={hash.posts.slice(0, 6)} isLoading={false} />
+          ) : (
+            <p className="py-4 text-center text-xs text-ink-muted">
+              {t("explore.noTagPosts", { tag: tagSlug })}
+            </p>
+          )}
+        </div>
+      )}
+
       {looksLikeAddress && (
         <Link
           to={`/u/${query.trim()}`}
