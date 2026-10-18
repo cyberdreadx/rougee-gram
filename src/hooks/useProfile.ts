@@ -3,6 +3,7 @@ import { getProfile, invalidateProfile, type Profile } from "@/lib/profile";
 import { useAuth } from "@/store/auth";
 import { encodeProfile, PINNED_MAX, type ProfileLink } from "@/lib/envelope";
 import { invalidateFeeds } from "./useSocial";
+import { mirrorProfileToNostr, getMirrorPref } from "@/lib/nostrMirror";
 import * as write from "@/lib/write";
 
 export function useProfile(pubkey: string | undefined) {
@@ -37,7 +38,7 @@ export interface ProfileUpdate {
 
 /** Publishes a `profile`-type post that becomes the user's current profile. */
 export function useUpdateProfile() {
-  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const { wallet, publicKey, isExtensionWallet, address } = useAuth();
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (update: ProfileUpdate) => {
@@ -56,10 +57,20 @@ export function useUpdateProfile() {
       if (!res.success) throw new Error(res.error || "Failed to save profile");
       return res;
     },
-    onSuccess: () => {
+    onSuccess: (_data, update) => {
       invalidateProfile(publicKey);
       client.invalidateQueries({ queryKey: ["profile", publicKey] });
       invalidateFeeds(client, publicKey);
+      // Keep the Nostr (kind-0) profile in sync — name, bio, avatar AND cover —
+      // when the user hasn't opted out of Nostr. No-op for extension keys.
+      if (getMirrorPref()) {
+        mirrorProfileToNostr(address || "anon", {
+          name: update.name,
+          bio: update.bio,
+          avatarRef: update.avatarRef,
+          bannerRef: update.bannerRef,
+        }).catch(() => {});
+      }
     },
   });
 }

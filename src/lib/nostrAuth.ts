@@ -155,6 +155,39 @@ export async function ensureNostrProfile(
   }
 }
 
+/**
+ * Publish (or update) the local key's kind-0 profile with FULL metadata so a
+ * rougee profile — name, bio, avatar, cover — shows correctly across Nostr
+ * clients. Marks it published so ensureNostrProfile won't later overwrite it
+ * with a minimal profile. No-op for extension keys (the user's own identity).
+ */
+export async function publishNostrProfile(
+  signer: NostrSigner,
+  meta: { name?: string; about?: string; picture?: string; banner?: string; website?: string },
+): Promise<void> {
+  if (signer.viaExtension) return;
+  const content: Record<string, string> = {};
+  if (meta.name) content.name = meta.name;
+  if (meta.about) content.about = meta.about;
+  if (meta.picture) content.picture = meta.picture;
+  if (meta.banner) content.banner = meta.banner;
+  if (meta.website) content.website = meta.website;
+  const ev = await signer.sign({
+    kind: 0,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [],
+    content: JSON.stringify(content),
+  });
+  const results = await Promise.allSettled(getPool().publish(NOSTR_RELAYS, ev));
+  if (results.some((r) => r.status === "fulfilled")) {
+    try {
+      localStorage.setItem(metaKey(signer.pubkey), "1");
+    } catch {
+      /* ignore quota */
+    }
+  }
+}
+
 export async function publishEvent(
   owner: string,
   template: EventTemplate,

@@ -6,8 +6,38 @@
  */
 import { decodeBody } from "./envelope";
 import { resolveMediaUrl } from "./media";
-import { getSigner, ensureNostrProfile } from "./nostrAuth";
+import { getSigner, ensureNostrProfile, publishNostrProfile } from "./nostrAuth";
 import { NOSTR_RELAYS, getPool } from "./nostrFeed";
+
+const httpsOnly = (u: string | null): string | null => (u && /^https:\/\//i.test(u) ? u : null);
+
+/**
+ * Sync a rougee profile to the local key's Nostr kind-0 (name → name, bio →
+ * about, avatar → picture, cover → banner), so edits — cover included — show
+ * across Nostr clients. Best-effort; no-op for extension keys. Images must be on
+ * a public backend (cf/ipfs → https); local-only refs are dropped.
+ */
+export async function mirrorProfileToNostr(
+  owner: string,
+  p: { name?: string; bio?: string; avatarRef?: string; bannerRef?: string },
+): Promise<void> {
+  let signer;
+  try {
+    signer = await getSigner(owner);
+  } catch {
+    return;
+  }
+  if (signer.viaExtension) return;
+  const picture = httpsOnly(p.avatarRef ? await resolveMediaUrl(p.avatarRef).catch(() => null) : null);
+  const banner = httpsOnly(p.bannerRef ? await resolveMediaUrl(p.bannerRef).catch(() => null) : null);
+  await publishNostrProfile(signer, {
+    name: p.name || "rougee user",
+    about: p.bio || "on rougee.app",
+    picture: picture ?? undefined,
+    banner: banner ?? undefined,
+    website: "https://rougee.app",
+  }).catch(() => {});
+}
 
 const PREF_KEY = "rougee:mirror-nostr";
 // Default ON: new posts reach Nostr unless the creator explicitly turns it off
@@ -37,16 +67,22 @@ export async function mirrorPostToNostr(
   const refs: string[] = [];
   if (d.kind === "text") text = d.text;
   else if (d.kind === "photo") {
+    if (d.data.g) return; // never leak gated (subscribers-only) content to Nostr
     text = d.data.cap ?? "";
     refs.push(d.data.cid);
   } else if (d.kind === "video") {
+    if (d.data.g) return;
     text = d.data.cap ?? "";
     refs.push(d.data.cid);
+    // Include the poster too — HLS (.m3u8) won't play in a Nostr client, so a
+    // viewable thumbnail keeps the note from looking empty.
+    if (d.data.poster) refs.push(d.data.poster);
   } else if (d.kind === "carousel") {
+    if (d.data.g) return;
     text = d.data.cap ?? "";
     for (const it of d.data.items) refs.push(it.cid);
   } else {
-    return; // skip story / profile / note
+    return; // skip story / profile / note / repost / highlight
   }
 
   // Only public (https, i.e. IPFS-gateway) urls work on Nostr; drop local refs.
