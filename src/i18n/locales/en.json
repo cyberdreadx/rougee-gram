@@ -264,7 +264,12 @@
     "attachFailed": "Couldn't attach image",
     "commentFailed": "Comment failed",
     "likeCount_one": "{{count}} like",
-    "likeCount_other": "{{count}} likes"
+    "likeCount_other": "{{count}} likes",
+    "reply": "Reply",
+    "replyingTo": "Replying to {{name}}",
+    "hideReplies": "Hide replies",
+    "viewReplies_one": "View {{count}} reply",
+    "viewReplies_other": "View {{count}} replies"
   },
   "stories": {
     "yourStory": "Your story",

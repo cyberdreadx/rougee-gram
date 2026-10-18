@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Send, Heart, ImagePlus, X } from "lucide-react";
 import {
   usePost,
@@ -20,7 +20,7 @@ import UserLink from "@/components/UserLink";
 import { useMyProfile } from "@/hooks/useProfile";
 import MediaImage from "@/components/MediaImage";
 import GifPicker from "@/components/GifPicker";
-import { timeAgo } from "@/lib/format";
+import { timeAgo, shortAddress } from "@/lib/format";
 import {
   decodeBody,
   postOptions,
@@ -71,6 +71,8 @@ export default function PostDetail() {
   const opts = data?.post ? postOptions(decodeBody(data.post.body)) : null;
   const noComments = opts?.noComments ?? false;
   const noMediaComments = opts?.noMediaComments ?? false;
+  // The comment being replied to (threaded replies), or null to comment on the post.
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
 
   // Split replies: the author's own replies are thread continuation (rendered as
   // connected posts under the root); everyone else's are comments.
@@ -152,7 +154,7 @@ export default function PostDetail() {
               ) : comments.length > 0 ? (
                 <div className="space-y-4 py-2">
                   {comments.map((c) => (
-                    <CommentRow key={c.id} comment={c} />
+                    <CommentRow key={c.id} comment={c} onReply={setReplyTo} />
                   ))}
                 </div>
               ) : (
@@ -166,33 +168,55 @@ export default function PostDetail() {
       )}
 
       {postId && data?.post && !noComments && (
-        <Composer postId={postId} allowMedia={!noMediaComments} />
+        <Composer
+          postId={postId}
+          allowMedia={!noMediaComments}
+          replyTo={replyTo}
+          onClearReply={() => setReplyTo(null)}
+        />
       )}
     </div>
   );
 }
 
-function CommentRow({ comment }: { comment: SocialPost }) {
+function CommentRow({
+  comment,
+  onReply,
+  threadId,
+  depth = 0,
+}: {
+  comment: SocialPost;
+  onReply: (target: { id: string; name: string }) => void;
+  /** Id that replies to this comment attach to (the top-level comment). Keeps
+   *  threading flat at 2 levels: replies to a reply still group under the top
+   *  comment. Defaults to this comment's id (it IS the top-level comment). */
+  threadId?: string;
+  depth?: number;
+}) {
   const { t } = useTranslation();
   const { data: profile } = useProfile(comment.author_pubkey);
   const { data: stats } = usePostStats(comment.id);
   const like = useToggleLike(comment.id);
   const liked = stats?.liked ?? false;
   const content = decodeComment(comment.body);
+  const [expanded, setExpanded] = useState(false);
+  const replyCount = stats?.replies ?? 0;
+  const postUnder = threadId ?? comment.id;
+  const name = profile?.name || shortAddress(profile?.address ?? comment.author_pubkey, 6, 4);
+  // Lazy-load nested replies only when expanded (top-level comments only).
+  const nested = useReplies(depth === 0 && expanded ? comment.id : undefined);
+
   return (
     <div className="flex items-start gap-3">
       <Avatar
         refUri={profile?.avatarRef}
         seed={comment.author_pubkey}
         name={profile?.name}
-        size={34}
+        size={depth > 0 ? 28 : 34}
       />
       <div className="min-w-0 flex-1">
         <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-          <UserLink
-            pubkey={comment.author_pubkey}
-            className="mr-1.5 font-semibold"
-          />
+          <UserLink pubkey={comment.author_pubkey} className="mr-1.5 font-semibold" />
           {content.text}
         </p>
         {content.img && (
@@ -216,7 +240,41 @@ function CommentRow({ comment }: { comment: SocialPost }) {
           {(stats?.likes ?? 0) > 0 && (
             <span>{t("post.likeCount", { count: stats!.likes })}</span>
           )}
+          <button
+            onClick={() => onReply({ id: postUnder, name })}
+            className="font-semibold hover:text-white"
+          >
+            {t("post.reply")}
+          </button>
         </div>
+
+        {depth === 0 && replyCount > 0 && (
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-ink-muted hover:text-white"
+          >
+            <span className="inline-block h-px w-5 bg-ink-border" />
+            {expanded ? t("post.hideReplies") : t("post.viewReplies", { count: replyCount })}
+          </button>
+        )}
+
+        {depth === 0 && expanded && (
+          <div className="mt-3 space-y-3 border-l border-ink-border/60 pl-3">
+            {nested.isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-ink-muted" />
+            ) : (
+              (nested.data ?? []).map((r) => (
+                <CommentRow
+                  key={r.id}
+                  comment={r}
+                  onReply={onReply}
+                  threadId={comment.id}
+                  depth={1}
+                />
+              ))
+            )}
+          </div>
+        )}
       </div>
       <button
         onClick={() => like.mutate()}
@@ -232,12 +290,26 @@ function CommentRow({ comment }: { comment: SocialPost }) {
   );
 }
 
-function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean }) {
+function Composer({
+  postId,
+  allowMedia,
+  replyTo,
+  onClearReply,
+}: {
+  postId: string;
+  allowMedia: boolean;
+  replyTo: { id: string; name: string } | null;
+  onClearReply: () => void;
+}) {
   const { t } = useTranslation();
   const { address } = useAuth();
   const profile = useMyProfile();
   const { toast } = useToast();
-  const add = useAddComment(postId);
+  const client = useQueryClient();
+  // When replying to a comment, the new comment attaches to THAT comment, so it
+  // nests under it instead of landing as a top-level comment on the post.
+  const activeId = replyTo?.id ?? postId;
+  const add = useAddComment(activeId);
   const [text, setText] = useState("");
   const [img, setImg] = useState<{ ref: string; url: string } | null>(null);
   const [gif, setGif] = useState<string | null>(null);
@@ -247,6 +319,11 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
   const inputRef = useRef<HTMLInputElement>(null);
   const mentions = useMentionAutocomplete(text, setText);
   usePrefetchMentionCandidates(); // warm @mention suggestions from who you follow
+
+  // Focus the input when a reply target is chosen (tapping "Reply" on a comment).
+  useEffect(() => {
+    if (replyTo) inputRef.current?.focus();
+  }, [replyTo]);
 
   const hasMedia = Boolean(img || gif);
   const canSend = (text.trim() || hasMedia) && !add.isPending && !uploading;
@@ -270,11 +347,18 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
   function submit() {
     const body = encodeComment({ text, img: img?.ref, gif: gif ?? undefined });
     if (!body.trim()) return;
+    const wasReply = replyTo?.id;
     add.mutate(body, {
       onSuccess: () => {
         setText("");
         setImg(null);
         setGif(null);
+        if (wasReply) {
+          // Bump the parent comment's reply count ("View N replies") and clear
+          // the reply target so the next comment lands on the post.
+          client.invalidateQueries({ queryKey: ["postStats", wasReply] });
+          onClearReply();
+        }
       },
       onError: (e) => toast(e instanceof Error ? e.message : t("post.commentFailed"), "error"),
     });
@@ -283,6 +367,22 @@ function Composer({ postId, allowMedia }: { postId: string; allowMedia: boolean 
   return (
     <div className="fixed inset-x-0 bottom-[var(--bottom-nav-h)] z-20 border-t border-ink-border bg-ink/95 p-3 backdrop-blur md:sticky md:bottom-0 md:mt-2">
       <div className="mx-auto max-w-[620px]">
+        {/* replying-to banner */}
+        {replyTo && (
+          <div className="mb-2 flex items-center justify-between rounded-lg bg-ink-soft px-3 py-1.5 text-xs">
+            <span className="text-ink-muted">
+              {t("post.replyingTo", { name: replyTo.name })}
+            </span>
+            <button
+              onClick={onClearReply}
+              className="text-ink-muted hover:text-white"
+              aria-label={t("common.cancel")}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* attachment preview */}
         {(img || gif) && (
           <div className="relative mb-2 inline-block">
