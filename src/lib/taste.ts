@@ -121,6 +121,22 @@ export function getTasteProfile(pubkey: string | undefined): TasteProfile {
   return { authors, tags, hasData: Object.keys(authors).length > 0 || Object.keys(tags).length > 0 };
 }
 
+/** Wipe the device-local taste profile for a user (Settings → reset). */
+export function clearTaste(pubkey: string | undefined): void {
+  sessionSeen.clear();
+  try {
+    if (!pubkey) {
+      localStorage.removeItem(KEY);
+      return;
+    }
+    const all = JSON.parse(localStorage.getItem(KEY) || "{}") as Record<string, TasteStore>;
+    delete all[pubkey];
+    localStorage.setItem(KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Lowercase hashtags found in free text. */
 export function tagsFromText(text: string | undefined): string[] {
   if (!text) return [];

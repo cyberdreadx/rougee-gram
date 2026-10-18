@@ -38,6 +38,7 @@ import { requestFaucet } from "@/lib/rouge";
 import { rc } from "@/lib/rouge";
 import { changePassword } from "@/lib/keystore";
 import { clearProfileCache } from "@/lib/profile";
+import { clearTaste } from "@/lib/taste";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getHomeTab, setHomeTab, type HomeTab } from "@/lib/homeTab";
@@ -263,6 +264,8 @@ function UsernameSection() {
 
 function FeedSection() {
   const [tab, setTab] = useState<HomeTab>(getHomeTab());
+  const { publicKey } = useAuth();
+  const { toast } = useToast();
   return (
     <Section icon={<Compass className="h-4 w-4" />} title="Home feed">
       <p className="text-sm text-ink-muted">Which tab opens first on Home.</p>
@@ -281,6 +284,22 @@ function FeedSection() {
           <option value="following">Following</option>
         </select>
         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+      </div>
+
+      <div className="mt-3 border-t border-ink-border/60 pt-3">
+        <p className="text-sm text-ink-muted">
+          Discover is personalized from what you like and open — stored only on this
+          device. Reset it to start fresh.
+        </p>
+        <button
+          className="btn-soft mt-2 w-full py-2.5 text-sm"
+          onClick={() => {
+            clearTaste(publicKey);
+            toast("Personalization reset", "success");
+          }}
+        >
+          Reset personalization
+        </button>
       </div>
     </Section>
   );
