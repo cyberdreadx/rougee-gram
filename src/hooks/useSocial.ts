@@ -7,6 +7,8 @@ import {
 } from "@tanstack/react-query";
 import type { SocialPost, PostStats, ArtistStats } from "@rougechain/sdk";
 import { rc, resolveTxId } from "@/lib/rouge";
+import { getConfig } from "@/lib/config";
+import { LIKERS_ENABLED } from "@/lib/features";
 import { useAuth } from "@/store/auth";
 import { invalidateProfile } from "@/lib/profile";
 import { decodeBody, isAdPost, encodeRepost } from "@/lib/envelope";
@@ -348,6 +350,45 @@ export function usePostTips(postId: string) {
     queryKey: qk.postTips(postId),
     queryFn: () => getPostTips(postId),
     staleTime: 60_000,
+  });
+}
+
+export interface PostLikers {
+  /** Liker author pubkeys (currently key-order, not recency — see spec). */
+  likers: string[];
+  total: number;
+}
+
+/**
+ * Who liked a post (for the "Liked by … and others" facepile). Gated behind
+ * LIKERS_ENABLED: the node doesn't expose a who-liked route yet, so this stays
+ * disabled (no network call, no data) until the backend ships — see
+ * lib/features.ts for the exact node + SDK spec. We call the route directly
+ * because the published @rougechain/sdk has no getPostLikers yet; swap to
+ * rc().social.getPostLikers(postId, limit) once it does. Never returns fake data.
+ */
+export function usePostLikers(postId: string, limit = 3) {
+  return useQuery({
+    queryKey: ["postLikers", postId, limit],
+    enabled: LIKERS_ENABLED && Boolean(postId),
+    staleTime: 30_000,
+    queryFn: async (): Promise<PostLikers> => {
+      try {
+        const base = getConfig().apiUrl.replace(/\/+$/, "");
+        const res = await fetch(
+          `${base}/social/post/${encodeURIComponent(postId)}/likers?limit=${limit}`,
+        );
+        if (!res.ok) return { likers: [], total: 0 };
+        const d = (await res.json()) as { likers?: unknown; total?: unknown };
+        const likers = Array.isArray(d.likers)
+          ? d.likers.filter((x): x is string => typeof x === "string" && !!x)
+          : [];
+        const total = typeof d.total === "number" ? d.total : likers.length;
+        return { likers, total };
+      } catch {
+        return { likers: [], total: 0 };
+      }
+    },
   });
 }
 

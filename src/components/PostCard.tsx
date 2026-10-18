@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Heart,
@@ -28,6 +28,9 @@ import {
   useShareCount,
   useRecordShare,
   useAddToStory,
+  useArtistStats,
+  useToggleFollow,
+  usePostLikers,
 } from "@/hooks/useSocial";
 import { canShareToStory } from "@/lib/shareToStory";
 import RepostButton from "./RepostButton";
@@ -181,6 +184,7 @@ export default function PostCard({
             <span className="font-mono">{shortAddress(profile?.address ?? "", 10, 5)}</span> · {timeAgo(post.created_at)}
           </div>
         </div>
+        <FollowPill pubkey={post.author_pubkey} />
         <PostMenu post={post} />
       </header>
 
@@ -266,6 +270,7 @@ export default function PostCard({
       {/* meta */}
       <div className="space-y-1 px-3 pt-2 sm:px-0">
         <TipsRow postId={post.id} />
+        {!hideLikes && <LikedByRow postId={post.id} />}
         {(((stats?.likes ?? 0) > 0 && !hideLikes) || (stats?.reposts ?? 0) > 0) && (
           <div className="flex items-center gap-3 text-sm">
             {(stats?.likes ?? 0) > 0 && !hideLikes && (
@@ -363,6 +368,7 @@ function TextPostCard({
             {timeAgo(post.created_at)}
           </div>
         </div>
+        <FollowPill pubkey={post.author_pubkey} />
         <PostMenu post={post} />
       </header>
 
@@ -613,6 +619,85 @@ function ShareButton({ postId }: { postId: string }) {
       {done ? <Check className="h-6 w-6 text-emerald-400" /> : <Share2 className="h-6 w-6" />}
       {(count ?? 0) > 0 && <span className="text-sm">{formatCount(count!)}</span>}
     </button>
+  );
+}
+
+/**
+ * Instagram-style "Follow" pill in a post header. Shown only for other people's
+ * posts you don't already follow; disappears once you follow (IG behavior). The
+ * hooks live here (not in PostCard) so they don't run for your own posts.
+ */
+function FollowPill({ pubkey }: { pubkey: string }) {
+  const { t } = useTranslation();
+  const { publicKey, wallet } = useAuth();
+  const { data: stats } = useArtistStats(pubkey);
+  const toggle = useToggleFollow(pubkey);
+  if (!publicKey || publicKey === pubkey || stats?.isFollowing) return null;
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        if (wallet) toggle.mutate();
+      }}
+      disabled={toggle.isPending || !wallet}
+      className={cn(
+        "shrink-0 rounded-md bg-rouge-500 px-3 py-1 text-xs font-semibold text-white",
+        "transition hover:opacity-90 disabled:opacity-50",
+      )}
+    >
+      {toggle.isPending ? "…" : t("common.follow")}
+    </button>
+  );
+}
+
+/** One avatar in the "Liked by" facepile — resolves the liker's avatar. */
+function LikerAvatar({ pubkey }: { pubkey: string }) {
+  const { data: p } = useProfile(pubkey);
+  return (
+    <Avatar refUri={p?.avatarRef} seed={pubkey} name={p?.name} size={18} className="ring-2 ring-ink" />
+  );
+}
+
+/**
+ * Instagram-style "Liked by {name} and N others" social-proof row with an avatar
+ * facepile. Dormant until the node exposes a who-liked route (usePostLikers is
+ * gated by LIKERS_ENABLED) — renders nothing, never fabricated. See
+ * lib/features.ts for the exact backend spec to light it up.
+ */
+function LikedByRow({ postId }: { postId: string }) {
+  const { data } = usePostLikers(postId);
+  const likers = data?.likers ?? [];
+  const first = likers[0];
+  const firstProfile = useProfile(first); // unconditional; disabled when first is undefined
+  if (!first) return null;
+  const others = Math.max(0, (data?.total ?? likers.length) - 1);
+  const addr = firstProfile.data?.address;
+  const name = (
+    <VerifiedName pubkey={first} className="font-semibold text-white" />
+  );
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div className="flex -space-x-2">
+        {likers.slice(0, 3).map((pk) => (
+          <LikerAvatar key={pk} pubkey={pk} />
+        ))}
+      </div>
+      <span className="text-ink-muted">
+        Liked by{" "}
+        {addr ? (
+          <Link
+            to={`/u/${addr}`}
+            onClick={(e) => e.stopPropagation()}
+            className="hover:underline"
+          >
+            {name}
+          </Link>
+        ) : (
+          name
+        )}
+        {others > 0 && <> and {formatCount(others)} others</>}
+      </span>
+    </div>
   );
 }
 
