@@ -20,6 +20,7 @@
   },
   "common": {
     "share": "Share",
+    "less": "less",
     "cancel": "Cancel",
     "save": "Save",
     "saving": "Saving…",

@@ -23,17 +23,28 @@ export default function Caption({
       <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
         <UserLink pubkey={authorPubkey} className="mr-1.5 font-semibold" />
         <RichText text={shown} />
-        {isLong && !expanded && (
-          <>
-            …{" "}
-            <button
-              className="text-ink-muted hover:underline"
-              onClick={() => setExpanded(true)}
-            >
-              {t("common.more")}
-            </button>
-          </>
-        )}
+        {isLong &&
+          (expanded ? (
+            <>
+              {" "}
+              <button
+                className="text-ink-muted hover:underline"
+                onClick={() => setExpanded(false)}
+              >
+                {t("common.less")}
+              </button>
+            </>
+          ) : (
+            <>
+              …{" "}
+              <button
+                className="text-ink-muted hover:underline"
+                onClick={() => setExpanded(true)}
+              >
+                {t("common.more")}
+              </button>
+            </>
+          ))}
       </p>
       <TranslateText text={text} className="mt-1" />
     </>

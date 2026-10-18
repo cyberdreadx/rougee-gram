@@ -351,6 +351,7 @@ function TextPostCard({
   /** Rendered inside another card (a repost) — drop the feed separator border. */
   embedded?: boolean;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: stats } = usePostStats(post.id);
   const like = useToggleLike(post.id);
@@ -400,20 +401,34 @@ function TextPostCard({
       >
         <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
           <RichText text={shown} />
-          {isLong && !expanded && (
-            <>
-              …{" "}
-              <button
-                className="text-ink-muted hover:underline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpanded(true);
-                }}
-              >
-                more
-              </button>
-            </>
-          )}
+          {isLong &&
+            (expanded ? (
+              <>
+                {" "}
+                <button
+                  className="text-ink-muted hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded(false);
+                  }}
+                >
+                  {t("common.less")}
+                </button>
+              </>
+            ) : (
+              <>
+                …{" "}
+                <button
+                  className="text-ink-muted hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded(true);
+                  }}
+                >
+                  {t("common.more")}
+                </button>
+              </>
+            ))}
         </p>
       </div>
       <TranslateText text={post.body} className="mt-1" />
