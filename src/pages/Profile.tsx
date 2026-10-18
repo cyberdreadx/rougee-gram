@@ -27,6 +27,7 @@ import TipButton from "@/components/TipButton";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import Avatar from "@/components/Avatar";
+import MediaImage from "@/components/MediaImage";
 import PhotoGrid, { toPhotoCells } from "@/components/PhotoGrid";
 import PostCard, { TextPostCard } from "@/components/PostCard";
 import HighlightsRow from "@/components/HighlightsRow";
@@ -136,6 +137,11 @@ export default function Profile() {
           </button>
         )}
       </header>
+
+      {/* Cover / banner photo */}
+      {profile?.bannerRef && (
+        <MediaImage refUri={profile.bannerRef} alt="" className="h-28 w-full object-cover sm:h-40" />
+      )}
 
       {/* Profile head — extra top padding leaves room for the note bubble that
           floats above the avatar so it clears the sticky header (see ProfileNote). */}

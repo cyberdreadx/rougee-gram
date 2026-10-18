@@ -196,6 +196,8 @@ export interface ProfileEnvelope {
   bio?: string;
   /** Avatar media reference URI, or "" to clear */
   avatar?: string;
+  /** Cover/banner media reference URI (wide header image), or "" to clear */
+  banner?: string;
   /** Link-in-bio entries (max PROFILE_LINKS_MAX). */
   links?: ProfileLink[];
   /** Verified-badge attestation: RouGee HQ's ML-DSA-65 signature (hex) over

@@ -25,6 +25,7 @@ export interface ProfileUpdate {
   name: string;
   bio: string;
   avatarRef: string;
+  bannerRef?: string;
   links: ProfileLink[];
   /** Verified attestation to preserve across edits (empty string clears it). */
   vfy?: string;
@@ -45,6 +46,7 @@ export function useUpdateProfile() {
         name: update.name.trim() || undefined,
         bio: update.bio.trim() || undefined,
         avatar: update.avatarRef || undefined,
+        banner: update.bannerRef || undefined,
         links: update.links.length ? update.links : undefined,
         vfy: update.vfy || undefined,
         pins: update.pins?.length ? update.pins : undefined,
@@ -78,6 +80,7 @@ export function usePinPost() {
       name: me.name,
       bio: me.bio,
       avatarRef: me.avatarRef,
+      bannerRef: me.bannerRef,
       links: me.links,
       vfy: me.vfy,
       pins: next,

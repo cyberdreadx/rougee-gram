@@ -8,6 +8,7 @@ import { useUpdateProfile } from "@/hooks/useProfile";
 import type { Profile } from "@/lib/profile";
 import { processImage } from "@/lib/image";
 import { putImage } from "@/lib/media";
+import MediaImage from "./MediaImage";
 import {
   NAME_LIMIT,
   BIO_LIMIT,
@@ -35,6 +36,10 @@ export default function EditProfile({
   const [avatarRef, setAvatarRef] = useState(profile.avatarRef);
   const [localPreview, setLocalPreview] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [bannerRef, setBannerRef] = useState(profile.bannerRef);
+  const [localBanner, setLocalBanner] = useState("");
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const bannerInput = useRef<HTMLInputElement>(null);
   const [links, setLinks] = useState<ProfileLink[]>(profile.links);
   const [subPrice, setSubPrice] = useState(profile.subPrice ? String(profile.subPrice) : "");
 
@@ -63,6 +68,22 @@ export default function EditProfile({
     }
   }
 
+  async function pickBanner(f: File | null) {
+    if (!f) return;
+    setUploadingBanner(true);
+    try {
+      setLocalBanner(URL.createObjectURL(f));
+      // Wide cover — downscale to a reasonable width, keep aspect (no square crop).
+      const img = await processImage(f, { maxSize: 1280, quality: 0.82 });
+      const media = await putImage(img.blob, "banner");
+      setBannerRef(media.ref);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t("edit.avatarUploadFailed"), "error");
+    } finally {
+      setUploadingBanner(false);
+    }
+  }
+
   function save() {
     // Drop blank rows; reject any non-empty URL that isn't a valid http(s) link.
     const filled = links.filter((l) => (l.url || "").trim());
@@ -77,6 +98,7 @@ export default function EditProfile({
         name,
         bio,
         avatarRef,
+        bannerRef,
         links: filled,
         vfy: profile.vfy,
         pins: profile.pins, // preserve pins across profile edits
@@ -96,6 +118,47 @@ export default function EditProfile({
   return (
     <Modal onClose={onClose} title={t("edit.title")} maxWidth="max-w-md">
       <div className="space-y-4">
+        {/* cover / banner */}
+        <div className="relative h-24 w-full overflow-hidden rounded-xl bg-ink-soft">
+          <button
+            type="button"
+            onClick={() => bannerInput.current?.click()}
+            disabled={uploadingBanner}
+            className="absolute inset-0 h-full w-full"
+            aria-label={t("edit.addCover")}
+          >
+            {localBanner ? (
+              <img src={localBanner} alt="" className="h-full w-full object-cover" />
+            ) : bannerRef ? (
+              <MediaImage refUri={bannerRef} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-xs text-ink-muted">
+                {t("edit.addCover")}
+              </span>
+            )}
+          </button>
+          <span className="pointer-events-none absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-rouge-600 text-white ring-2 ring-ink-card">
+            {uploadingBanner ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Camera className="h-3.5 w-3.5" />
+            )}
+          </span>
+          {(bannerRef || localBanner) && (
+            <button
+              type="button"
+              onClick={() => {
+                setBannerRef("");
+                setLocalBanner("");
+              }}
+              className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white"
+              aria-label={t("common.remove")}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
         <div className="flex flex-col items-center gap-2">
           <button
             className="relative"
@@ -230,7 +293,7 @@ export default function EditProfile({
         <button
           className="btn-primary w-full py-3"
           onClick={save}
-          disabled={update.isPending || uploadingAvatar}
+          disabled={update.isPending || uploadingAvatar || uploadingBanner}
         >
           {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.save")}
         </button>
@@ -245,6 +308,13 @@ export default function EditProfile({
         accept="image/*"
         className="hidden"
         onChange={(e) => pickAvatar(e.target.files?.[0] ?? null)}
+      />
+      <input
+        ref={bannerInput}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => pickBanner(e.target.files?.[0] ?? null)}
       />
     </Modal>
   );
