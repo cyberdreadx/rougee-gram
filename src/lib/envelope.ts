@@ -198,7 +198,12 @@ export interface ProfileEnvelope {
   /** Verified-badge attestation: RouGee HQ's ML-DSA-65 signature (hex) over
    *  `verify:v1:<pubkey>`. Validated client-side against HQ's public key. */
   vfy?: string;
+  /** Pinned post ids (shown first on the profile grid), newest pin first. */
+  pins?: string[];
 }
+
+/** Max posts a user can pin to their profile (Instagram-style). */
+export const PINNED_MAX = 3;
 
 /**
  * Coerce arbitrary user input to a safe absolute http(s) URL, or null if it
@@ -422,6 +427,11 @@ export function encodeProfile(env: Omit<ProfileEnvelope, "v" | "t">): string {
   if (full.bio) full.bio = full.bio.slice(0, BIO_LIMIT);
   const links = sanitizeLinks(full.links);
   full.links = links.length ? links : undefined;
+  // Pins: unique, capped; drop entirely when empty so the field never bloats.
+  const pins = Array.isArray(full.pins)
+    ? [...new Set(full.pins.filter((id) => typeof id === "string" && id))].slice(0, PINNED_MAX)
+    : [];
+  full.pins = pins.length ? pins : undefined;
   return JSON.stringify(stripUndefined(full));
 }
 

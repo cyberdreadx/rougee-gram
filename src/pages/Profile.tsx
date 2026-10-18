@@ -105,6 +105,20 @@ export default function Profile() {
   const photoCount = toPhotoCells(posts.data?.posts).length;
   const note = latestActiveNote(posts.data?.posts, pubkey);
 
+  // Pinned posts float to the top of the grid (in pin order), badged with a pin.
+  const pinnedSet = new Set(profile?.pins ?? []);
+  const gridPosts = (() => {
+    const all = posts.data?.posts ?? [];
+    const pinIds = profile?.pins ?? [];
+    if (!pinIds.length) return all;
+    const byId = new Map(all.map((p) => [p.id, p]));
+    const pinned = pinIds
+      .map((id) => byId.get(id))
+      .filter((p): p is NonNullable<typeof p> => !!p);
+    const rest = all.filter((p) => !pinnedSet.has(p.id));
+    return [...pinned, ...rest];
+  })();
+
   return (
     <div className="pb-8">
       <header className="sticky top-[var(--top-bar-h)] z-20 flex items-center justify-between border-b border-ink-border bg-ink/55 px-4 py-3 backdrop-blur md:top-0">
@@ -215,7 +229,11 @@ export default function Profile() {
       {/* Tab content */}
       <div className="p-0.5 sm:p-1">
         {tab === "posts" && (
-          <PhotoGrid posts={posts.data?.posts} isLoading={posts.isLoading} />
+          <PhotoGrid
+            posts={gridPosts}
+            isLoading={posts.isLoading}
+            pinnedIds={pinnedSet}
+          />
         )}
         {tab === "text" && (
           <TextPostList

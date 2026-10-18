@@ -17,6 +17,7 @@ export interface Profile {
   avatarRef: string; // media reference URI or ""
   links: ProfileLink[]; // link-in-bio entries (sanitized)
   vfy: string; // verified-badge attestation (HQ signature hex), "" if none
+  pins: string[]; // pinned post ids (shown first on the profile grid)
 }
 
 const cache = new Map<string, { at: number; profile: Profile }>();
@@ -36,6 +37,7 @@ export async function getProfile(pubkey: string): Promise<Profile> {
     avatarRef: "",
     links: [],
     vfy: "",
+    pins: [],
   };
 
   try {
@@ -47,6 +49,9 @@ export async function getProfile(pubkey: string): Promise<Profile> {
       base.avatarRef = latest.avatar || "";
       base.links = sanitizeLinks(latest.links);
       base.vfy = typeof latest.vfy === "string" ? latest.vfy : "";
+      base.pins = Array.isArray(latest.pins)
+        ? latest.pins.filter((id): id is string => typeof id === "string" && !!id).slice(0, 3)
+        : [];
     }
   } catch {
     /* keep the address-derived defaults */

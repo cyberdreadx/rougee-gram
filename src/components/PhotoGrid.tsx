@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Heart, Play, Film, Copy } from "lucide-react";
+import { Heart, Play, Film, Copy, Pin } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { decodeBody } from "@/lib/envelope";
 import MediaImage from "./MediaImage";
@@ -83,12 +83,15 @@ export default function PhotoGrid({
   isLoading,
   only,
   emptyLabel,
+  pinnedIds,
 }: {
   posts: SocialPost[] | undefined;
   isLoading?: boolean;
   /** Restrict the grid to a single media kind (e.g. the profile Reels tab). */
   only?: "reels";
   emptyLabel?: string;
+  /** Post ids to badge with a pin marker (profile grid). */
+  pinnedIds?: Set<string>;
 }) {
   const { t } = useTranslation();
   // Masonry via CSS columns: cells keep their real aspect ratio and flow into
@@ -154,6 +157,11 @@ export default function PhotoGrid({
                 ) : (
                   <Play className="h-4 w-4 fill-white" />
                 )}
+              </span>
+            )}
+            {pinnedIds?.has(post.id) && (
+              <span className="pointer-events-none absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded bg-black/55 px-1 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
+                <Pin className="h-3 w-3 fill-white" /> Pinned
               </span>
             )}
             <div

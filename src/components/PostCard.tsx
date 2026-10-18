@@ -13,10 +13,12 @@ import {
   Rocket,
   ChevronRight,
   Plus,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
-import { decodeBody, postOptions, postCta, type RepostEnvelope } from "@/lib/envelope";
-import { useProfile } from "@/hooks/useProfile";
+import { decodeBody, postOptions, postCta, isMediaBody, type RepostEnvelope } from "@/lib/envelope";
+import { useProfile, usePinPost } from "@/hooks/useProfile";
 import {
   usePost,
   usePostStats,
@@ -620,12 +622,26 @@ function PostMenu({ post }: { post: SocialPost }) {
   const { toast } = useToast();
   const del = useDeletePost();
   const addToStory = useAddToStory();
+  const pinPost = usePinPost();
   const [open, setOpen] = useState(false);
   const [boosting, setBoosting] = useState(false);
   const [sharing, setSharing] = useState(false);
   const isMine = publicKey === post.author_pubkey;
   // "Add to your story" needs a wallet and a re-shareable post type.
   const canStory = !!wallet && canShareToStory(post);
+  // Only media posts can be pinned (the profile grid is media-only).
+  const canPin = isMine && isMediaBody(post.body);
+  const pinned = pinPost.isPinned(post.id);
+
+  const togglePin = async () => {
+    setOpen(false);
+    try {
+      await (pinned ? pinPost.unpin(post.id) : pinPost.pin(post.id));
+      toast(pinned ? "Unpinned from profile" : "Pinned to profile", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Couldn't update pins", "error");
+    }
+  };
 
   const copyLink = () => {
     navigator.clipboard.writeText(`${location.origin}/p/${post.id}`);
@@ -673,6 +689,23 @@ function PostMenu({ post }: { post: SocialPost }) {
             >
               <Share2 className="h-4 w-4" /> Copy link
             </button>
+            {canPin && (
+              <button
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5 disabled:opacity-50"
+                disabled={pinPost.busy}
+                onClick={togglePin}
+              >
+                {pinned ? (
+                  <>
+                    <PinOff className="h-4 w-4" /> Unpin from profile
+                  </>
+                ) : (
+                  <>
+                    <Pin className="h-4 w-4 text-rouge-400" /> Pin to profile
+                  </>
+                )}
+              </button>
+            )}
             {isMine && promoteEnabled() && (
               <button
                 className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5"

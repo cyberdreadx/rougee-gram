@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getProfile, invalidateProfile, type Profile } from "@/lib/profile";
 import { useAuth } from "@/store/auth";
-import { encodeProfile, type ProfileLink } from "@/lib/envelope";
+import { encodeProfile, PINNED_MAX, type ProfileLink } from "@/lib/envelope";
 import { invalidateFeeds } from "./useSocial";
 import * as write from "@/lib/write";
 
@@ -28,6 +28,8 @@ export interface ProfileUpdate {
   links: ProfileLink[];
   /** Verified attestation to preserve across edits (empty string clears it). */
   vfy?: string;
+  /** Pinned post ids to preserve/update across edits. */
+  pins?: string[];
 }
 
 /** Publishes a `profile`-type post that becomes the user's current profile. */
@@ -43,6 +45,7 @@ export function useUpdateProfile() {
         avatar: update.avatarRef || undefined,
         links: update.links.length ? update.links : undefined,
         vfy: update.vfy || undefined,
+        pins: update.pins?.length ? update.pins : undefined,
       });
       const res = await write.createPost({ wallet, publicKey, isExtensionWallet }, body);
       if (!res.success) throw new Error(res.error || "Failed to save profile");
@@ -54,4 +57,44 @@ export function useUpdateProfile() {
       invalidateFeeds(client, publicKey);
     },
   });
+}
+
+/**
+ * Pin / unpin your own posts (max PINNED_MAX). Pins live in the profile envelope,
+ * so a change re-publishes the profile — preserving its other fields. Editing
+ * requires your current profile to be loaded (useMyProfile).
+ */
+export function usePinPost() {
+  const me = useMyProfile();
+  const update = useUpdateProfile();
+  const pins = me?.pins ?? [];
+
+  const save = async (next: string[]) => {
+    if (!me) throw new Error("Your profile isn't loaded yet — try again in a moment.");
+    await update.mutateAsync({
+      name: me.name,
+      bio: me.bio,
+      avatarRef: me.avatarRef,
+      links: me.links,
+      vfy: me.vfy,
+      pins: next,
+    });
+  };
+
+  return {
+    pins,
+    busy: update.isPending,
+    isPinned: (postId: string) => pins.includes(postId),
+    pin: async (postId: string) => {
+      if (pins.includes(postId)) return;
+      if (pins.length >= PINNED_MAX) {
+        throw new Error(`You can pin up to ${PINNED_MAX} posts — unpin one first.`);
+      }
+      await save([postId, ...pins]); // newest pin shown first
+    },
+    unpin: async (postId: string) => {
+      if (!pins.includes(postId)) return;
+      await save(pins.filter((id) => id !== postId));
+    },
+  };
 }
