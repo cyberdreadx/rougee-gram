@@ -30,6 +30,7 @@ import {
 } from "@/lib/envelope";
 import { processImage } from "@/lib/image";
 import { putImage } from "@/lib/media";
+import { recordTaste, tagsFromText, TASTE_WEIGHTS } from "@/lib/taste";
 import { useMentionAutocomplete, usePrefetchMentionCandidates } from "@/hooks/useMentionAutocomplete";
 import { cn } from "@/lib/utils";
 import type { SocialPost } from "@rougechain/sdk";
@@ -73,6 +74,21 @@ export default function PostDetail() {
   const noMediaComments = opts?.noMediaComments ?? false;
   // The comment being replied to (threaded replies), or null to comment on the post.
   const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
+  const { publicKey } = useAuth();
+
+  // Opening a post is an interest signal — feeds the personalized Discover re-rank.
+  useEffect(() => {
+    const p = data?.post;
+    if (!p) return;
+    const d = decodeBody(p.body);
+    const cap = d.kind === "text" ? d.text : ((d as { data?: { cap?: string } }).data?.cap ?? "");
+    recordTaste(publicKey, {
+      author: p.author_pubkey,
+      tags: tagsFromText(cap),
+      weight: TASTE_WEIGHTS.open,
+      dedupeKey: `open:${p.id}`,
+    });
+  }, [data?.post, publicKey]);
 
   // Split replies: the author's own replies are thread continuation (rendered as
   // connected posts under the root); everyone else's are comments.

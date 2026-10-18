@@ -27,6 +27,9 @@ import {
 } from "@/lib/nostrFeed";
 import { useGlobalTimeline } from "./useSocial";
 import { useSavedIds } from "./useSaved";
+import { useAuth } from "@/store/auth";
+import { decodeBody } from "@/lib/envelope";
+import { getTasteProfile, tagsFromText } from "@/lib/taste";
 
 const MAX_EVENTS = 300;
 /** Apply incoming events in batches so a busy relay doesn't re-render per event. */
@@ -531,12 +534,23 @@ const RANK = {
   replyWeight: 1.5,
   decayExponent: 1.3, // higher ⇒ recency dominates more
   followBoost: 2.5,
+  personalWeight: 1.8, // how hard the device-local taste profile nudges matches
+  diversityWindow: 3, // no more than one post per author within this window
 };
+
+/** Hashtags on a feed post (nostr note text, or a rouge post's caption). */
+function postHashtags(p: FeedPost): string[] {
+  if (p.nostr) return tagsFromText(p.body);
+  const d = decodeBody(p.body);
+  const cap = d.kind === "text" ? d.text : ((d as { data?: { cap?: string } }).data?.cap ?? "");
+  return tagsFromText(cap);
+}
 
 export function useDiscoverFeed(topic: string | null = null) {
   const global = useGlobalTimeline();
   const stream = useNostrStream(true, topic);
   const { follows, mutes } = useNostrSocial();
+  const { publicKey } = useAuth();
   // Freeze the ranked order so the feed doesn't reshuffle as counts trickle in;
   // it only re-ranks when the set of posts changes (new posts / refresh).
   const orderRef = useRef<{ sig: string; ids: string[] }>({ sig: "", ids: [] });
@@ -551,6 +565,9 @@ export function useDiscoverFeed(topic: string | null = null) {
 
     if (orderRef.current.sig !== sig) {
       const now = Date.now();
+      // Personalized nudge from the viewer's device-local taste profile (the
+      // authors + hashtags they engage with). Empty on cold-start → no effect.
+      const taste = getTasteProfile(publicKey);
       const score = (p: FeedPost): number => {
         const ageH = Math.max(0, (now - toMs(p.created_at)) / 3_600_000);
         const n = p.nostr;
@@ -562,18 +579,35 @@ export function useDiscoverFeed(topic: string | null = null) {
         // +1 keeps brand-new, zero-engagement posts competitive (the "recency" half)
         let s = (eng + 1) / Math.pow(ageH + 2, RANK.decayExponent);
         if (n && follows.has(n.pubkey)) s *= RANK.followBoost;
+        if (taste.hasData) {
+          const authorAff = taste.authors[p.author_pubkey] ?? 0;
+          let tagAff = 0;
+          for (const tg of postHashtags(p)) tagAff = Math.max(tagAff, taste.tags[tg] ?? 0);
+          const aff = authorAff + 0.5 * tagAff; // author affinity weighs more than tag
+          s *= 1 + RANK.personalWeight * aff;
+        }
         return s;
       };
-      orderRef.current = {
-        sig,
-        ids: [...all].sort((a, b) => score(b) - score(a)).map((p) => p.id),
-      };
+
+      // Sort by score, then interleave so one author can't dominate a run.
+      const scored = all.map((p) => ({ p, s: score(p) })).sort((a, b) => b.s - a.s);
+      const recent: string[] = [];
+      const ids: string[] = [];
+      while (scored.length) {
+        let idx = scored.findIndex((x) => !recent.includes(x.p.author_pubkey));
+        if (idx === -1) idx = 0; // everyone's recent — just take the top
+        const [picked] = scored.splice(idx, 1);
+        ids.push(picked.p.id);
+        recent.push(picked.p.author_pubkey);
+        if (recent.length > RANK.diversityWindow) recent.shift();
+      }
+      orderRef.current = { sig, ids };
     }
     // Return in the frozen order, carrying the latest post objects (live counts).
     return orderRef.current.ids
       .map((id) => byId.get(id))
       .filter((p): p is FeedPost => Boolean(p));
-  }, [global.data, stream.live, follows, mutes]);
+  }, [global.data, stream.live, follows, mutes, publicKey]);
 
   return {
     data,

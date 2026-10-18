@@ -33,6 +33,7 @@ import {
   usePostLikers,
 } from "@/hooks/useSocial";
 import { canShareToStory } from "@/lib/shareToStory";
+import { recordTaste, tagsFromText, TASTE_WEIGHTS } from "@/lib/taste";
 import RepostButton from "./RepostButton";
 import Modal from "./Modal";
 import type { Tipper } from "@/lib/tips";
@@ -142,6 +143,13 @@ export default function PostCard({
     if (!liked) {
       setBurst(true);
       setTimeout(() => setBurst(false), 700);
+      // Liking is a strong taste signal — feeds the personalized Discover re-rank.
+      recordTaste(publicKey, {
+        author: post.author_pubkey,
+        tags: tagsFromText(media.cap),
+        weight: TASTE_WEIGHTS.like,
+        dedupeKey: `like:${post.id}`,
+      });
     }
     like.mutate();
   }

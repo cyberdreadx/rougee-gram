@@ -23,6 +23,7 @@ import Avatar from "./Avatar";
 import FeedVideo from "./FeedVideo";
 import RichText from "./RichText";
 import TranslateText from "./TranslateText";
+import { recordTaste, tagsFromText, TASTE_WEIGHTS } from "@/lib/taste";
 
 /**
  * A Nostr note mixed into the Discover feed. Identity/avatar come from the
@@ -32,7 +33,7 @@ import TranslateText from "./TranslateText";
  * RougeChain.
  */
 export default function NostrPostCard({ post }: { post: FeedPost }) {
-  const { address } = useAuth();
+  const { address, publicKey } = useAuth();
   const myProfile = useMyProfile();
   const acted = useActed()[post.id];
   const isSaved = useIsSaved(post.id);
@@ -84,6 +85,13 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
     if (!n || acted?.liked || busy) return;
     setBusy("like");
     markActed(post.id, "liked"); // optimistic — the heart fills instantly
+    // Taste signal for the personalized Discover re-rank (author keyed by nostr pubkey).
+    recordTaste(publicKey, {
+      author: n.pubkey,
+      tags: tagsFromText(post.body),
+      weight: TASTE_WEIGHTS.like,
+      dedupeKey: `nlike:${post.id}`,
+    });
     try {
       await publishEvent(owner, buildReaction({ id: eventId, pubkey: n.pubkey }), await buildMeta());
     } catch (e) {
