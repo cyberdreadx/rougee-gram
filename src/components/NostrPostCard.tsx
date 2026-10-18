@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Globe, ExternalLink, Heart, Repeat2, MessageCircle, Send, Bookmark, X } from "lucide-react";
 import type { FeedPost } from "@/lib/nostrFeed";
@@ -32,6 +33,9 @@ import { recordTaste, tagsFromText, TASTE_WEIGHTS } from "@/lib/taste";
  * with their rougee name + avatar the first time); value (tips) stays on
  * RougeChain.
  */
+/** Clamp long Nostr note text (some notes are enormous hashtag/URL walls). */
+const NOSTR_CLAMP = 280;
+
 export default function NostrPostCard({ post }: { post: FeedPost }) {
   const { address, publicKey } = useAuth();
   const myProfile = useMyProfile();
@@ -47,12 +51,15 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   const [sending, setSending] = useState(false);
   const [brokenImgs, setBrokenImgs] = useState<Set<string>>(new Set());
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [optimistic, setOptimistic] = useState<
     { id: string; pubkey: string; content: string; created_at: number; realId?: string }[]
   >([]);
 
+  const { t } = useTranslation();
   const n = post.nostr;
   const owner = address || "anon";
+  const bodyLong = post.body.length > NOSTR_CLAMP;
   const eventId = eventIdOf(post.id);
   const { replies, profiles: replyProfiles } = useNoteThread(eventId, showComments);
 
@@ -196,11 +203,27 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
         </button>
       </div>
 
-      {/* text */}
+      {/* text — clamped with a more/less toggle (Nostr notes can be very long) */}
       {post.body.trim() && (
         <>
           <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
-            <RichText text={post.body} />
+            <RichText text={bodyLong && !expanded ? post.body.slice(0, NOSTR_CLAMP).trimEnd() : post.body} />
+            {bodyLong &&
+              (expanded ? (
+                <>
+                  {" "}
+                  <button className="text-ink-muted hover:underline" onClick={() => setExpanded(false)}>
+                    {t("common.less")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  …{" "}
+                  <button className="text-ink-muted hover:underline" onClick={() => setExpanded(true)}>
+                    {t("common.more")}
+                  </button>
+                </>
+              ))}
           </p>
           <TranslateText text={post.body} className="mt-1" />
         </>

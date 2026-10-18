@@ -371,60 +371,96 @@ export function useHashtagFeed(
 ): { posts: FeedPost[]; loading: boolean } {
   const global = useGlobalTimeline();
   const slug = (tag || "").toLowerCase().replace(/^#/, "").trim();
-  const [nostr, setNostr] = useState<FeedPost[]>([]);
+  const [events, setEvents] = useState<Map<string, Event>>(new Map());
+  const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const [loading, setLoading] = useState(false);
+  const wantProfiles = useRef<Set<string>>(new Set());
 
+  // Stream matching notes in as relays answer (don't block on a full querySync),
+  // so the first results paint in well under a second.
   useEffect(() => {
     if (!enabled || !slug) {
-      setNostr([]);
+      setEvents(new Map());
+      setLoading(false);
       return;
     }
-    let cancelled = false;
+    setEvents(new Map());
     setLoading(true);
-    (async () => {
-      try {
-        const pool = getPool();
-        const evs = await pool.querySync(
-          NOSTR_RELAYS,
-          { kinds: [1], "#t": [slug], limit: 200 },
-          { maxWait: 5000 },
-        );
-        const seen = new Set<string>();
-        const uniq = evs
-          .filter((e) => {
-            if (replyTargetOf(e) || isMachineNote(e.content)) return false;
-            if (!e.content.trim() && imagesOf(e).length === 0 && videosOf(e).length === 0) return false;
-            if (seen.has(e.id)) return false;
-            seen.add(e.id);
-            return true;
-          })
-          .sort((a, b) => b.created_at - a.created_at)
-          .slice(0, 100);
-        const authors = [...new Set(uniq.map((e) => e.pubkey))];
-        const metas = authors.length
-          ? await pool.querySync(NOSTR_RELAYS, { kinds: [0], authors }, { maxWait: 4000 })
-          : [];
-        const profs = new Map<string, NostrProfile>();
-        for (const m of metas) {
-          if (profs.has(m.pubkey)) continue;
-          const p = parseProfile(m.content);
-          if (p) profs.set(m.pubkey, p);
-        }
-        if (cancelled) return;
-        setNostr(uniq.map((e) => eventToFeedPost(e, profs.get(e.pubkey))));
-      } catch {
-        if (!cancelled) setNostr([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    const pool = getPool();
+    let buffer: Event[] = [];
+    const flush = () => {
+      if (!buffer.length) return;
+      const batch = buffer;
+      buffer = [];
+      setEvents((prev) => {
+        const next = new Map(prev);
+        for (const e of batch) if (!next.has(e.id)) next.set(e.id, e);
+        return next;
+      });
+    };
+    const timer = setInterval(flush, 350);
+    const stopLoading = setTimeout(() => setLoading(false), 6000);
+    const sub = pool.subscribeMany(
+      NOSTR_RELAYS,
+      { kinds: [1], "#t": [slug], limit: 200 },
+      {
+        onevent: (e) => {
+          if (replyTargetOf(e) || isMachineNote(e.content)) return;
+          if (!e.content.trim() && imagesOf(e).length === 0 && videosOf(e).length === 0) return;
+          // Drop hashtag-stuffing spam (SEO notes tag dozens of topics at once).
+          if (hashtagsOf(e).length > 15) return;
+          buffer.push(e);
+          wantProfiles.current.add(e.pubkey);
+        },
+        oneose: () => {
+          flush();
+          setLoading(false);
+        },
+      },
+    );
     return () => {
-      cancelled = true;
+      clearInterval(timer);
+      clearTimeout(stopLoading);
+      sub.close();
     };
   }, [slug, enabled]);
 
+  // Fill author names/avatars in the background — posts render immediately with
+  // a short-pubkey fallback and upgrade as profiles arrive.
+  useEffect(() => {
+    if (!enabled || !slug) return;
+    const id = setInterval(async () => {
+      const want = [...wantProfiles.current].filter((pk) => !profiles.has(pk)).slice(0, 60);
+      if (!want.length) return;
+      want.forEach((pk) => wantProfiles.current.delete(pk));
+      try {
+        const metas = await getPool().querySync(
+          NOSTR_RELAYS,
+          { kinds: [0], authors: want },
+          { maxWait: 4000 },
+        );
+        setProfiles((prev) => {
+          const next = new Map(prev);
+          for (const m of metas) {
+            if (next.has(m.pubkey)) continue;
+            const p = parseProfile(m.content);
+            if (p) next.set(m.pubkey, p);
+          }
+          return next;
+        });
+      } catch {
+        /* relays flaky; retry next tick */
+      }
+    }, 800);
+    return () => clearInterval(id);
+  }, [enabled, slug, profiles]);
+
   const posts = useMemo<FeedPost[]>(() => {
     if (!slug) return [];
+    const nostr = [...events.values()]
+      .sort((a, b) => b.created_at - a.created_at)
+      .slice(0, 100)
+      .map((e) => eventToFeedPost(e, profiles.get(e.pubkey)));
     const rouge = ((global.data ?? []) as FeedPost[]).filter(
       (p) => !p.nostr && postHashtags(p).includes(slug),
     );
@@ -437,9 +473,10 @@ export function useHashtagFeed(
     }
     out.sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
     return out;
-  }, [global.data, nostr, slug]);
+  }, [global.data, events, profiles, slug]);
 
-  return { posts, loading: loading || (enabled && !!slug && global.isLoading) };
+  // Only "loading" while we have nothing to show yet — never block visible results.
+  return { posts, loading: loading && posts.length === 0 };
 }
 
 /** What this device has liked/reposted on Nostr (reactive). */

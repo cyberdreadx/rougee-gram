@@ -104,10 +104,16 @@ function SearchResults({
     (d) => d.address.toLowerCase().includes(q) || d.handle.includes(q),
   );
   const looksLikeAddress = /^rouge1[0-9a-z]{6,}$/i.test(query.trim());
-  // A single tag-like word (optionally #-prefixed) → search it as a topic.
-  const tagSlug = /^#?[\p{L}\p{N}_]{2,30}$/u.test(query.trim())
+  // A single tag-like word (optionally #-prefixed) → search it as a topic,
+  // debounced so we don't fire a relay query on every keystroke.
+  const rawTag = /^#?[\p{L}\p{N}_]{2,30}$/u.test(query.trim())
     ? query.trim().toLowerCase().replace(/^#/, "")
     : "";
+  const [tagSlug, setTagSlug] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setTagSlug(rawTag), 300);
+    return () => clearTimeout(id);
+  }, [rawTag]);
   const hash = useHashtagFeed(tagSlug, !!tagSlug);
 
   return (
