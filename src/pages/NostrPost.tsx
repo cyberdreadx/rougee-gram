@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Loader2, Globe } from "lucide-react";
 import { useNostrPost } from "@/hooks/useNostrFeed";
@@ -13,7 +13,10 @@ export default function NostrPost() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { eventId } = useParams<{ eventId: string }>();
-  const { post, loading } = useNostrPost(eventId);
+  const { post, loading, rougeeId } = useNostrPost(eventId);
+
+  // If the note is a rougee mirror, deep-link to the native RougeChain post.
+  if (rougeeId) return <Navigate to={`/p/${rougeeId}`} replace />;
 
   return (
     <div className="pb-[calc(var(--bottom-nav-h)+2rem)] md:pb-0">

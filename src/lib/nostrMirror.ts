@@ -11,6 +11,22 @@ import { NOSTR_RELAYS, getPool } from "./nostrFeed";
 
 const httpsOnly = (u: string | null): string | null => (u && /^https:\/\//i.test(u) ? u : null);
 
+/** Canonical rougee URL for a post — embedded in mirrors so a Nostr like can
+ *  route back to the original RougeChain post (and clients show a link home). */
+export const rougeePostUrl = (id: string): string => `https://rougee.app/p/${id}`;
+const ROUGEE_POST_RE = /rougee\.app\/p\/([A-Za-z0-9_-]+)/i;
+
+/** Extract the original RougeChain post id from a mirrored note's `r` tag. */
+export function rougeePostIdFromEvent(ev: { tags: string[][] }): string | undefined {
+  for (const tg of ev.tags) {
+    if (tg[0] === "r" && tg[1]) {
+      const m = tg[1].match(ROUGEE_POST_RE);
+      if (m) return m[1];
+    }
+  }
+  return undefined;
+}
+
 /**
  * Sync a rougee profile to the local key's Nostr kind-0 (name → name, bio →
  * about, avatar → picture, cover → banner), so edits — cover included — show
@@ -61,6 +77,7 @@ export async function mirrorPostToNostr(
   owner: string,
   body: string,
   meta: { name?: string; picture?: string },
+  postId?: string,
 ): Promise<void> {
   const d = decodeBody(body);
   let text = "";
@@ -98,7 +115,12 @@ export async function mirrorPostToNostr(
   const ev = await signer.sign({
     kind: 1,
     created_at: Math.floor(Date.now() / 1000),
-    tags: [["t", "rougee"], ...urls.map((u) => ["imeta", `url ${u}`])],
+    tags: [
+      ["t", "rougee"],
+      // Back-reference to the original post so a Nostr like can deep-link home.
+      ...(postId ? [["r", rougeePostUrl(postId)]] : []),
+      ...urls.map((u) => ["imeta", `url ${u}`]),
+    ],
     content,
   });
   await Promise.allSettled(getPool().publish(NOSTR_RELAYS, ev));

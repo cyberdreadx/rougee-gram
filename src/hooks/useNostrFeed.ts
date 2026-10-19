@@ -10,6 +10,7 @@ import type { Event } from "nostr-tools";
 import { getActed, subscribeActed, replyTargetOf } from "@/lib/nostrAuth";
 import { getNostrSocial, subscribeNostrSocial } from "@/lib/nostrSocial";
 import { getNotificationsState, subscribeNotifications } from "@/lib/nostrNotifications";
+import { rougeePostIdFromEvent } from "@/lib/nostrMirror";
 import {
   NOSTR_RELAYS,
   NOSTR_ID_PREFIX,
@@ -556,18 +557,23 @@ export function useSavedNostrPosts(): FeedPost[] {
 export function useNostrPost(eventId: string | undefined): {
   post: FeedPost | null;
   loading: boolean;
+  /** Original RougeChain post id, if this note is a rougee mirror (`r` tag). */
+  rougeeId?: string;
 } {
   const [post, setPost] = useState<FeedPost | null>(null);
+  const [rougeeId, setRougeeId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(Boolean(eventId));
   useEffect(() => {
     if (!eventId) {
       setPost(null);
+      setRougeeId(undefined);
       setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setPost(null);
+    setRougeeId(undefined);
     (async () => {
       try {
         const pool = getPool();
@@ -575,6 +581,15 @@ export function useNostrPost(eventId: string | undefined): {
         const ev = evs[0];
         if (!ev) {
           if (!cancelled) setLoading(false);
+          return;
+        }
+        // A rougee mirror links home via an `r` tag — route to the native post.
+        const ref = rougeePostIdFromEvent(ev);
+        if (ref) {
+          if (!cancelled) {
+            setRougeeId(ref);
+            setLoading(false);
+          }
           return;
         }
         const metas = await pool.querySync(
@@ -594,7 +609,7 @@ export function useNostrPost(eventId: string | undefined): {
       cancelled = true;
     };
   }, [eventId]);
-  return { post, loading };
+  return { post, loading, rougeeId };
 }
 
 /** Live replies to one note (kind-1 with #e), fetched only while `open`. */

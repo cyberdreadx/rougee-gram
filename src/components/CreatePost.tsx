@@ -623,7 +623,12 @@ function CreatePostDialog({
     // Notify any @mentioned users (chain-verified server-side; best-effort).
     if (rootId) recordMentions(rootId, extractMentions(parts.join("\n\n")));
     if (mirror) {
-      mirrorPostToNostr(address || "anon", parts.join("\n\n"), { name: myProfile?.name }).catch(() => {});
+      mirrorPostToNostr(
+        address || "anon",
+        parts.join("\n\n"),
+        { name: myProfile?.name },
+        rootId,
+      ).catch(() => {});
     }
     toast(parts.length > 1 ? t("create.threadPosted") : t("create.posted"), "success");
     reset();
@@ -643,14 +648,17 @@ function CreatePostDialog({
     invalidateFeeds(client, publicKey);
 
     // Notify any @mentioned users (chain-verified server-side; best-effort).
-    if (!isAd && !isStory) {
-      const newId = write.newPostId(res);
-      if (newId) recordMentions(newId, extractMentions(body));
-    }
+    const createdId = !isAd && !isStory ? write.newPostId(res) : undefined;
+    if (createdId) recordMentions(createdId, extractMentions(body));
 
     // Opt-in: broadcast a copy to Nostr (skip ads + ephemeral stories).
     if (!isAd && !isStory && mirror) {
-      mirrorPostToNostr(address || "anon", body, { name: myProfile?.name }).catch(() => {});
+      mirrorPostToNostr(
+        address || "anon",
+        body,
+        { name: myProfile?.name },
+        createdId,
+      ).catch(() => {});
     }
 
     // A "dark post" ad lives on-chain but is hidden from the author's profile
