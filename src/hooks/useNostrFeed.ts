@@ -370,6 +370,7 @@ export function useHashtagFeed(
   enabled = true,
 ): { posts: FeedPost[]; loading: boolean } {
   const global = useGlobalTimeline();
+  const { mutes } = useNostrSocial();
   const slug = (tag || "").toLowerCase().replace(/^#/, "").trim();
   const [events, setEvents] = useState<Map<string, Event>>(new Map());
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
@@ -458,6 +459,7 @@ export function useHashtagFeed(
   const posts = useMemo<FeedPost[]>(() => {
     if (!slug) return [];
     const nostr = [...events.values()]
+      .filter((e) => !mutes.has(e.pubkey)) // respect blocked (muted) authors
       .sort((a, b) => b.created_at - a.created_at)
       .slice(0, 100)
       .map((e) => eventToFeedPost(e, profiles.get(e.pubkey)));
@@ -473,7 +475,7 @@ export function useHashtagFeed(
     }
     out.sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
     return out;
-  }, [global.data, events, profiles, slug]);
+  }, [global.data, events, profiles, slug, mutes]);
 
   // Only "loading" while we have nothing to show yet — never block visible results.
   return { posts, loading: loading && posts.length === 0 };

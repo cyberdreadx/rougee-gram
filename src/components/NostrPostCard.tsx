@@ -1,12 +1,25 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Globe, ExternalLink, Heart, Repeat2, MessageCircle, Send, Bookmark, X } from "lucide-react";
+import {
+  Globe,
+  ExternalLink,
+  Heart,
+  Repeat2,
+  MessageCircle,
+  Send,
+  Bookmark,
+  X,
+  MoreHorizontal,
+  Ban,
+  EyeOff,
+} from "lucide-react";
 import type { FeedPost } from "@/lib/nostrFeed";
 import { timeAgo, shortAddress } from "@/lib/format";
 import { useAuth } from "@/store/auth";
+import { useToast } from "./Toast";
 import { useActed, useNoteThread, useNostrSocial } from "@/hooks/useNostrFeed";
-import { setFollow, setBookmark } from "@/lib/nostrSocial";
+import { setFollow, setBookmark, setBlock } from "@/lib/nostrSocial";
 import { useMyProfile } from "@/hooks/useProfile";
 import {
   buildReaction,
@@ -52,6 +65,9 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   const [brokenImgs, setBrokenImgs] = useState<Set<string>>(new Set());
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const { toast } = useToast();
   const [optimistic, setOptimistic] = useState<
     { id: string; pubkey: string; content: string; created_at: number; realId?: string }[]
   >([]);
@@ -153,7 +169,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
     setFollowBusy(false);
   };
 
-  if (!n) return null;
+  if (!n || dismissed) return null;
   const images = n.images.slice(0, 4).filter((u) => !brokenImgs.has(u)); // drop ones that 404 / aren't images
   const following = follows.has(n.pubkey);
   const videos = n.videos.slice(0, 2);
@@ -201,6 +217,55 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
         >
           {following ? "Following" : "Follow"}
         </button>
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="text-ink-muted hover:text-white"
+            aria-label="More"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div className="glass absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-xl">
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-rouge-400 hover:bg-white/5"
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    setDismissed(true);
+                    try {
+                      await setBlock(owner, n.pubkey, true);
+                      toast(`Blocked ${n.name}`, "success");
+                    } catch {
+                      toast("Couldn't block", "error");
+                    }
+                  }}
+                >
+                  <Ban className="h-4 w-4" /> Block {n.name}
+                </button>
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setDismissed(true);
+                  }}
+                >
+                  <EyeOff className="h-4 w-4" /> Hide this post
+                </button>
+                <a
+                  href={n.noteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <ExternalLink className="h-4 w-4" /> View on Nostr
+                </a>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* text — clamped with a more/less toggle (Nostr notes can be very long) */}
