@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Heart, Pause, Volume2, VolumeX, Music2 } from "lucide-react";
 import { useTapGestures } from "@/hooks/useTapGestures";
+import { useFeedMuted } from "@/lib/mute";
 import type { SoundRef } from "@/lib/envelope";
 import MediaVideo from "./MediaVideo";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,7 @@ export default function FeedVideo({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const { t } = useTranslation();
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useFeedMuted();
   const [burst, setBurst] = useState(false);
   const [holding, setHolding] = useState(false);
   const [muteHint, setMuteHint] = useState(false);
@@ -103,7 +104,7 @@ export default function FeedVideo({
 
   const gestures = useTapGestures({
     onSingleTap: () => {
-      setMuted((m) => !m);
+      setMuted(!muted);
       setMuteHint(true);
       window.setTimeout(() => setMuteHint(false), 650);
     },
@@ -190,7 +191,7 @@ export default function FeedVideo({
 
       {/* mute toggle */}
       <button
-        onClick={() => setMuted((m) => !m)}
+        onClick={() => setMuted(!muted)}
         className="absolute bottom-2 right-2 z-10 rounded-full bg-black/50 p-2 text-white backdrop-blur"
         aria-label={muted ? t("common.unmute") : t("common.mute")}
       >

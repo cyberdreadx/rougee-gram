@@ -15,6 +15,7 @@ import { recordImpression } from "@/lib/promote";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import { useTapGestures } from "@/hooks/useTapGestures";
+import { useFeedMuted } from "@/lib/mute";
 import { useCreatePost } from "@/components/CreatePost";
 import { decodeBody, type VideoEnvelope } from "@/lib/envelope";
 import { formatCount } from "@/lib/format";
@@ -102,7 +103,7 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useFeedMuted();
   const [holding, setHolding] = useState(false);
   const [burst, setBurst] = useState(false);
   const [muteHint, setMuteHint] = useState(false);
@@ -181,7 +182,7 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
   // press-and-hold = pause in place, release = resume.
   const gestures = useTapGestures({
     onSingleTap: () => {
-      setMuted((m) => !m);
+      setMuted(!muted);
       setMuteHint(true);
       window.setTimeout(() => setMuteHint(false), 650);
     },
@@ -279,7 +280,7 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
 
       {/* mute toggle */}
       <button
-        onClick={() => setMuted((m) => !m)}
+        onClick={() => setMuted(!muted)}
         className="absolute right-3 top-3 z-10 rounded-full bg-black/50 p-2 text-white backdrop-blur"
         aria-label={muted ? "Unmute" : "Mute"}
       >
