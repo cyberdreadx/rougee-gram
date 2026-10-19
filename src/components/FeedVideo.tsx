@@ -51,31 +51,23 @@ export default function FeedVideo({
   const soundStart = sound?.start ?? 0;
 
   // Autoplay (muted) only while on screen; pause when scrolled away so several
-  // feed videos never play or buffer at once. An attached track rides along.
+  // feed videos never play or buffer at once. The VIDEO is controlled here; the
+  // attached track follows the video's real playback (effect below).
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => {
         const v = videoRef.current;
-        const a = audioElRef.current;
         if (!v) return;
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-          v.play().catch(() => {});
-          if (a) {
-            if (a.currentTime < soundStart) a.currentTime = soundStart;
-            a.play().catch(() => {});
-          }
-        } else {
-          v.pause();
-          a?.pause();
-        }
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.6) v.play().catch(() => {});
+        else v.pause();
       },
       { threshold: [0, 0.6, 1] },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [hasSound, soundStart]);
+  }, []);
 
   // The mute toggle drives the TRACK's audio when a sound is attached (the video
   // itself stays muted so you never hear both).
@@ -84,23 +76,59 @@ export default function FeedVideo({
     if (a) a.muted = muted;
   }, [muted]);
 
-  // Re-cue the track to its start offset each time the looping video wraps, so
-  // the same segment plays every loop instead of drifting.
+  // Lock the attached track to the VIDEO's real playback so they never drift: the
+  // track STARTS only when the video actually starts (not while it's still
+  // buffering — the cause of "music plays first"), PAUSES whenever the video
+  // pauses/stalls/buffers, re-aligns to the video's position on each resume, and
+  // re-cues to its start offset when the looping video wraps.
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !hasSound) return;
+    const a = audioElRef.current;
+    if (!v || !a || !hasSound) return;
+    const base = clipStart ?? 0;
+    const align = () => {
+      const target = soundStart + Math.max(0, v.currentTime - base);
+      if (Math.abs(a.currentTime - target) > 0.3) {
+        try {
+          a.currentTime = target;
+        } catch {
+          /* seek not ready */
+        }
+      }
+    };
+    const onPlaying = () => {
+      align();
+      a.play().catch(() => {});
+    };
+    const onStop = () => a.pause();
     let last = 0;
-    const onTU = () => {
-      const a = audioElRef.current;
-      if (a && v.currentTime < last - 0.3) {
-        a.currentTime = soundStart;
+    const onTime = () => {
+      if (v.currentTime < last - 0.3) {
+        // looped back to the start → re-cue the track to its offset
+        try {
+          a.currentTime = soundStart;
+        } catch {
+          /* ignore */
+        }
         a.play().catch(() => {});
       }
       last = v.currentTime;
     };
-    v.addEventListener("timeupdate", onTU);
-    return () => v.removeEventListener("timeupdate", onTU);
-  }, [hasSound, soundStart]);
+    v.addEventListener("playing", onPlaying);
+    v.addEventListener("pause", onStop);
+    v.addEventListener("waiting", onStop);
+    v.addEventListener("stalled", onStop);
+    v.addEventListener("timeupdate", onTime);
+    if (!v.paused && v.readyState >= 3) onPlaying(); // already rolling
+    return () => {
+      v.removeEventListener("playing", onPlaying);
+      v.removeEventListener("pause", onStop);
+      v.removeEventListener("waiting", onStop);
+      v.removeEventListener("stalled", onStop);
+      v.removeEventListener("timeupdate", onTime);
+      a.pause();
+    };
+  }, [hasSound, soundStart, clipStart]);
 
   const gestures = useTapGestures({
     onSingleTap: () => {
@@ -116,13 +144,11 @@ export default function FeedVideo({
       }
     },
     onHoldStart: () => {
-      videoRef.current?.pause();
-      audioElRef.current?.pause();
+      videoRef.current?.pause(); // the track follows via the video's pause event
       setHolding(true);
     },
     onHoldEnd: () => {
-      videoRef.current?.play().catch(() => {});
-      audioElRef.current?.play().catch(() => {});
+      videoRef.current?.play().catch(() => {}); // 'playing' re-aligns + resumes the track
       setHolding(false);
     },
   });

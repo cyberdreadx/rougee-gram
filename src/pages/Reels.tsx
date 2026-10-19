@@ -114,15 +114,8 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
   const sound = reel?.audio?.url ? reel.audio : null;
   const soundStart = sound?.start ?? 0;
 
-  function startSound() {
-    const a = audioElRef.current;
-    if (!a) return;
-    if (a.currentTime < soundStart) a.currentTime = soundStart;
-    a.play().catch(() => {});
-  }
-  function stopSound() {
-    audioElRef.current?.pause();
-  }
+  const soundUrl = sound?.url;
+  const trimStart = reel?.start ?? 0;
 
   // The mute toggle drives the track audio when a sound is attached.
   useEffect(() => {
@@ -130,24 +123,56 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
     if (a) a.muted = muted;
   }, [muted]);
 
-  // Keep the track aligned to the video: when the (looping) reel wraps back to
-  // its start, re-cue the music to its chosen offset so the same segment plays
-  // every loop — Instagram-style, instead of drifting on short reels.
+  // Lock the track to the VIDEO's real playback so they never drift: start only
+  // when the video actually starts (not while it's buffering — the cause of
+  // "music plays first"), pause when it pauses/stalls, re-align on each resume,
+  // and re-cue to the chosen offset when the looping reel wraps.
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !sound) return;
+    const a = audioElRef.current;
+    if (!v || !a || !soundUrl) return;
+    const align = () => {
+      const target = soundStart + Math.max(0, v.currentTime - trimStart);
+      if (Math.abs(a.currentTime - target) > 0.3) {
+        try {
+          a.currentTime = target;
+        } catch {
+          /* seek not ready */
+        }
+      }
+    };
+    const onPlaying = () => {
+      align();
+      a.play().catch(() => {});
+    };
+    const onStop = () => a.pause();
     let last = 0;
-    const onTU = () => {
-      const a = audioElRef.current;
-      if (a && v.currentTime < last - 0.3) {
-        a.currentTime = soundStart;
+    const onTime = () => {
+      if (v.currentTime < last - 0.3) {
+        try {
+          a.currentTime = soundStart;
+        } catch {
+          /* ignore */
+        }
         a.play().catch(() => {});
       }
       last = v.currentTime;
     };
-    v.addEventListener("timeupdate", onTU);
-    return () => v.removeEventListener("timeupdate", onTU);
-  }, [sound, soundStart]);
+    v.addEventListener("playing", onPlaying);
+    v.addEventListener("pause", onStop);
+    v.addEventListener("waiting", onStop);
+    v.addEventListener("stalled", onStop);
+    v.addEventListener("timeupdate", onTime);
+    if (!v.paused && v.readyState >= 3) onPlaying();
+    return () => {
+      v.removeEventListener("playing", onPlaying);
+      v.removeEventListener("pause", onStop);
+      v.removeEventListener("waiting", onStop);
+      v.removeEventListener("stalled", onStop);
+      v.removeEventListener("timeupdate", onTime);
+      a.pause();
+    };
+  }, [soundUrl, soundStart, trimStart]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -157,8 +182,7 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
         const vid = videoRef.current;
         if (!vid) return;
         if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-          vid.play().catch(() => {});
-          startSound();
+          vid.play().catch(() => {}); // the track follows the video's play event
           // Sponsored reel scrolled into view → one-time view-to-earn.
           if (sponsored && !impFired.current && publicKey) {
             impFired.current = true;
@@ -168,7 +192,6 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
           }
         } else {
           vid.pause();
-          stopSound();
         }
       },
       { threshold: [0, 0.6, 1] },
@@ -194,13 +217,11 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
       }
     },
     onHoldStart: () => {
-      videoRef.current?.pause();
-      stopSound();
+      videoRef.current?.pause(); // track follows via the video's pause event
       setHolding(true);
     },
     onHoldEnd: () => {
-      videoRef.current?.play().catch(() => {});
-      startSound();
+      videoRef.current?.play().catch(() => {}); // 'playing' re-aligns + resumes the track
       setHolding(false);
     },
   });
