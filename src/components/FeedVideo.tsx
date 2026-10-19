@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Heart, Pause, Volume2, VolumeX } from "lucide-react";
+import { Heart, Pause, Volume2, VolumeX, Music2 } from "lucide-react";
 import { useTapGestures } from "@/hooks/useTapGestures";
+import type { SoundRef } from "@/lib/envelope";
 import MediaVideo from "./MediaVideo";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +10,8 @@ import { cn } from "@/lib/utils";
  * In-feed video player (Instagram-style): autoplays muted while on screen, loops,
  * and plays INLINE — never opens a separate/native fullscreen view. Gestures:
  * single tap = mute toggle, double tap = like, press-and-hold = pause / release
- * = resume.
+ * = resume. When the video carries an attached `sound` (a reel's track), it's
+ * mixed over the muted video and attributed — same as the reels feed.
  */
 export default function FeedVideo({
   refUri,
@@ -20,6 +22,7 @@ export default function FeedVideo({
   liked,
   onLike,
   onLoadedMeta,
+  sound,
 }: {
   refUri: string;
   poster?: string;
@@ -31,35 +34,72 @@ export default function FeedVideo({
   onLike: () => void;
   /** Intrinsic video size once known (to size an unknown-ratio container). */
   onLoadedMeta?: (w: number, h: number) => void;
+  /** Attached music track (qRougee) mixed over the muted video. */
+  sound?: SoundRef;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
   const { t } = useTranslation();
   const [muted, setMuted] = useState(true);
   const [burst, setBurst] = useState(false);
   const [holding, setHolding] = useState(false);
   const [muteHint, setMuteHint] = useState(false);
 
+  const hasSound = !!sound?.url;
+  const soundStart = sound?.start ?? 0;
+
   // Autoplay (muted) only while on screen; pause when scrolled away so several
-  // feed videos never play or buffer at once.
+  // feed videos never play or buffer at once. An attached track rides along.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => {
         const v = videoRef.current;
+        const a = audioElRef.current;
         if (!v) return;
         if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
           v.play().catch(() => {});
+          if (a) {
+            if (a.currentTime < soundStart) a.currentTime = soundStart;
+            a.play().catch(() => {});
+          }
         } else {
           v.pause();
+          a?.pause();
         }
       },
       { threshold: [0, 0.6, 1] },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [hasSound, soundStart]);
+
+  // The mute toggle drives the TRACK's audio when a sound is attached (the video
+  // itself stays muted so you never hear both).
+  useEffect(() => {
+    const a = audioElRef.current;
+    if (a) a.muted = muted;
+  }, [muted]);
+
+  // Re-cue the track to its start offset each time the looping video wraps, so
+  // the same segment plays every loop instead of drifting.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !hasSound) return;
+    let last = 0;
+    const onTU = () => {
+      const a = audioElRef.current;
+      if (a && v.currentTime < last - 0.3) {
+        a.currentTime = soundStart;
+        a.play().catch(() => {});
+      }
+      last = v.currentTime;
+    };
+    v.addEventListener("timeupdate", onTU);
+    return () => v.removeEventListener("timeupdate", onTU);
+  }, [hasSound, soundStart]);
 
   const gestures = useTapGestures({
     onSingleTap: () => {
@@ -76,10 +116,12 @@ export default function FeedVideo({
     },
     onHoldStart: () => {
       videoRef.current?.pause();
+      audioElRef.current?.pause();
       setHolding(true);
     },
     onHoldEnd: () => {
       videoRef.current?.play().catch(() => {});
+      audioElRef.current?.play().catch(() => {});
       setHolding(false);
     },
   });
@@ -92,13 +134,18 @@ export default function FeedVideo({
         poster={poster}
         className={cn("h-full w-full bg-black", cropped ? "object-cover" : "object-contain")}
         loop
-        muted={muted}
+        // With a track attached, keep the video silent — only the music plays.
+        muted={hasSound ? true : muted}
         controls={false}
         playsInline
         clipStart={clipStart}
         clipEnd={clipEnd}
         onLoadedMeta={onLoadedMeta}
       />
+
+      {hasSound && (
+        <audio ref={audioElRef} src={sound!.url} loop preload="auto" muted={muted} />
+      )}
 
       {/* gesture layer — tap: mute · double-tap: like · hold: pause.
           `touch-pan-y` keeps the feed scrollable through the video. */}
@@ -129,6 +176,17 @@ export default function FeedVideo({
           </span>
         )}
       </div>
+
+      {/* attached-track attribution (matches the reels feed) */}
+      {hasSound && (
+        <div className="pointer-events-none absolute bottom-2 left-2 z-10 flex max-w-[70%] items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-xs text-white backdrop-blur">
+          <Music2 className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">
+            {sound!.title || "Original sound"}
+            {sound!.artist ? ` · ${sound!.artist}` : ""}
+          </span>
+        </div>
+      )}
 
       {/* mute toggle */}
       <button

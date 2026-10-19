@@ -17,7 +17,7 @@ import {
   PinOff,
 } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
-import { decodeBody, postOptions, postCta, isMediaBody, type RepostEnvelope } from "@/lib/envelope";
+import { decodeBody, postOptions, postCta, isMediaBody, type RepostEnvelope, type SoundRef } from "@/lib/envelope";
 import { useProfile, usePinPost } from "@/hooks/useProfile";
 import {
   usePost,
@@ -122,6 +122,7 @@ export default function PostCard({
     start?: number;
     end?: number;
     crop?: string;
+    audio?: SoundRef;
   };
   const isVideo =
     !isCarousel && ((media.mime ?? "").startsWith("video/") || decoded.kind === "video");
@@ -221,6 +222,7 @@ export default function PostCard({
             clipEnd={media.end}
             liked={liked}
             onLike={() => like.mutate()}
+            sound={media.audio}
           />
         ) : isGatedRef(media.cid) ? (
           <GatedMedia
