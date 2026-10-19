@@ -16,6 +16,7 @@ export interface Profile {
   bio: string;
   avatarRef: string; // media reference URI or ""
   bannerRef: string; // cover/banner media reference URI or ""
+  bannerPos: number; // cover vertical framing (object-position Y %, 50 = center)
   links: ProfileLink[]; // link-in-bio entries (sanitized)
   vfy: string; // verified-badge attestation (HQ signature hex), "" if none
   pins: string[]; // pinned post ids (shown first on the profile grid)
@@ -38,6 +39,7 @@ export async function getProfile(pubkey: string): Promise<Profile> {
     bio: "",
     avatarRef: "",
     bannerRef: "",
+    bannerPos: 50,
     links: [],
     vfy: "",
     pins: [],
@@ -52,6 +54,10 @@ export async function getProfile(pubkey: string): Promise<Profile> {
       base.bio = latest.bio?.trim() || "";
       base.avatarRef = latest.avatar || "";
       base.bannerRef = latest.banner || "";
+      base.bannerPos =
+        typeof latest.bpos === "number" && latest.bpos >= 0 && latest.bpos <= 100
+          ? latest.bpos
+          : 50;
       base.links = sanitizeLinks(latest.links);
       base.vfy = typeof latest.vfy === "string" ? latest.vfy : "";
       base.pins = Array.isArray(latest.pins)

@@ -39,7 +39,28 @@ export default function EditProfile({
   const [bannerRef, setBannerRef] = useState(profile.bannerRef);
   const [localBanner, setLocalBanner] = useState("");
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerPos, setBannerPos] = useState(profile.bannerPos ?? 50);
   const bannerInput = useRef<HTMLInputElement>(null);
+  const dragRef = useRef<{ startY: number; startPos: number; h: number } | null>(null);
+  const hasBanner = Boolean(bannerRef || localBanner);
+
+  // Drag the cover up/down to choose which part shows (object-position Y).
+  function onBannerPointerDown(e: React.PointerEvent) {
+    if (!hasBanner) return;
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+    dragRef.current = { startY: e.clientY, startPos: bannerPos, h: el.clientHeight || 96 };
+  }
+  function onBannerPointerMove(e: React.PointerEvent) {
+    const d = dragRef.current;
+    if (!d) return;
+    // Drag down → reveal the top of the image → object-position moves toward 0.
+    const next = d.startPos - ((e.clientY - d.startY) / d.h) * 100;
+    setBannerPos(Math.max(0, Math.min(100, next)));
+  }
+  function endBannerDrag() {
+    dragRef.current = null;
+  }
   const [links, setLinks] = useState<ProfileLink[]>(profile.links);
   const [subPrice, setSubPrice] = useState(profile.subPrice ? String(profile.subPrice) : "");
 
@@ -77,6 +98,8 @@ export default function EditProfile({
       const img = await processImage(f, { maxSize: 1280, quality: 0.82 });
       const media = await putImage(img.blob, "banner");
       setBannerRef(media.ref);
+      setBannerPos(50); // a fresh image starts centered
+
     } catch (e) {
       toast(e instanceof Error ? e.message : t("edit.avatarUploadFailed"), "error");
     } finally {
@@ -99,6 +122,7 @@ export default function EditProfile({
         bio,
         avatarRef,
         bannerRef,
+        bannerPos,
         links: filled,
         vfy: profile.vfy,
         pins: profile.pins, // preserve pins across profile edits
@@ -118,38 +142,69 @@ export default function EditProfile({
   return (
     <Modal onClose={onClose} title={t("edit.title")} maxWidth="max-w-md">
       <div className="space-y-4">
-        {/* cover / banner */}
-        <div className="relative h-24 w-full overflow-hidden rounded-xl bg-ink-soft">
+        {/* cover / banner — drag up/down to reposition how it sits */}
+        <div
+          className={`relative h-24 w-full overflow-hidden rounded-xl bg-ink-soft ${
+            hasBanner ? "cursor-grab touch-none active:cursor-grabbing" : ""
+          }`}
+          onPointerDown={onBannerPointerDown}
+          onPointerMove={onBannerPointerMove}
+          onPointerUp={endBannerDrag}
+          onPointerCancel={endBannerDrag}
+        >
+          {localBanner ? (
+            <img
+              src={localBanner}
+              alt=""
+              draggable={false}
+              className="h-full w-full select-none object-cover"
+              style={{ objectPosition: `50% ${bannerPos}%` }}
+            />
+          ) : bannerRef ? (
+            <MediaImage
+              refUri={bannerRef}
+              alt=""
+              className="h-full w-full select-none object-cover"
+              style={{ objectPosition: `50% ${bannerPos}%` }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => bannerInput.current?.click()}
+              disabled={uploadingBanner}
+              className="flex h-full w-full items-center justify-center text-xs text-ink-muted"
+            >
+              {t("edit.addCover")}
+            </button>
+          )}
+
+          {hasBanner && (
+            <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] text-white backdrop-blur">
+              {t("edit.dragToReposition")}
+            </span>
+          )}
+
           <button
             type="button"
             onClick={() => bannerInput.current?.click()}
             disabled={uploadingBanner}
-            className="absolute inset-0 h-full w-full"
-            aria-label={t("edit.addCover")}
+            className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-rouge-600 text-white ring-2 ring-ink-card"
+            aria-label={hasBanner ? t("edit.changePhoto") : t("edit.addCover")}
           >
-            {localBanner ? (
-              <img src={localBanner} alt="" className="h-full w-full object-cover" />
-            ) : bannerRef ? (
-              <MediaImage refUri={bannerRef} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center text-xs text-ink-muted">
-                {t("edit.addCover")}
-              </span>
-            )}
-          </button>
-          <span className="pointer-events-none absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-rouge-600 text-white ring-2 ring-ink-card">
             {uploadingBanner ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Camera className="h-3.5 w-3.5" />
             )}
-          </span>
-          {(bannerRef || localBanner) && (
+          </button>
+
+          {hasBanner && (
             <button
               type="button"
               onClick={() => {
                 setBannerRef("");
                 setLocalBanner("");
+                setBannerPos(50);
               }}
               className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white"
               aria-label={t("common.remove")}

@@ -140,7 +140,12 @@ export default function Profile() {
 
       {/* Cover / banner photo */}
       {profile?.bannerRef && (
-        <MediaImage refUri={profile.bannerRef} alt="" className="h-28 w-full object-cover sm:h-40" />
+        <MediaImage
+          refUri={profile.bannerRef}
+          alt=""
+          className="h-28 w-full object-cover sm:h-40"
+          style={{ objectPosition: `50% ${profile.bannerPos ?? 50}%` }}
+        />
       )}
 
       {/* Profile head — extra top padding leaves room for the note bubble that

@@ -10,11 +10,13 @@ interface Props {
   className?: string;
   /** Rounded square placeholder while resolving. */
   rounded?: boolean;
+  /** Inline styles for the <img> (e.g. objectPosition for cover framing). */
+  style?: React.CSSProperties;
 }
 
 /** Resolves a media reference (ipfs://… / local://…) and renders it with a
  *  loading skeleton and a graceful "unavailable" fallback. */
-export default function MediaImage({ refUri, alt, className, rounded }: Props) {
+export default function MediaImage({ refUri, alt, className, rounded, style }: Props) {
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
@@ -88,6 +90,7 @@ export default function MediaImage({ refUri, alt, className, rounded }: Props) {
       loading="lazy"
       onError={() => setState("error")}
       className={cn("block", rounded && "rounded-2xl", className)}
+      style={style}
     />
   );
 }

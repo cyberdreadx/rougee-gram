@@ -198,6 +198,8 @@ export interface ProfileEnvelope {
   avatar?: string;
   /** Cover/banner media reference URI (wide header image), or "" to clear */
   banner?: string;
+  /** Cover vertical framing: object-position Y as 0–100 (%). 50 = centered. */
+  bpos?: number;
   /** Link-in-bio entries (max PROFILE_LINKS_MAX). */
   links?: ProfileLink[];
   /** Verified-badge attestation: RouGee HQ's ML-DSA-65 signature (hex) over
@@ -478,6 +480,9 @@ export function encodeProfile(env: Omit<ProfileEnvelope, "v" | "t">): string {
     : [];
   full.pins = pins.length ? pins : undefined;
   full.sub = typeof full.sub === "number" && full.sub > 0 ? Math.floor(full.sub) : undefined;
+  // Cover framing: keep only a meaningful, in-range, non-default (≠50) value.
+  const bp = typeof full.bpos === "number" ? Math.round(full.bpos) : NaN;
+  full.bpos = full.banner && bp >= 0 && bp <= 100 && bp !== 50 ? bp : undefined;
   return JSON.stringify(stripUndefined(full));
 }
 
