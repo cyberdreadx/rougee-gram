@@ -15,6 +15,7 @@ import { recordImpression } from "@/lib/promote";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import { useTapGestures } from "@/hooks/useTapGestures";
+import { useTrackSync } from "@/hooks/useTrackSync";
 import { useFeedMuted } from "@/lib/mute";
 import { useCreatePost } from "@/components/CreatePost";
 import { decodeBody, type VideoEnvelope } from "@/lib/envelope";
@@ -123,56 +124,14 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
     if (a) a.muted = muted;
   }, [muted]);
 
-  // Lock the track to the VIDEO's real playback so they never drift: start only
-  // when the video actually starts (not while it's buffering — the cause of
-  // "music plays first"), pause when it pauses/stalls, re-align on each resume,
-  // and re-cue to the chosen offset when the looping reel wraps.
-  useEffect(() => {
-    const v = videoRef.current;
-    const a = audioElRef.current;
-    if (!v || !a || !soundUrl) return;
-    const align = () => {
-      const target = soundStart + Math.max(0, v.currentTime - trimStart);
-      if (Math.abs(a.currentTime - target) > 0.3) {
-        try {
-          a.currentTime = target;
-        } catch {
-          /* seek not ready */
-        }
-      }
-    };
-    const onPlaying = () => {
-      align();
-      a.play().catch(() => {});
-    };
-    const onStop = () => a.pause();
-    let last = 0;
-    const onTime = () => {
-      if (v.currentTime < last - 0.3) {
-        try {
-          a.currentTime = soundStart;
-        } catch {
-          /* ignore */
-        }
-        a.play().catch(() => {});
-      }
-      last = v.currentTime;
-    };
-    v.addEventListener("playing", onPlaying);
-    v.addEventListener("pause", onStop);
-    v.addEventListener("waiting", onStop);
-    v.addEventListener("stalled", onStop);
-    v.addEventListener("timeupdate", onTime);
-    if (!v.paused && v.readyState >= 3) onPlaying();
-    return () => {
-      v.removeEventListener("playing", onPlaying);
-      v.removeEventListener("pause", onStop);
-      v.removeEventListener("waiting", onStop);
-      v.removeEventListener("stalled", onStop);
-      v.removeEventListener("timeupdate", onTime);
-      a.pause();
-    };
-  }, [soundUrl, soundStart, trimStart]);
+  // Frame-accurate lock of the attached track to the video's real playback.
+  useTrackSync({
+    videoRef,
+    audioRef: audioElRef,
+    enabled: !!soundUrl,
+    soundStart,
+    clipStart: trimStart,
+  });
 
   useEffect(() => {
     const el = containerRef.current;

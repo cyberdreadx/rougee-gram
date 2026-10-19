@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Heart, Pause, Volume2, VolumeX, Music2 } from "lucide-react";
 import { useTapGestures } from "@/hooks/useTapGestures";
+import { useTrackSync } from "@/hooks/useTrackSync";
 import { useFeedMuted } from "@/lib/mute";
 import type { SoundRef } from "@/lib/envelope";
 import MediaVideo from "./MediaVideo";
@@ -76,59 +77,8 @@ export default function FeedVideo({
     if (a) a.muted = muted;
   }, [muted]);
 
-  // Lock the attached track to the VIDEO's real playback so they never drift: the
-  // track STARTS only when the video actually starts (not while it's still
-  // buffering — the cause of "music plays first"), PAUSES whenever the video
-  // pauses/stalls/buffers, re-aligns to the video's position on each resume, and
-  // re-cues to its start offset when the looping video wraps.
-  useEffect(() => {
-    const v = videoRef.current;
-    const a = audioElRef.current;
-    if (!v || !a || !hasSound) return;
-    const base = clipStart ?? 0;
-    const align = () => {
-      const target = soundStart + Math.max(0, v.currentTime - base);
-      if (Math.abs(a.currentTime - target) > 0.3) {
-        try {
-          a.currentTime = target;
-        } catch {
-          /* seek not ready */
-        }
-      }
-    };
-    const onPlaying = () => {
-      align();
-      a.play().catch(() => {});
-    };
-    const onStop = () => a.pause();
-    let last = 0;
-    const onTime = () => {
-      if (v.currentTime < last - 0.3) {
-        // looped back to the start → re-cue the track to its offset
-        try {
-          a.currentTime = soundStart;
-        } catch {
-          /* ignore */
-        }
-        a.play().catch(() => {});
-      }
-      last = v.currentTime;
-    };
-    v.addEventListener("playing", onPlaying);
-    v.addEventListener("pause", onStop);
-    v.addEventListener("waiting", onStop);
-    v.addEventListener("stalled", onStop);
-    v.addEventListener("timeupdate", onTime);
-    if (!v.paused && v.readyState >= 3) onPlaying(); // already rolling
-    return () => {
-      v.removeEventListener("playing", onPlaying);
-      v.removeEventListener("pause", onStop);
-      v.removeEventListener("waiting", onStop);
-      v.removeEventListener("stalled", onStop);
-      v.removeEventListener("timeupdate", onTime);
-      a.pause();
-    };
-  }, [hasSound, soundStart, clipStart]);
+  // Frame-accurate lock of the attached track to the video's real playback.
+  useTrackSync({ videoRef, audioRef: audioElRef, enabled: hasSound, soundStart, clipStart });
 
   const gestures = useTapGestures({
     onSingleTap: () => {
