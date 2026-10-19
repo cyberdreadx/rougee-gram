@@ -190,9 +190,12 @@ function NostrNotifRow({ item }: { item: NostrNotification }) {
   const Icon = item.type === "like" ? Heart : item.type === "repost" ? Repeat2 : MessageCircle;
   const tone =
     item.type === "like" ? "text-rose-400" : item.type === "repost" ? "text-emerald-400" : "text-sky-400";
+  // Open the post that was liked/reposted/replied to when we know it; otherwise
+  // fall back to the sender's profile.
+  const to = item.targetEventId ? `/n/${item.targetEventId}` : `/nostr/${item.fromPubkey}`;
   return (
     <Link
-      to={`/nostr/${item.fromPubkey}`}
+      to={to}
       className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
     >
       <div className="relative shrink-0">

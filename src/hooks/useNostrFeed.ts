@@ -548,6 +548,55 @@ export function useSavedNostrPosts(): FeedPost[] {
   return posts;
 }
 
+/**
+ * Fetch a single Nostr note by its raw event id (no `nostr:` prefix) plus the
+ * author's profile, as a FeedPost. Used to open "the post they liked" from an
+ * Activity notification. `loading` stays true until relays answer or time out.
+ */
+export function useNostrPost(eventId: string | undefined): {
+  post: FeedPost | null;
+  loading: boolean;
+} {
+  const [post, setPost] = useState<FeedPost | null>(null);
+  const [loading, setLoading] = useState(Boolean(eventId));
+  useEffect(() => {
+    if (!eventId) {
+      setPost(null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setPost(null);
+    (async () => {
+      try {
+        const pool = getPool();
+        const evs = await pool.querySync(NOSTR_RELAYS, { ids: [eventId] }, { maxWait: 4000 });
+        const ev = evs[0];
+        if (!ev) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
+        const metas = await pool.querySync(
+          NOSTR_RELAYS,
+          { kinds: [0], authors: [ev.pubkey] },
+          { maxWait: 4000 },
+        );
+        const prof = metas[0] ? parseProfile(metas[0].content) : undefined;
+        if (cancelled) return;
+        setPost(eventToFeedPost(ev, prof ?? undefined));
+        setLoading(false);
+      } catch {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+  return { post, loading };
+}
+
 /** Live replies to one note (kind-1 with #e), fetched only while `open`. */
 export function useNoteThread(eventId: string, open: boolean) {
   const [replies, setReplies] = useState<Event[]>([]);
