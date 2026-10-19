@@ -7,6 +7,7 @@ import {
   Compass,
   Heart,
   KeyRound,
+  ShieldAlert,
   ArrowRight,
   type LucideIcon,
 } from "lucide-react";
@@ -19,6 +20,8 @@ interface Slide {
   icon: LucideIcon;
   /** i18n key suffix — titles/bodies are `tutorial.s{n}t` / `tutorial.s{n}b`. */
   n: number;
+  /** A caution slide (the decentralization disclaimer) — styled amber. */
+  warn?: boolean;
 }
 
 const SLIDES: Slide[] = [
@@ -27,6 +30,7 @@ const SLIDES: Slide[] = [
   { icon: Compass, n: 3 },
   { icon: Heart, n: 4 },
   { icon: KeyRound, n: 5 },
+  { icon: ShieldAlert, n: 6, warn: true },
 ];
 
 /**
@@ -66,7 +70,7 @@ export default function Tutorial() {
           <Logo size={28} withWordmark />
           {!last && (
             <button
-              onClick={finish}
+              onClick={() => setI(SLIDES.length - 1)}
               className="text-sm font-medium text-ink-muted hover:text-white"
             >
               {t("tutorial.skip")}
@@ -78,7 +82,12 @@ export default function Tutorial() {
           key={i}
           className="animate-fade-in flex flex-col items-center gap-4 px-2 py-4 text-center"
         >
-          <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-rouge-600/15 text-rouge-400">
+          <span
+            className={cn(
+              "flex h-20 w-20 items-center justify-center rounded-2xl",
+              slide.warn ? "bg-amber-500/15 text-amber-400" : "bg-rouge-600/15 text-rouge-400",
+            )}
+          >
             <Icon className="h-10 w-10" />
           </span>
           <h2 className="text-xl font-bold">{t(`tutorial.s${slide.n}t`)}</h2>
@@ -105,7 +114,7 @@ export default function Tutorial() {
           onClick={() => (last ? finish() : setI((n) => n + 1))}
         >
           {last ? (
-            t("tutorial.getStarted")
+            t("tutorial.iUnderstand")
           ) : (
             <>
               {t("tutorial.next")} <ArrowRight className="h-4 w-4" />

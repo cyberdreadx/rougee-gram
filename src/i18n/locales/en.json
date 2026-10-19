@@ -107,7 +107,10 @@
     "s4t": "Connect privately",
     "s4b": "Follow, like, comment, and tip XRGE. DMs are end-to-end encrypted (ML-KEM-768) — not even the network can read them.",
     "s5t": "You own it all",
-    "s5b": "Your photos and identity live on-chain, signed by your key. Back up your recovery phrase in Settings — it's the only way in."
+    "s5b": "Your photos and identity live on-chain, signed by your key. Back up your recovery phrase in Settings — it's the only way in.",
+    "s6t": "This is decentralized",
+    "s6b": "No company controls RouGee, and no central authority can remove posts for everyone. Content comes from across RougeChain and the global Nostr network, so you may encounter material you find offensive. You're in control: block, mute, or hide anyone from the ••• menu to shape your own feed. By continuing, you acknowledge this.",
+    "iUnderstand": "I understand"
   },
   "follows": {
     "loadError": "Couldn't load this list.",

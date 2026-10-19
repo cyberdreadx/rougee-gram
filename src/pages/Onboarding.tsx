@@ -155,10 +155,21 @@ export default function Onboarding() {
 
             {view === "welcome" && (
               <div className="animate-fade-in space-y-4">
-                <h2 className="text-2xl font-bold">{t("onboarding.welcome")}</h2>
-                <p className="text-sm text-ink-muted">
-                  {t("onboarding.welcomeBody")}
-                </p>
+                {/* Mobile pitch — on desktop this lives in the left panel. */}
+                <div className="space-y-3 md:hidden">
+                  <h2 className="text-2xl font-bold leading-snug">{t("onboarding.heroTitle")}</h2>
+                  <ul className="space-y-2 text-sm">
+                    <Feature icon={<KeyRound className="h-4 w-4" />}>{t("onboarding.feat1")}</Feature>
+                    <Feature icon={<ShieldCheck className="h-4 w-4" />}>{t("onboarding.feat2")}</Feature>
+                    <Feature icon={<Sparkles className="h-4 w-4" />}>{t("onboarding.feat3")}</Feature>
+                  </ul>
+                  <p className="pt-1 text-sm text-ink-muted">{t("onboarding.welcomeBody")}</p>
+                </div>
+                {/* Desktop header (the pitch is already in the left panel). */}
+                <div className="hidden md:block">
+                  <h2 className="text-2xl font-bold">{t("onboarding.welcome")}</h2>
+                  <p className="mt-1 text-sm text-ink-muted">{t("onboarding.welcomeBody")}</p>
+                </div>
                 {extensionDetected && (
                   <button
                     className={cn(
