@@ -36,6 +36,12 @@ export interface RuntimeConfig {
   directoryWorkerUrl: string;
   /** RouGee subscriptions + content-gate Worker base URL (creator subscriptions). */
   subsWorkerUrl: string;
+  /**
+   * Curated accounts (pubkeys or rouge1… addresses) for the signed-out "peek"
+   * on the landing page. When set, the teaser shows only these accounts' recent
+   * media — a controlled first impression instead of the raw global timeline.
+   */
+  peekAccounts: string[];
 }
 
 /** Well-known RougeChain networks selectable at runtime in Settings. */
@@ -72,6 +78,10 @@ const defaults: RuntimeConfig = {
   mentionsWorkerUrl: import.meta.env.VITE_MENTIONS_WORKER_URL || "",
   directoryWorkerUrl: import.meta.env.VITE_DIRECTORY_WORKER_URL || "",
   subsWorkerUrl: import.meta.env.VITE_SUBS_WORKER_URL || "",
+  peekAccounts: (import.meta.env.VITE_PEEK_ACCOUNTS || "")
+    .split(",")
+    .map((s: string) => s.trim())
+    .filter(Boolean),
 };
 
 // One-time migration key: users who ran the app when the default was testnet may
@@ -96,6 +106,7 @@ const DEPLOY_ONLY: (keyof RuntimeConfig)[] = [
   "mentionsWorkerUrl",
   "directoryWorkerUrl",
   "subsWorkerUrl",
+  "peekAccounts",
 ];
 
 function load(): RuntimeConfig {

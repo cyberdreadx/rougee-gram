@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Lock } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import { rc } from "@/lib/rouge";
+import { getConfig } from "@/lib/config";
 import { decodeBody } from "@/lib/envelope";
 import { isGatedRef } from "@/lib/subs";
 import { useProfile } from "@/hooks/useProfile";
@@ -9,27 +10,60 @@ import { shortAddress } from "@/lib/format";
 import MediaImage from "./MediaImage";
 import Avatar from "./Avatar";
 
+// A deliberately small guard for the fallback (uncurated) path only: the peek is
+// the FIRST thing a signed-out newcomer sees, so skip captions with obvious
+// NSFW/slur terms. This is a coarse net, not moderation — the curated allowlist
+// is the real control; once past signup the normal global feed applies.
+const UNSAFE = /\b(porn|xxx|nsfw|nude|nudes|onlyfans|fuck|shit|cunt|nigg|fag|rape|cum)\b/i;
+
+/** A post is a good glimpse if it's a public (non-gated, non-ad) image. */
+function pickCid(p: SocialPost, allowUnsafeCaption: boolean): string | null {
+  if (p.reply_to_id) return null;
+  const d = decodeBody(p.body);
+  if (d.kind !== "photo" && d.kind !== "carousel") return null;
+  const cid = d.kind === "photo" ? d.data.cid : d.data.items[0]?.cid;
+  if (!cid || isGatedRef(cid) || (d.data as { ad?: boolean }).ad) return null;
+  if (!allowUnsafeCaption && UNSAFE.test(d.data.cap || "")) return null;
+  return cid;
+}
+
 /**
- * A tiny read-only taste of the feed for signed-out newcomers — the first few
- * real media posts, no interactions. Everything else is behind "create an
- * account". Reads are public, so no wallet is needed to show it.
+ * A tiny read-only taste of the feed for signed-out newcomers — a few real media
+ * posts, no interactions. Everything else is behind "create an account".
+ *
+ * Curation: when `VITE_PEEK_ACCOUNTS` lists accounts, the peek shows ONLY their
+ * recent media — a controlled first impression. With no allowlist it falls back
+ * to the global timeline with a coarse NSFW caption filter so the very first
+ * screen isn't a random slice of a global, unmoderated network. Reads are
+ * public, so no wallet is needed either way.
  */
 export default function TeaserPeek({ limit = 3 }: { limit?: number }) {
+  const accounts = getConfig().peekAccounts;
+  const curated = accounts.length > 0;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["teaser-peek", limit],
+    queryKey: ["teaser-peek", limit, curated ? accounts : "global"],
     staleTime: 60_000,
     queryFn: async (): Promise<SocialPost[]> => {
+      if (curated) {
+        // Curated: pull each allowlisted account's recent posts, keep media,
+        // merge newest-first. Trusted accounts → skip the caption filter.
+        const pages = await Promise.all(
+          accounts.map((pk) =>
+            rc()
+              .social.getUserPosts(pk, 6, 0)
+              .then((r: { posts?: SocialPost[] }) => r.posts ?? [])
+              .catch(() => [] as SocialPost[]),
+          ),
+        );
+        return pages
+          .flat()
+          .filter((p) => pickCid(p, true))
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, limit);
+      }
       const posts = await rc().social.getGlobalTimeline(24, 0);
-      return (posts ?? [])
-        .filter((p) => {
-          if (p.reply_to_id) return false;
-          const d = decodeBody(p.body);
-          if (d.kind !== "photo" && d.kind !== "carousel") return false;
-          // Only public images make a good glimpse (skip gated/ad).
-          const cid = d.kind === "photo" ? d.data.cid : d.data.items[0]?.cid;
-          return !!cid && !isGatedRef(cid) && !(d.data as { ad?: boolean }).ad;
-        })
-        .slice(0, limit) as SocialPost[];
+      return (posts ?? []).filter((p) => pickCid(p, false)).slice(0, limit);
     },
   });
 
