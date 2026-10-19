@@ -17,9 +17,10 @@ import { useAuth } from "@/store/auth";
 import { useToast } from "@/components/Toast";
 import { getConfig } from "@/lib/config";
 import Logo from "@/components/Logo";
+import TeaserPeek from "@/components/TeaserPeek";
 import { cn } from "@/lib/utils";
 
-type View = "welcome" | "create" | "backup" | "import-mnemonic" | "import-keys";
+type View = "welcome" | "peek" | "create" | "backup" | "import-mnemonic" | "import-keys";
 
 export default function Onboarding() {
   const {
@@ -215,6 +216,12 @@ export default function Onboarding() {
                 >
                   {t("onboarding.importRawKeys")}
                 </button>
+                <button
+                  className="w-full text-center text-sm font-medium text-rouge-400 hover:text-rouge-300"
+                  onClick={() => setView("peek")}
+                >
+                  {t("onboarding.peekCta")}
+                </button>
                 <div className="flex items-start gap-2 rounded-xl bg-ink-soft px-3 py-2.5 text-xs text-ink-muted">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rouge-400" />
                   <span>{t("onboarding.clearedNote")}</span>
@@ -224,6 +231,20 @@ export default function Onboarding() {
                     {t("onboarding.custodyNote", { wallet: walletName })}
                   </p>
                 )}
+              </div>
+            )}
+
+            {view === "peek" && (
+              <div className="animate-fade-in space-y-4">
+                <BackButton onClick={() => setView("welcome")} />
+                <div>
+                  <h2 className="text-2xl font-bold">{t("onboarding.peekTitle")}</h2>
+                  <p className="mt-1 text-sm text-ink-muted">{t("onboarding.peekBody")}</p>
+                </div>
+                <TeaserPeek limit={3} />
+                <button className="btn-primary w-full py-3" onClick={() => setView("create")}>
+                  {t("onboarding.createAccount")}
+                </button>
               </div>
             )}
 
