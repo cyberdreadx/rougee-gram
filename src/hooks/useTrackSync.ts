@@ -8,9 +8,9 @@ import { useEffect, type RefObject } from "react";
  *
  *  - Audio STARTS only on the video's real `playing` event (not while it's
  *    buffering — the "music plays first" bug) and pauses on pause/stall/end.
- *  - On each `timeupdate` we nudge the track back only when it has drifted past
- *    a threshold (one occasional seek), and re-cue to the start offset when the
- *    looping video wraps. No per-frame work, no tempo changes.
+ *  - It's aligned ONCE at start and re-cued when the looping video wraps. We do
+ *    NOT re-seek on every timeupdate: on iOS an audio seek is async and slow, so
+ *    repeated seeks turn into a seek storm that stutters the track badly.
  */
 export function useTrackSync({
   videoRef,
@@ -33,17 +33,15 @@ export function useTrackSync({
     if (!v || !a || !enabled) return;
 
     const base = clipStart ?? 0;
-    const DRIFT = 0.18; // only re-seek once the track is >180ms out of step
 
-    const target = () => soundStart + Math.max(0, v.currentTime - base);
+    // Align the track to the video's position — called ONCE on start, never in a
+    // loop. A single seek is cheap; repeated seeks are what stutter on iOS.
     const align = () => {
-      const t = target();
-      if (Math.abs(a.currentTime - t) > DRIFT) {
-        try {
-          a.currentTime = t;
-        } catch {
-          /* seek not ready yet */
-        }
+      const t = soundStart + Math.max(0, v.currentTime - base);
+      try {
+        a.currentTime = t;
+      } catch {
+        /* seek not ready yet */
       }
     };
 
@@ -55,16 +53,15 @@ export function useTrackSync({
 
     let last = 0;
     const onTime = () => {
+      // Only act on a loop wrap: re-cue the track to its offset. Otherwise leave
+      // the track completely alone so it plays through without seeking.
       if (v.currentTime < last - 0.3) {
-        // looped back to the start → re-cue the track to its offset
         try {
           a.currentTime = soundStart;
         } catch {
           /* ignore */
         }
         if (a.paused && !v.paused) a.play().catch(() => {});
-      } else {
-        align();
       }
       last = v.currentTime;
     };
