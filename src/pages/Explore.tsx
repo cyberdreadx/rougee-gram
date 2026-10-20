@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Search, X, ArrowRight, Hash, Loader2 } from "lucide-react";
+import { Search, X, ArrowRight, Hash, Loader2, TrendingUp } from "lucide-react";
+import { soundsEnabled } from "@/lib/sounds";
 import type { SocialPost } from "@rougechain/sdk";
 import { useGlobalTimeline } from "@/hooks/useSocial";
 import { useHashtagFeed } from "@/hooks/useNostrFeed";
@@ -48,6 +49,15 @@ export default function Explore() {
         <SearchResults query={q} authors={authors} />
       ) : (
         <>
+          {soundsEnabled() && (
+            <Link
+              to="/sounds"
+              className="mx-3 mt-3 flex items-center gap-2 rounded-xl border border-ink-border bg-ink-soft px-3 py-2.5 text-sm font-medium transition-colors hover:bg-white/5"
+            >
+              <TrendingUp className="h-4 w-4 text-rouge-400" /> {t("sound.trending")}
+              <ArrowRight className="ml-auto h-4 w-4 text-ink-muted" />
+            </Link>
+          )}
           <div className="p-3 lg:hidden">
             <WhoToFollow limit={5} />
           </div>

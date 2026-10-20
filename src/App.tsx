@@ -14,6 +14,8 @@ import Profile from "./pages/Profile";
 import NostrProfile from "./pages/NostrProfile";
 import PostDetail from "./pages/PostDetail";
 import NostrPost from "./pages/NostrPost";
+import SoundPage from "./pages/SoundPage";
+import SoundsPage from "./pages/SoundsPage";
 import Settings from "./pages/Settings";
 import Splash from "./components/Splash";
 import Tutorial from "./components/Tutorial";
@@ -48,6 +50,8 @@ export default function App() {
         {DMS_ENABLED && <Route path="/messages/:id" element={<Chat />} />}
         <Route path="/p/:postId" element={<PostDetail />} />
         <Route path="/n/:eventId" element={<NostrPost />} />
+        <Route path="/sounds" element={<SoundsPage />} />
+        <Route path="/sound/:id" element={<SoundPage />} />
         <Route path="/u/:address" element={<Profile />} />
         <Route path="/nostr/:pubkey" element={<NostrProfile />} />
         <Route path="/tag/:tag" element={<TagPage />} />

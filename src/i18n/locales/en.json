@@ -9,6 +9,17 @@
     "useSound": "Use this sound",
     "openOnQrougee": "Open on qRougee"
   },
+  "sound": {
+    "title": "Sound",
+    "untitled": "Untitled sound",
+    "openSound": "Open sound",
+    "reelCount_one": "{{count}} reel",
+    "reelCount_other": "{{count}} reels",
+    "reelsUsing": "Reels using this sound",
+    "noReels": "No reels use this sound yet — be the first!",
+    "trending": "Trending sounds",
+    "noTrending": "Trending sounds will appear here as reels start using them."
+  },
   "nav": {
     "home": "Home",
     "explore": "Explore",

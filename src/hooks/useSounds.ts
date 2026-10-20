@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { rc } from "@/lib/rouge";
+import { getConfig } from "@/lib/config";
+import { soundsEnabled, fetchSoundReels, fetchTrendingSounds } from "@/lib/sounds";
 
 /**
  * A selectable "sound" for reels, sourced from qRougee (music.rougee.app). Both
@@ -125,5 +127,54 @@ export function useTrackArtist(trackId: string | undefined) {
         trackUrl: `https://music.rougee.app/track/${encodeURIComponent(trackId as string)}`,
       };
     },
+  });
+}
+
+/** The full track behind a sound id, read from its qRougee NFT (for a sound page
+ *  header + "use this sound"). Returns null if the token isn't a playable track. */
+export function useSoundTrack(soundId: string | undefined) {
+  return useQuery({
+    queryKey: ["sound-track", soundId],
+    enabled: !!soundId,
+    staleTime: 30 * 60_000,
+    queryFn: async (): Promise<Sound | null> => {
+      const { collectionId, tokenId } = splitTrackId(soundId as string);
+      const tid = Number(tokenId);
+      if (!collectionId || !Number.isFinite(tid)) return null;
+      const token = await rc().nft.getToken(collectionId, tid);
+      const attrs = (token.attributes || {}) as TrackAttrs;
+      if (!attrs.audioUrl) return null;
+      return {
+        id: soundId as string,
+        title: token.name || "Untitled",
+        artist: attrs.artist || "",
+        coverUrl: attrs.coverUrl || "",
+        audioUrl: attrs.audioUrl,
+        duration: Number(attrs.duration) || 0,
+        waveform: Array.isArray(attrs.waveform) ? attrs.waveform : undefined,
+        previewStart: attrs.previewStart != null ? Number(attrs.previewStart) : undefined,
+        previewEnd: attrs.previewEnd != null ? Number(attrs.previewEnd) : undefined,
+      };
+    },
+  });
+}
+
+/** Reels using a track (from the sounds Worker). Empty while the Worker is dormant. */
+export function useSoundReels(soundId: string | undefined) {
+  return useQuery({
+    queryKey: ["sound-reels", soundId, getConfig().network],
+    enabled: !!soundId && soundsEnabled(),
+    staleTime: 60_000,
+    queryFn: () => fetchSoundReels(soundId as string),
+  });
+}
+
+/** Most-used tracks (from the sounds Worker). Empty while the Worker is dormant. */
+export function useTrendingSounds(limit = 20) {
+  return useQuery({
+    queryKey: ["trending-sounds", limit, getConfig().network],
+    enabled: soundsEnabled(),
+    staleTime: 60_000,
+    queryFn: () => fetchTrendingSounds(limit),
   });
 }

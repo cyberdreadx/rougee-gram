@@ -36,6 +36,8 @@ export interface RuntimeConfig {
   directoryWorkerUrl: string;
   /** RouGee subscriptions + content-gate Worker base URL (creator subscriptions). */
   subsWorkerUrl: string;
+  /** RouGee sounds Worker base URL (reels-using-a-track index + trending). */
+  soundsWorkerUrl: string;
   /**
    * Curated accounts (pubkeys or rouge1… addresses) for the signed-out "peek"
    * on the landing page. When set, the teaser shows only these accounts' recent
@@ -78,6 +80,7 @@ const defaults: RuntimeConfig = {
   mentionsWorkerUrl: import.meta.env.VITE_MENTIONS_WORKER_URL || "",
   directoryWorkerUrl: import.meta.env.VITE_DIRECTORY_WORKER_URL || "",
   subsWorkerUrl: import.meta.env.VITE_SUBS_WORKER_URL || "",
+  soundsWorkerUrl: import.meta.env.VITE_SOUNDS_WORKER_URL || "",
   peekAccounts: (import.meta.env.VITE_PEEK_ACCOUNTS || "")
     .split(",")
     .map((s: string) => s.trim())
@@ -106,6 +109,7 @@ const DEPLOY_ONLY: (keyof RuntimeConfig)[] = [
   "mentionsWorkerUrl",
   "directoryWorkerUrl",
   "subsWorkerUrl",
+  "soundsWorkerUrl",
   "peekAccounts",
 ];
 

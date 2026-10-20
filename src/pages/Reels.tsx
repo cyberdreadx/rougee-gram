@@ -118,23 +118,6 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
 
   const soundUrl = sound?.url;
   const trimStart = reel?.start ?? 0;
-  const { open: openComposer } = useCreatePost();
-
-  // "Use this sound" → open the composer in reel mode pre-loaded with this track.
-  const useThisSound = () => {
-    if (!sound) return;
-    openComposer("reel", {
-      sound: {
-        id: sound.id ?? "",
-        title: sound.title ?? "",
-        artist: sound.artist ?? "",
-        coverUrl: "",
-        audioUrl: sound.url,
-        duration: 0,
-        previewStart: sound.start,
-      },
-    });
-  };
 
   // The mute toggle drives the track audio when a sound is attached.
   useEffect(() => {
@@ -328,8 +311,8 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
         {sound && (
           <div className="mt-2 flex max-w-full items-center gap-2">
             <button
-              onClick={useThisSound}
-              aria-label={t("reelPreview.useSound")}
+              onClick={() => sound.id && navigate(`/sound/${encodeURIComponent(sound.id)}`)}
+              aria-label={t("sound.openSound")}
               className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-xs text-white backdrop-blur transition-colors hover:bg-black/60"
             >
               <Music2 className="h-3.5 w-3.5 shrink-0" />
@@ -337,7 +320,6 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
                 {sound.title || "Original sound"}
                 {sound.artist ? ` · ${sound.artist}` : ""}
               </span>
-              <span className="shrink-0 font-medium text-rouge-400">· {t("reelPreview.useSound")}</span>
             </button>
             {sound.id && (
               <a

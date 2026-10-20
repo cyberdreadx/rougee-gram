@@ -53,12 +53,14 @@ import {
   encodeVideo,
   encodeStory,
   encodeCarousel,
+  decodeBody,
   CAPTION_LIMIT,
   CAROUSEL_MAX,
   POST_BODY_LIMIT,
   CTA_ACTIONS,
   type AdCta,
 } from "@/lib/envelope";
+import { recordSoundUse } from "@/lib/sounds";
 import { requestFaucet } from "@/lib/rouge";
 import { invalidateFeeds } from "@/hooks/useSocial";
 import type { Sound } from "@/hooks/useSounds";
@@ -657,6 +659,13 @@ function CreatePostDialog({
     // Notify any @mentioned users (chain-verified server-side; best-effort).
     const createdId = !isAd && !isStory ? write.newPostId(res) : undefined;
     if (createdId) recordMentions(createdId, extractMentions(body));
+
+    // Index a reel's attached track so it shows on the track's sound page +
+    // trending (chain-verified server-side; best-effort, no-op while dormant).
+    if (createdId) {
+      const d = decodeBody(body);
+      if (d.kind === "video" && d.data.audio?.id) recordSoundUse(createdId, d.data.audio.id);
+    }
 
     // Opt-in: broadcast a copy to Nostr (skip ads + ephemeral stories).
     if (!isAd && !isStory && mirror) {

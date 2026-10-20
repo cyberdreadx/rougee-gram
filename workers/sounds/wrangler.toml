@@ -1,0 +1,25 @@
+# Cloudflare Worker: RouGee sounds — discovery index for reels using a qRougee track.
+#
+# On-chain posts carry no sound index, so it lives off-chain here. POST /use records
+# that a reel uses a track — VERIFIED against the chain (the Worker fetches the post
+# and only records it when its envelope actually carries that track), so a use can't
+# be faked. GET /sound lists reels using a track; GET /trending ranks tracks by use.
+#
+# Setup:
+#   npx wrangler kv namespace create SOUNDS
+#     -> put the returned id below under [[kv_namespaces]]
+#   npx wrangler deploy --config workers/sounds/wrangler.toml
+#   # then set VITE_SOUNDS_WORKER_URL to the deployed URL (netlify.toml / .env).
+name = "rougee-sounds"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "SOUNDS"
+id = "REPLACE_WITH_SOUNDS_KV_ID"
+
+[vars]
+NODE_TESTNET = "https://testnet.rougechain.io/api"
+NODE_MAINNET = "https://api.rougechain.io/api"
+ALLOW_ORIGIN = "*"
