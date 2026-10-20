@@ -6,7 +6,8 @@
     "startsAt": "Starts at {{time}}",
     "align": "Align music",
     "hint": "Drag to choose where the track starts",
-    "useSound": "Use this sound"
+    "useSound": "Use this sound",
+    "openOnQrougee": "Open on qRougee"
   },
   "nav": {
     "home": "Home",

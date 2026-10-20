@@ -77,7 +77,7 @@ type CreateMode = "post" | "text" | "story" | "reel";
 const THREAD_MAX = 25;
 
 interface CreatePostCtx {
-  open: (mode?: CreateMode) => void;
+  open: (mode?: CreateMode, opts?: { sound?: Sound }) => void;
 }
 const Ctx = createContext<CreatePostCtx | null>(null);
 
@@ -88,15 +88,19 @@ export function useCreatePost() {
 }
 
 export function CreatePostProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<{ open: boolean; mode: CreateMode }>({
+  const [state, setState] = useState<{ open: boolean; mode: CreateMode; sound: Sound | null }>({
     open: false,
     mode: "post",
+    sound: null,
   });
   // A freshly-created "dark post" ad: after posting we jump straight into the
   // boost flow, since the creative is otherwise invisible until it's funded.
   const [boostId, setBoostId] = useState<string | null>(null);
   const value = useMemo(
-    () => ({ open: (mode: CreateMode = "post") => setState({ open: true, mode }) }),
+    () => ({
+      open: (mode: CreateMode = "post", opts?: { sound?: Sound }) =>
+        setState({ open: true, mode, sound: opts?.sound ?? null }),
+    }),
     [],
   );
   return (
@@ -105,6 +109,7 @@ export function CreatePostProvider({ children }: { children: ReactNode }) {
       {state.open && (
         <CreatePostDialog
           initialMode={state.mode}
+          initialSound={state.sound}
           onClose={() => setState((s) => ({ ...s, open: false }))}
           onAdCreated={setBoostId}
         />
@@ -116,10 +121,12 @@ export function CreatePostProvider({ children }: { children: ReactNode }) {
 
 function CreatePostDialog({
   initialMode,
+  initialSound,
   onClose,
   onAdCreated,
 }: {
   initialMode: CreateMode;
+  initialSound?: Sound | null;
   onClose: () => void;
   onAdCreated: (postId: string) => void;
 }) {
@@ -165,8 +172,8 @@ function CreatePostDialog({
   const [ctaAction, setCtaAction] = useState("learn_more");
   const [ctaUrl, setCtaUrl] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [sound, setSound] = useState<Sound | null>(null);
-  const [soundStart, setSoundStart] = useState(0);
+  const [sound, setSound] = useState<Sound | null>(initialSound ?? null);
+  const [soundStart, setSoundStart] = useState(initialSound?.previewStart ?? 0);
   const [showSounds, setShowSounds] = useState(false);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);

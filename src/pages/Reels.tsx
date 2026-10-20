@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { Heart, MessageCircle, Repeat2, Volume2, VolumeX, Pause, Film, Music2, Rocket } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Volume2, VolumeX, Pause, Film, Music2, Rocket, ExternalLink } from "lucide-react";
 import type { SocialPost } from "@rougechain/sdk";
 import {
   useGlobalTimeline,
@@ -118,6 +118,23 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
 
   const soundUrl = sound?.url;
   const trimStart = reel?.start ?? 0;
+  const { open: openComposer } = useCreatePost();
+
+  // "Use this sound" → open the composer in reel mode pre-loaded with this track.
+  const useThisSound = () => {
+    if (!sound) return;
+    openComposer("reel", {
+      sound: {
+        id: sound.id ?? "",
+        title: sound.title ?? "",
+        artist: sound.artist ?? "",
+        coverUrl: "",
+        audioUrl: sound.url,
+        duration: 0,
+        previewStart: sound.start,
+      },
+    });
+  };
 
   // The mute toggle drives the track audio when a sound is attached.
   useEffect(() => {
@@ -310,14 +327,8 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
         )}
         {sound && (
           <div className="mt-2 flex max-w-full items-center gap-2">
-            <a
-              href={
-                sound.id
-                  ? `https://music.rougee.app/track/${encodeURIComponent(sound.id)}`
-                  : "https://music.rougee.app"
-              }
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={useThisSound}
               aria-label={t("reelPreview.useSound")}
               className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-xs text-white backdrop-blur transition-colors hover:bg-black/60"
             >
@@ -327,7 +338,18 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
                 {sound.artist ? ` · ${sound.artist}` : ""}
               </span>
               <span className="shrink-0 font-medium text-rouge-400">· {t("reelPreview.useSound")}</span>
-            </a>
+            </button>
+            {sound.id && (
+              <a
+                href={`https://music.rougee.app/track/${encodeURIComponent(sound.id)}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={t("reelPreview.openOnQrougee")}
+                className="shrink-0 rounded-full bg-black/40 p-1.5 text-white backdrop-blur transition-colors hover:bg-black/60"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            )}
             <TrackTip trackId={sound.id} artistName={sound.artist || sound.title} />
           </div>
         )}
