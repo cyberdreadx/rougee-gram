@@ -72,3 +72,58 @@ export function useSounds() {
     },
   });
 }
+
+/** The person to pay/credit for a track, resolved from its qRougee NFT. */
+export interface TrackArtist {
+  /** Collection/track name (display). */
+  name: string;
+  /** Payable rouge address (royalty recipient, else creator). "" if none. */
+  address: string;
+  /** Deep link to the track on qRougee. */
+  trackUrl: string;
+}
+
+/** Split a `<collectionId>_<tokenId>` sound id back into its parts. */
+function splitTrackId(id: string): { collectionId: string; tokenId: string } {
+  const i = id.lastIndexOf("_");
+  return i < 0
+    ? { collectionId: id, tokenId: "" }
+    : { collectionId: id.slice(0, i), tokenId: id.slice(i + 1) };
+}
+
+/** Normalize an on-chain identity to a payable rouge address (resolve a pubkey). */
+async function toPayable(x: string): Promise<string> {
+  if (!x) return "";
+  if (x.startsWith("rouge1")) return x; // already an address
+  try {
+    const r = await rc().resolveAddress(x);
+    return r.address || "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Resolve the payable artist behind a track (by its `<collectionId>_<tokenId>`
+ * sound id). Payout target is the collection's royalty recipient, falling back
+ * to its creator. Used to credit + tip the artist on a reel. Cached hard — track
+ * ownership rarely changes within a session.
+ */
+export function useTrackArtist(trackId: string | undefined) {
+  return useQuery({
+    queryKey: ["track-artist", trackId],
+    enabled: !!trackId,
+    staleTime: 30 * 60_000,
+    queryFn: async (): Promise<TrackArtist | null> => {
+      const { collectionId } = splitTrackId(trackId as string);
+      if (!collectionId) return null;
+      const col = await rc().nft.getCollection(collectionId);
+      const address = await toPayable(col.royalty_recipient || col.creator || "");
+      return {
+        name: col.name || "",
+        address,
+        trackUrl: `https://music.rougee.app/track/${encodeURIComponent(trackId as string)}`,
+      };
+    },
+  });
+}

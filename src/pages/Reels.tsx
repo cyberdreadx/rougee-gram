@@ -17,6 +17,7 @@ import { useToast } from "@/components/Toast";
 import { useTapGestures } from "@/hooks/useTapGestures";
 import { useTrackSync } from "@/hooks/useTrackSync";
 import { useFeedMuted } from "@/lib/mute";
+import TrackTip from "@/components/TrackTip";
 import { useCreatePost } from "@/components/CreatePost";
 import { decodeBody, type VideoEnvelope } from "@/lib/envelope";
 import { formatCount } from "@/lib/format";
@@ -308,24 +309,27 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
           <p className="mt-2 line-clamp-2 text-sm text-white/90">{reel.cap}</p>
         )}
         {sound && (
-          <a
-            href={
-              sound.id
-                ? `https://music.rougee.app/track/${encodeURIComponent(sound.id)}`
-                : "https://music.rougee.app"
-            }
-            target="_blank"
-            rel="noreferrer"
-            aria-label={t("reelPreview.useSound")}
-            className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-xs text-white backdrop-blur transition-colors hover:bg-black/60"
-          >
-            <Music2 className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">
-              {sound.title || "Original sound"}
-              {sound.artist ? ` · ${sound.artist}` : ""}
-            </span>
-            <span className="shrink-0 font-medium text-rouge-400">· {t("reelPreview.useSound")}</span>
-          </a>
+          <div className="mt-2 flex max-w-full items-center gap-2">
+            <a
+              href={
+                sound.id
+                  ? `https://music.rougee.app/track/${encodeURIComponent(sound.id)}`
+                  : "https://music.rougee.app"
+              }
+              target="_blank"
+              rel="noreferrer"
+              aria-label={t("reelPreview.useSound")}
+              className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-xs text-white backdrop-blur transition-colors hover:bg-black/60"
+            >
+              <Music2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                {sound.title || "Original sound"}
+                {sound.artist ? ` · ${sound.artist}` : ""}
+              </span>
+              <span className="shrink-0 font-medium text-rouge-400">· {t("reelPreview.useSound")}</span>
+            </a>
+            <TrackTip trackId={sound.id} artistName={sound.artist || sound.title} />
+          </div>
         )}
       </div>
     </div>

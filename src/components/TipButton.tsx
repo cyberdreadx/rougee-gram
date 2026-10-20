@@ -22,6 +22,7 @@ export default function TipButton({
   variant = "icon",
   className,
   iconClassName = "h-6 w-6",
+  label,
 }: {
   /** Recipient rouge address. */
   toAddress?: string;
@@ -29,9 +30,11 @@ export default function TipButton({
   toName?: string;
   /** When set, the tip is attributed to this post so its total updates. */
   postId?: string;
-  variant?: "icon" | "button";
+  variant?: "icon" | "button" | "pill";
   className?: string;
   iconClassName?: string;
+  /** Override the trigger label (button/pill variants). */
+  label?: string;
 }) {
   const { t } = useTranslation();
   const { address } = useAuth();
@@ -49,9 +52,19 @@ export default function TipButton({
         >
           <Coins className={iconClassName} />
         </button>
+      ) : variant === "pill" ? (
+        <button
+          onClick={() => setOpen(true)}
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1 rounded-full bg-rouge-600/90 px-2.5 py-1 text-xs font-medium text-white backdrop-blur transition-colors hover:bg-rouge-600",
+            className,
+          )}
+        >
+          <Coins className="h-3.5 w-3.5" /> {label ?? t("tip.tip")}
+        </button>
       ) : (
         <button onClick={() => setOpen(true)} className={cn("btn-soft", className)}>
-          <Coins className="h-4 w-4" /> {t("tip.tip")}
+          <Coins className="h-4 w-4" /> {label ?? t("tip.tip")}
         </button>
       )}
       {open && (

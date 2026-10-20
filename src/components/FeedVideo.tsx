@@ -6,6 +6,7 @@ import { useTrackSync } from "@/hooks/useTrackSync";
 import { useFeedMuted } from "@/lib/mute";
 import type { SoundRef } from "@/lib/envelope";
 import MediaVideo from "./MediaVideo";
+import TrackTip from "./TrackTip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -156,12 +157,19 @@ export default function FeedVideo({
 
       {/* attached-track attribution (matches the reels feed) */}
       {hasSound && (
-        <div className="pointer-events-none absolute bottom-2 left-2 z-10 flex max-w-[70%] items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-xs text-white backdrop-blur">
-          <Music2 className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">
-            {sound!.title || "Original sound"}
-            {sound!.artist ? ` · ${sound!.artist}` : ""}
-          </span>
+        <div className="absolute bottom-2 left-2 z-10 flex max-w-[80%] items-center gap-2">
+          <div className="pointer-events-none flex min-w-0 items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-xs text-white backdrop-blur">
+            <Music2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">
+              {sound!.title || "Original sound"}
+              {sound!.artist ? ` · ${sound!.artist}` : ""}
+            </span>
+          </div>
+          <TrackTip
+            trackId={sound!.id}
+            artistName={sound!.artist || sound!.title}
+            className="pointer-events-auto"
+          />
         </div>
       )}
 
