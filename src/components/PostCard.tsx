@@ -48,6 +48,8 @@ import Carousel from "./Carousel";
 import { VerifiedName } from "./UserLink";
 import SaveButton from "./SaveButton";
 import TipButton from "./TipButton";
+import { useTrackArtist } from "@/hooks/useSounds";
+import { ROYALTY_BPS } from "@/lib/royalty";
 import Handle from "./Handle";
 import RichText from "./RichText";
 import TranslateText from "./TranslateText";
@@ -128,6 +130,8 @@ export default function PostCard({
   const isVideo =
     !isCarousel && ((media.mime ?? "").startsWith("video/") || decoded.kind === "video");
   const isReel = decoded.kind === "video" && media.t === "reel";
+  // A reel's track artist — a share of a creator tip routes to them (royalty).
+  const { data: trackArtist } = useTrackArtist(isVideo ? media.audio?.id : undefined);
   const posterRef = isVideo ? media.poster : undefined;
   const cropped = media.crop === "9:16";
   const liked = stats?.liked ?? false;
@@ -288,7 +292,14 @@ export default function PostCard({
           </button>
         )}
         <RepostButton post={post} />
-        <TipButton toAddress={profile?.address} toName={profile?.name} postId={post.id} />
+        <TipButton
+          toAddress={profile?.address}
+          toName={profile?.name}
+          postId={post.id}
+          royaltyAddress={trackArtist?.address}
+          royaltyName={media.audio?.artist}
+          royaltyBps={ROYALTY_BPS}
+        />
         <ShareButton postId={post.id} />
         <SaveButton postId={post.id} className="ml-auto" />
       </div>

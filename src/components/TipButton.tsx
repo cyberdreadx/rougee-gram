@@ -23,6 +23,9 @@ export default function TipButton({
   className,
   iconClassName = "h-6 w-6",
   label,
+  royaltyAddress,
+  royaltyName,
+  royaltyBps,
 }: {
   /** Recipient rouge address. */
   toAddress?: string;
@@ -35,6 +38,10 @@ export default function TipButton({
   iconClassName?: string;
   /** Override the trigger label (button/pill variants). */
   label?: string;
+  /** Route a share of the tip to a track's artist (reel royalty split). */
+  royaltyAddress?: string;
+  royaltyName?: string;
+  royaltyBps?: number;
 }) {
   const { t } = useTranslation();
   const { address } = useAuth();
@@ -72,6 +79,9 @@ export default function TipButton({
           toAddress={toAddress}
           toName={toName}
           postId={postId}
+          royaltyAddress={royaltyAddress}
+          royaltyName={royaltyName}
+          royaltyBps={royaltyBps}
           onClose={() => setOpen(false)}
         />
       )}
@@ -83,11 +93,17 @@ function TipModal({
   toAddress,
   toName,
   postId,
+  royaltyAddress,
+  royaltyName,
+  royaltyBps,
   onClose,
 }: {
   toAddress: string;
   toName?: string;
   postId?: string;
+  royaltyAddress?: string;
+  royaltyName?: string;
+  royaltyBps?: number;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -96,12 +112,20 @@ function TipModal({
   const tip = useTip();
   const [amount, setAmount] = useState(5);
 
-  const insufficient = amount + TIP_FEE > balance;
+  // A royalty split sends two on-chain transfers → two network fees.
+  const split =
+    !!royaltyAddress && royaltyAddress !== toAddress
+      ? { to: royaltyAddress, bps: royaltyBps ?? 1500 }
+      : undefined;
+  const artistCut = split ? Math.floor((amount * split.bps) / 10000) : 0;
+  const fees = TIP_FEE * (artistCut > 0 ? 2 : 1);
+
+  const insufficient = amount + fees > balance;
   const canSend = amount > 0 && !insufficient && !tip.isPending;
 
   function send() {
     tip.mutate(
-      { to: toAddress, amount, postId },
+      { to: toAddress, amount, postId, royalty: split },
       {
         onSuccess: () => {
           toast(t("tip.tipped", { amount }), "success");
@@ -148,9 +172,19 @@ function TipModal({
         disabled={tip.isPending}
       />
 
+      {artistCut > 0 && (
+        <p className="mt-2 text-xs text-ink-muted">
+          {t("tip.royaltyNote", {
+            artist: artistCut,
+            creator: amount - artistCut,
+            name: royaltyName || t("tip.theArtist"),
+          })}
+        </p>
+      )}
+
       <div className="mt-2 flex items-center justify-between text-xs">
         <span className="text-ink-muted">
-          {t("tip.balanceFee", { balance: formatCount(balance), fee: TIP_FEE })}
+          {t("tip.balanceFee", { balance: formatCount(balance), fee: fees })}
         </span>
         {insufficient && <span className="text-rouge-400">{t("tip.insufficient")}</span>}
       </div>

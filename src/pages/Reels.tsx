@@ -18,6 +18,9 @@ import { useTapGestures } from "@/hooks/useTapGestures";
 import { useTrackSync } from "@/hooks/useTrackSync";
 import { useFeedMuted } from "@/lib/mute";
 import TrackTip from "@/components/TrackTip";
+import TipButton from "@/components/TipButton";
+import { useTrackArtist } from "@/hooks/useSounds";
+import { ROYALTY_BPS } from "@/lib/royalty";
 import { useCreatePost } from "@/components/CreatePost";
 import { decodeBody, type VideoEnvelope } from "@/lib/envelope";
 import { formatCount } from "@/lib/format";
@@ -121,6 +124,8 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
   const muxed = reel?.mx === 1;
   const soundUrl = muxed ? undefined : sound?.url;
   const trimStart = reel?.start ?? 0;
+  // A share of a creator tip routes to this reel's track artist (royalty split).
+  const { data: trackArtist } = useTrackArtist(sound?.id);
 
   // The mute toggle drives the track audio when a sound is attached.
   useEffect(() => {
@@ -300,6 +305,15 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
           />
           <span className="text-xs font-semibold">{formatCount(stats?.reposts ?? 0)}</span>
         </button>
+        <TipButton
+          toAddress={profile?.address}
+          toName={profile?.name}
+          postId={post.id}
+          iconClassName="h-8 w-8 drop-shadow"
+          royaltyAddress={trackArtist?.address}
+          royaltyName={sound?.artist}
+          royaltyBps={ROYALTY_BPS}
+        />
         <SaveButton postId={post.id} iconClassName="h-8 w-8 drop-shadow" />
       </div>
 

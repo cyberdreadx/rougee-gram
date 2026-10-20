@@ -346,6 +346,7 @@
     "tip": "Tip",
     "tipArtist": "Tip artist",
     "theArtist": "the artist",
+    "royaltyNote": "Split: {{creator}} XRGE to the creator · {{artist}} to {{name}} (artist).",
     "tipped": "Tipped {{amount}} XRGE 🎉",
     "tipFailed": "Tip failed",
     "sendTip": "Send a tip",

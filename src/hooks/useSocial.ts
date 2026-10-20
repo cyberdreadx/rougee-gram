@@ -317,27 +317,53 @@ export function useTip() {
       to,
       amount,
       postId,
+      royalty,
     }: {
       to: string;
       amount: number;
       postId?: string;
+      /** Split: route `bps`/10000 of the tip to a track's artist (on-chain). */
+      royalty?: { to: string; bps: number };
     }) => {
       if (!wallet) throw new Error("Locked");
       if (!to) throw new Error("No recipient address");
       if (!(amount > 0)) throw new Error("Enter an amount");
-      const res = await write.tip({ wallet, publicKey, isExtensionWallet }, to, amount);
+      const writer = { wallet, publicKey, isExtensionWallet };
+
+      // Artist royalty: the creator keeps the rest. Skip a zero/own-address share.
+      const artistCut =
+        royalty && royalty.to && royalty.to !== to
+          ? Math.floor((amount * royalty.bps) / 10000)
+          : 0;
+      const creatorCut = amount - artistCut;
+
+      const res = await write.tip(writer, to, creatorCut);
       if (!res.success) throw new Error(res.error || "Tip failed");
-      // Attribute the transfer to the post so its tip total reflects it. The
-      // transfer response doesn't reliably carry the txId, so resolve it (from
-      // the response, else the sender's tx history). Fire-and-forget so the UI
-      // isn't blocked; refresh the post's total once it lands.
-      if (postId) {
-        void (async () => {
-          const txId = await resolveTxId(res, publicKey);
-          if (txId && (await recordTip(postId, txId))) {
-            client.invalidateQueries({ queryKey: qk.postTips(postId) });
-          }
-        })();
+
+      // Attribute the creator's transfer to the post so its tip total reflects
+      // it. The response doesn't reliably carry the txId, so resolve it from the
+      // sender's history (which also confirms the tx has landed).
+      const attribute = async () => {
+        const txId = await resolveTxId(res, publicKey);
+        if (postId && txId && (await recordTip(postId, txId))) {
+          client.invalidateQueries({ queryKey: qk.postTips(postId) });
+        }
+      };
+
+      if (artistCut > 0 && royalty) {
+        // Pay the artist their share — but SECOND, after the creator tx has
+        // landed, so this transfer gets a fresh nonce (two transfers fired at
+        // once from one wallet can collide). Best-effort: the creator was
+        // already paid, so never fail the whole tip if this errors.
+        await attribute();
+        try {
+          await write.tip(writer, royalty.to, artistCut);
+        } catch {
+          /* creator was paid; artist transfer can be retried another time */
+        }
+      } else if (postId) {
+        // Plain tip — attribute in the background so the UI isn't blocked.
+        void attribute();
       }
       return res;
     },
