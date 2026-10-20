@@ -115,8 +115,13 @@ export interface VideoEnvelope extends PostOptions {
   v: 1;
   /** "video" = regular clip, "reel" = vertical short shown in the reels feed */
   t: "video" | "reel";
-  /** Attached music track (qRougee) mixed over the muted video. */
+  /** Attached music track (qRougee). Mixed over the muted video at playback,
+   *  UNLESS `mx` is set — then the track is already baked into `cid` and this is
+   *  kept only for attribution (the ♪ chip + sound page link). */
   audio?: SoundRef;
+  /** Muxed: the `audio` track is baked into `cid`, so play `cid` as one file
+   *  (no separate <audio>, no A/V sync). Set at post time by the mux service. */
+  mx?: 1;
   /** Video media reference URI: ipfs://… or local://… */
   cid: string;
   mime: string;

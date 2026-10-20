@@ -1,0 +1,26 @@
+# Fly.io config for the RouGee mux service.
+#
+# Deploy:
+#   cd services/mux
+#   fly launch --no-deploy            # or: fly apps create rougee-mux
+#   fly secrets set MEDIA_WORKER_URL="https://<your-media-worker>" \
+#                   UPLOAD_SECRET="<same as the media Worker's UPLOAD_SECRET, if set>"
+#   fly deploy
+#   # then set VITE_MUX_WORKER_URL to the app URL (https://rougee-mux.fly.dev) in
+#   # Netlify env + redeploy the web app.
+app = "rougee-mux"
+primary_region = "iad"
+
+[build]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory = "1024mb"

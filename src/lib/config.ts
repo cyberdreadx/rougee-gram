@@ -38,6 +38,8 @@ export interface RuntimeConfig {
   subsWorkerUrl: string;
   /** RouGee sounds Worker base URL (reels-using-a-track index + trending). */
   soundsWorkerUrl: string;
+  /** RouGee mux service base URL (bakes a track into a reel — single-file A/V). */
+  muxWorkerUrl: string;
   /**
    * Curated accounts (pubkeys or rouge1… addresses) for the signed-out "peek"
    * on the landing page. When set, the teaser shows only these accounts' recent
@@ -81,6 +83,7 @@ const defaults: RuntimeConfig = {
   directoryWorkerUrl: import.meta.env.VITE_DIRECTORY_WORKER_URL || "",
   subsWorkerUrl: import.meta.env.VITE_SUBS_WORKER_URL || "",
   soundsWorkerUrl: import.meta.env.VITE_SOUNDS_WORKER_URL || "",
+  muxWorkerUrl: import.meta.env.VITE_MUX_WORKER_URL || "",
   peekAccounts: (import.meta.env.VITE_PEEK_ACCOUNTS || "")
     .split(",")
     .map((s: string) => s.trim())
@@ -110,6 +113,7 @@ const DEPLOY_ONLY: (keyof RuntimeConfig)[] = [
   "directoryWorkerUrl",
   "subsWorkerUrl",
   "soundsWorkerUrl",
+  "muxWorkerUrl",
   "peekAccounts",
 ];
 

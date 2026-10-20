@@ -116,7 +116,10 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
   const sound = reel?.audio?.url ? reel.audio : null;
   const soundStart = sound?.start ?? 0;
 
-  const soundUrl = sound?.url;
+  // When the track is baked into the file (muxed), the video plays its own audio
+  // in perfect sync — skip the separate-<audio> mixing path entirely.
+  const muxed = reel?.mx === 1;
+  const soundUrl = muxed ? undefined : sound?.url;
   const trimStart = reel?.start ?? 0;
 
   // The mute toggle drives the track audio when a sound is attached.
@@ -207,15 +210,16 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
           reel.crop === "9:16" ? "object-cover" : "object-contain",
         )}
         loop
-        muted={sound ? true : muted}
+        muted={soundUrl ? true : muted}
         controls={false}
         playsInline
         clipStart={reel.start}
         clipEnd={reel.end}
       />
 
-      {/* Attached track — mixed over the muted video, looped from its start. */}
-      {sound && (
+      {/* Attached track — mixed over the muted video, looped from its start.
+          Omitted when the track is baked into the file (muxed). */}
+      {sound && !muxed && (
         <audio
           ref={audioElRef}
           src={sound.url}

@@ -61,6 +61,7 @@ import {
   type AdCta,
 } from "@/lib/envelope";
 import { recordSoundUse } from "@/lib/sounds";
+import { muxReel, muxEnabled } from "@/lib/mux";
 import { requestFaucet } from "@/lib/rouge";
 import { invalidateFeeds } from "@/hooks/useSocial";
 import type { Sound } from "@/hooks/useSounds";
@@ -427,6 +428,53 @@ function CreatePostDialog({
 
   async function shareVideo() {
     if (!vinfo || !wallet) return;
+
+    // Muxed path — bake the attached track into the file for perfect, single-file
+    // A/V sync. Runs synchronously (on-chain posts can't be edited afterward to
+    // swap the file). On any failure it falls through to the two-element paths.
+    if (audioEnv && muxEnabled()) {
+      setStage(t("create.mixingAudio"));
+      const muxed = await muxReel({
+        video: vinfo.blob,
+        audioUrl: audioEnv.url,
+        start: soundStart,
+        trimStart: trimStart > 0.05 ? trimStart : undefined,
+        trimEnd: vinfo.duration && trimEnd < vinfo.duration - 0.05 ? trimEnd : undefined,
+      });
+      if (muxed) {
+        let posterRef: string | undefined;
+        if (vinfo.poster) {
+          setStage(t("create.uploadingThumbnail"));
+          posterRef = (await putImage(vinfo.poster, "poster")).ref;
+        }
+        const dur = trimEnd > trimStart ? trimEnd - trimStart : vinfo.duration || 0;
+        setStage(t("create.signingPosting"));
+        await submit(
+          encodeVideo({
+            t: isReel && reelAllowed ? "reel" : "video",
+            cid: muxed.ref,
+            mime: muxed.mime,
+            w: vinfo.width || undefined,
+            h: vinfo.height || undefined,
+            dur: dur ? Math.round(dur) : undefined,
+            poster: posterRef,
+            // trim is baked into the file — no start/end playback window.
+            crop: crop916 ? "9:16" : undefined,
+            cap: caption.trim() || undefined,
+            hl: hideLikes || undefined,
+            nc: noComments || undefined,
+            nmc: noMediaComments || undefined,
+            loc: location.trim() || undefined,
+            ad: isAd || undefined,
+            cta: buildAdCta(),
+            audio: audioEnv, // kept for attribution (♪ chip + sound page)
+            mx: 1,
+          }),
+        );
+        return;
+      }
+      // mux unavailable / failed — continue with the normal paths below.
+    }
 
     // Cloudflare Stream path — adaptive HLS + auto thumbnail. Large clips upload
     // straight to Stream (dodging the ~100MB Worker limit) with a progress %.

@@ -459,6 +459,7 @@
     "signingPosting": "Signing & posting on-chain…",
     "uploadingVideo": "Uploading video…",
     "uploadingThumbnail": "Uploading thumbnail…",
+    "mixingAudio": "Mixing in your sound…",
     "processingN": "Processing {{current}}/{{total}}…",
     "uploadingN": "Uploading {{current}}/{{total}}…",
     "writeSomething": "Write something first.",

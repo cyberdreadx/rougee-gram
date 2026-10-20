@@ -123,6 +123,7 @@ export default function PostCard({
     end?: number;
     crop?: string;
     audio?: SoundRef;
+    mx?: 1;
   };
   const isVideo =
     !isCarousel && ((media.mime ?? "").startsWith("video/") || decoded.kind === "video");
@@ -223,6 +224,7 @@ export default function PostCard({
             liked={liked}
             onLike={() => like.mutate()}
             sound={media.audio}
+            muxed={media.mx === 1}
           />
         ) : isGatedRef(media.cid) ? (
           <GatedMedia

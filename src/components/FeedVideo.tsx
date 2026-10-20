@@ -26,6 +26,7 @@ export default function FeedVideo({
   onLike,
   onLoadedMeta,
   sound,
+  muxed,
 }: {
   refUri: string;
   poster?: string;
@@ -39,6 +40,8 @@ export default function FeedVideo({
   onLoadedMeta?: (w: number, h: number) => void;
   /** Attached music track (qRougee) mixed over the muted video. */
   sound?: SoundRef;
+  /** The track is already baked into the video file (single-file playback). */
+  muxed?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -49,7 +52,12 @@ export default function FeedVideo({
   const [holding, setHolding] = useState(false);
   const [muteHint, setMuteHint] = useState(false);
 
-  const hasSound = !!sound?.url;
+  // `showSound` drives the attribution chip + tip (shown whenever a track is
+  // credited). `hasSound` drives the separate-<audio> mixing path, which is
+  // SKIPPED when the track is baked into the file (muxed) — then the video just
+  // plays its own audio, in perfect sync, through the normal mute control.
+  const showSound = !!sound?.url;
+  const hasSound = showSound && !muxed;
   const soundStart = sound?.start ?? 0;
 
   // Autoplay (muted) only while on screen; pause when scrolled away so several
@@ -156,7 +164,7 @@ export default function FeedVideo({
       </div>
 
       {/* attached-track attribution (matches the reels feed) */}
-      {hasSound && (
+      {showSound && (
         <div className="absolute bottom-2 left-2 z-10 flex max-w-[80%] items-center gap-2">
           <div className="pointer-events-none flex min-w-0 items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-xs text-white backdrop-blur">
             <Music2 className="h-3.5 w-3.5 shrink-0" />
