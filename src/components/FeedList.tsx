@@ -8,7 +8,7 @@ import { decodeBody } from "@/lib/envelope";
 import { isNostrPost, type FeedPost } from "@/lib/nostrFeed";
 import { prefetchPosts } from "@/lib/prefetch";
 import NostrPostCard from "./NostrPostCard";
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 interface Props {
   posts: FeedPost[] | undefined;
@@ -71,11 +71,39 @@ export default function FeedList({
 
 /** How many posts ahead of the one approaching the viewport to warm. */
 const LOOKAHEAD = 3;
+/** Posts mounted on first paint, and how many more to add each time the
+ *  viewer nears the bottom. Feeds can hold hundreds of posts; mounting them
+ *  all at once (images, video, observers) is what made scrolling sluggish. */
+const BATCH = 8;
 
 /** Renders the posts, optionally interspersing sponsored (boosted) posts. Split
  *  out so the sponsored hooks only run when a feed opts in (Home/Explore). */
-function FeedBody({ visible, showSponsored }: { visible: FeedPost[]; showSponsored?: boolean }) {
+function FeedBody({
+  visible: all,
+  showSponsored,
+}: {
+  visible: FeedPost[];
+  showSponsored?: boolean;
+}) {
   const { data: sponsored } = useSponsoredPosts();
+  // Only mount the first `count` posts; a sentinel below them grows the window.
+  const [count, setCount] = useState(BATCH);
+  const visible = all.length > count ? all.slice(0, count) : all;
+  const hasMore = all.length > count;
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setCount((c) => c + BATCH);
+      },
+      { rootMargin: "1200px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, count]);
+  const sentinel = hasMore ? <div ref={sentinelRef} className="h-px" aria-hidden /> : null;
   const shownIds = new Set(visible.map((p) => p.id));
   // Don't double-show a boosted post that's already organically in the feed.
   const ads = showSponsored ? (sponsored ?? []).filter((p) => !shownIds.has(p.id)) : [];
@@ -92,8 +120,8 @@ function FeedBody({ visible, showSponsored }: { visible: FeedPost[]; showSponsor
   // ready by the time the viewer scrolls to / taps them. Read `visible` through a
   // ref so the callback stays stable — otherwise every feed re-render would tear
   // down and rebuild every row's IntersectionObserver.
-  const visibleRef = useRef(visible);
-  visibleRef.current = visible;
+  const visibleRef = useRef(all);
+  visibleRef.current = all;
   const onApproach = useCallback(
     (index: number) =>
       prefetchPosts(visibleRef.current.slice(index + 1, index + 1 + LOOKAHEAD)),
@@ -114,7 +142,12 @@ function FeedBody({ visible, showSponsored }: { visible: FeedPost[]; showSponsor
   };
 
   if (ads.length === 0) {
-    return <div>{visible.map(renderPost)}</div>;
+    return (
+      <div>
+        {visible.map(renderPost)}
+        {sentinel}
+      </div>
+    );
   }
 
   // Slot a sponsored post in after the 2nd post, then every 5.
@@ -127,7 +160,12 @@ function FeedBody({ visible, showSponsored }: { visible: FeedPost[]; showSponsor
       out.push(<SponsoredPost key={`ad-${a.id}`} post={a} />);
     }
   });
-  return <div>{out}</div>;
+  return (
+    <div>
+      {out}
+      {sentinel}
+    </div>
+  );
 }
 
 /** Fires `onApproach(index)` once when its post is within ~800px of the viewport

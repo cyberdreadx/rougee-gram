@@ -113,6 +113,8 @@ export default function Home() {
       )}
 
       <FeedList
+        // Remount per tab/topic so each starts from the first batch again.
+        key={`${tab}:${topic ?? ""}`}
         posts={active.data}
         isLoading={active.isLoading}
         isError={active.isError}
