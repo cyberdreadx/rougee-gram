@@ -62,29 +62,43 @@ export function useFollowingFeed() {
       );
       // Include your OWN posts in the feed so it isn't empty when you follow few
       // people, and you can see your own activity in-line.
-      const targets = [...new Set([publicKey, ...pubkeys])].filter(Boolean);
-      if (targets.length === 0) return [];
-      const perUser = await Promise.all(
-        targets.slice(0, 100).map((pk) =>
-          rc()
-            .social.getUserPosts(pk, 20, 0)
-            .then((r) => ((r?.posts ?? []) as SocialPost[]))
-            .catch(() => [] as SocialPost[]),
-        ),
-      );
-      const seen = new Set<string>();
-      const merged: SocialPost[] = [];
-      for (const p of perUser.flat()) {
-        if (!p || p.reply_to_id || seen.has(p.id) || isAdPost(p)) continue;
-        seen.add(p.id);
-        merged.push(p);
-      }
-      merged.sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      );
-      return merged.slice(0, PAGE);
+      return postsByAuthors([publicKey, ...pubkeys]);
     },
+  });
+}
+
+/** Fan out to each author's recent posts and merge, newest-first, top-level only. */
+async function postsByAuthors(authors: string[]): Promise<SocialPost[]> {
+  const targets = [...new Set(authors)].filter(Boolean);
+  if (targets.length === 0) return [];
+  const perUser = await Promise.all(
+    targets.slice(0, 100).map((pk) =>
+      rc()
+        .social.getUserPosts(pk, 20, 0)
+        .then((r) => ((r?.posts ?? []) as SocialPost[]))
+        .catch(() => [] as SocialPost[]),
+    ),
+  );
+  const seen = new Set<string>();
+  const merged: SocialPost[] = [];
+  for (const p of perUser.flat()) {
+    if (!p || p.reply_to_id || seen.has(p.id) || isAdPost(p)) continue;
+    seen.add(p.id);
+    merged.push(p);
+  }
+  merged.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+  return merged.slice(0, PAGE);
+}
+
+/** Recent posts from a hand-picked set of RougeChain accounts (custom feeds). */
+export function useAuthorsFeed(pubkeys: string[]) {
+  const key = [...pubkeys].sort().join(",");
+  return useQuery({
+    queryKey: ["authorsFeed", key],
+    enabled: pubkeys.length > 0,
+    queryFn: () => postsByAuthors(pubkeys),
   });
 }
 
