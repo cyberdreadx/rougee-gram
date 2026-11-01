@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ListPlus, Loader2, Plus, Settings2, Trash2, X } from "lucide-react";
+import { Check, Globe, ListPlus, Loader2, Lock, Plus, Settings2, Trash2, X } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import {
   addMember,
@@ -9,6 +9,7 @@ import {
   removeMember,
   renameFeed,
   resolveMemberInput,
+  setFeedPublic,
   useCustomFeeds,
   type CustomFeed,
   type FeedMember,
@@ -60,8 +61,10 @@ export function CustomFeedView({ feed }: { feed: CustomFeed }) {
   return (
     <>
       <div className="flex items-center justify-between border-b border-ink-border px-4 py-2 text-xs text-ink-muted">
-        <span>
-          {feed.members.length} account{feed.members.length === 1 ? "" : "s"}
+        <span className="flex items-center gap-1.5">
+          {feed.public ? <Globe className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+          {feed.public ? "Public" : "Private"} · {feed.members.length} account
+          {feed.members.length === 1 ? "" : "s"}
         </span>
         <button
           onClick={() => setEditing(true)}
@@ -129,6 +132,27 @@ export function FeedEditor({ feed, onClose }: { feed: CustomFeed; onClose: () =>
         onKeyDown={(e) => e.key === "Enter" && renameFeed(owner, feed.id, name)}
       />
 
+      <label className="mb-1 mt-4 block text-xs text-ink-muted">Who can see it</label>
+      <div className="grid grid-cols-2 gap-2">
+        <VisibilityOption
+          active={!feed.public}
+          onClick={() => setFeedPublic(owner, feed.id, false)}
+          icon={<Lock className="h-4 w-4" />}
+          title="Private"
+          hint="Encrypted. Only you."
+        />
+        <VisibilityOption
+          active={!!feed.public}
+          onClick={() => setFeedPublic(owner, feed.id, true)}
+          icon={<Globe className="h-4 w-4" />}
+          title="Public"
+          hint="Anyone on Nostr."
+        />
+      </div>
+      <p className="mt-1 text-[11px] text-ink-muted">
+        Saved as a Nostr list on your key, so it syncs to your other devices.
+      </p>
+
       <label className="mb-1 mt-4 block text-xs text-ink-muted">Add an account</label>
       <div className="flex gap-2">
         <input
@@ -188,6 +212,36 @@ export function FeedEditor({ feed, onClose }: { feed: CustomFeed; onClose: () =>
         )}
       </div>
     </Modal>
+  );
+}
+
+function VisibilityOption({
+  active,
+  onClick,
+  icon,
+  title,
+  hint,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  hint: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex flex-col items-start rounded-xl border px-3 py-2 text-left transition-colors",
+        active ? "border-rouge-500 bg-rouge-600/15" : "border-ink-border hover:border-ink-muted",
+      )}
+    >
+      <span className={cn("flex items-center gap-1.5 text-sm font-semibold", active && "text-rouge-300")}>
+        {icon}
+        {title}
+      </span>
+      <span className="text-[11px] text-ink-muted">{hint}</span>
+    </button>
   );
 }
 
@@ -254,6 +308,7 @@ export function NewFeedModal({
       />
       <p className="mt-2 text-xs text-ink-muted">
         Mix RougeChain and Nostr accounts. You don't have to follow them, and they won't be told.
+        Feeds start private (encrypted to your key); you can make one public later.
       </p>
       <button className="btn-primary mt-4 w-full" onClick={submit} disabled={!name.trim()}>
         Create feed

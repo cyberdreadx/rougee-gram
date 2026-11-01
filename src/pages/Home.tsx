@@ -12,7 +12,7 @@ import { useCreatePost } from "@/components/CreatePost";
 import FeedList from "@/components/FeedList";
 import StoriesTray from "@/components/StoriesTray";
 import { CustomFeedView, NewFeedModal, useFeedOwner } from "@/components/CustomFeeds";
-import { useCustomFeeds } from "@/lib/customFeeds";
+import { syncFeeds, useCustomFeeds } from "@/lib/customFeeds";
 import { cn } from "@/lib/utils";
 
 /** Built-in tabs, or `feed:<id>` for one of the viewer's custom feeds. */
@@ -49,6 +49,7 @@ export default function Home() {
   // Load the viewer's Nostr follows / mutes / bookmarks once, for the cards.
   useEffect(() => {
     loadNostrLists(address || "anon");
+    syncFeeds(address || "anon");
   }, [address]);
 
   // Merge both follow graphs, newest-first, deduped by id.
