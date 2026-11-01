@@ -265,8 +265,20 @@ export function useNostrFollowingFeed(enabled: boolean): {
   posts: FeedPost[];
   isLoading: boolean;
 } {
-  const { follows, mutes } = useNostrSocial();
-  const authorsKey = useMemo(() => [...follows].sort().join(","), [follows]);
+  const { follows } = useNostrSocial();
+  return useNostrAuthorsFeed(follows, enabled);
+}
+
+/** Live top-level notes from any set of Nostr pubkeys (Following, custom feeds). */
+export function useNostrAuthorsFeed(
+  authorSet: Iterable<string>,
+  enabled: boolean,
+): {
+  posts: FeedPost[];
+  isLoading: boolean;
+} {
+  const { mutes } = useNostrSocial();
+  const authorsKey = useMemo(() => [...authorSet].sort().join(","), [authorSet]);
   const [events, setEvents] = useState<Map<string, Event>>(new Map());
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const [loading, setLoading] = useState(false);

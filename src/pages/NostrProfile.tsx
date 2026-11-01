@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { AddToFeedButton } from "@/components/CustomFeeds";
 import { ArrowLeft, Globe, ExternalLink, Loader2, Link as LinkIcon, UserPlus, UserCheck, Ban, Copy, Check } from "lucide-react";
 import { useNostrAuthor, useNostrSocial } from "@/hooks/useNostrFeed";
 import { npub, shortNpub } from "@/lib/nostrAuth";
@@ -138,6 +139,13 @@ export default function NostrProfile() {
           {following ? <UserCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
           {following ? "Following" : "Follow"}
         </button>
+        {pubkey && (
+          <AddToFeedButton
+            member={{ id: pubkey, network: "nostr", name: profile?.name?.trim() || undefined }}
+            label
+            className="flex items-center gap-1.5 rounded-full border border-ink-border px-4 py-1.5 text-sm font-semibold text-ink-muted transition hover:text-ink"
+          />
+        )}
         <button
           onClick={toggleBlock}
           disabled={busy !== null}

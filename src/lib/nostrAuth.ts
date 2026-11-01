@@ -11,6 +11,7 @@ import {
   getPublicKey,
   finalizeEvent,
   nip19,
+  nip44,
   type Event,
   type EventTemplate,
 } from "nostr-tools";
@@ -20,6 +21,10 @@ import { NOSTR_RELAYS, getPool, NOSTR_ID_PREFIX } from "./nostrFeed";
 interface Nip07 {
   getPublicKey(): Promise<string>;
   signEvent(t: EventTemplate): Promise<Event>;
+  nip44?: {
+    encrypt(pubkey: string, plaintext: string): Promise<string>;
+    decrypt(pubkey: string, ciphertext: string): Promise<string>;
+  };
 }
 
 export function getExtension(): Nip07 | null {
@@ -42,6 +47,12 @@ export interface NostrSigner {
   pubkey: string;
   viaExtension: boolean;
   sign(t: EventTemplate): Promise<Event>;
+  /** NIP-44 encryption to your own key (private list items). Missing when an
+   *  extension doesn't support NIP-44. */
+  selfCrypt?: {
+    encrypt(plaintext: string): Promise<string>;
+    decrypt(ciphertext: string): Promise<string>;
+  };
 }
 
 export async function getSigner(owner: string): Promise<NostrSigner> {
@@ -49,16 +60,34 @@ export async function getSigner(owner: string): Promise<NostrSigner> {
   if (ext) {
     try {
       const pubkey = await ext.getPublicKey();
-      return { pubkey, viaExtension: true, sign: (t) => ext.signEvent(t) };
+      const n44 = ext.nip44;
+      return {
+        pubkey,
+        viaExtension: true,
+        sign: (t) => ext.signEvent(t),
+        selfCrypt: n44
+          ? {
+              encrypt: (pt) => n44.encrypt(pubkey, pt),
+              decrypt: (ct) => n44.decrypt(pubkey, ct),
+            }
+          : undefined,
+      };
     } catch {
       /* extension refused — fall back to the local key */
     }
   }
   const sk = hexToBytes(loadOrCreateSecretKey(owner));
+  const pubkey = getPublicKey(sk);
+  let ck: Uint8Array | null = null;
+  const conv = () => (ck ??= nip44.v2.utils.getConversationKey(sk, pubkey));
   return {
-    pubkey: getPublicKey(sk),
+    pubkey,
     viaExtension: false,
     sign: async (t) => finalizeEvent(t, sk),
+    selfCrypt: {
+      encrypt: async (pt) => nip44.v2.encrypt(pt, conv()),
+      decrypt: async (ct) => nip44.v2.decrypt(ct, conv()),
+    },
   };
 }
 

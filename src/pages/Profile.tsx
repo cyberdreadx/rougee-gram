@@ -33,6 +33,7 @@ import PostCard, { TextPostCard } from "@/components/PostCard";
 import HighlightsRow from "@/components/HighlightsRow";
 import EditProfile from "@/components/EditProfile";
 import BlockButton from "@/components/BlockButton";
+import { AddToFeedButton } from "@/components/CustomFeeds";
 import NoteEditor from "@/components/NoteEditor";
 import { FollowingModal, FollowersModal } from "@/components/FollowListModal";
 import { latestActiveNote, type Note } from "@/hooks/useNotes";
@@ -223,6 +224,12 @@ export default function Profile() {
             iconClassName="h-4 w-4"
           />
           <ShareProfileButton address={profile?.address ?? address ?? ""} pubkey={pubkey} />
+          {!isMe && pubkey && (
+            <AddToFeedButton
+              member={{ id: pubkey, network: "rouge", name: profile?.name }}
+              className="btn-soft flex h-10 w-11 shrink-0 items-center justify-center p-0"
+            />
+          )}
           {!isMe && pubkey && <BlockButton pubkey={pubkey} />}
         </div>
       </div>

@@ -4,16 +4,19 @@ import { useAuth } from "@/store/auth";
 import { loadNostrLists } from "@/lib/nostrSocial";
 import { getHomeTab, setHomeTab } from "@/lib/homeTab";
 import { Link } from "react-router-dom";
-import { Compass, Camera, ArrowUp } from "lucide-react";
+import { Compass, Camera, ArrowUp, Plus } from "lucide-react";
 import { useFollowingFeed } from "@/hooks/useSocial";
 import { useDiscoverFeed, useNostrFollowingFeed } from "@/hooks/useNostrFeed";
 import { DISCOVER_TOPICS, toMs, type FeedPost } from "@/lib/nostrFeed";
 import { useCreatePost } from "@/components/CreatePost";
 import FeedList from "@/components/FeedList";
 import StoriesTray from "@/components/StoriesTray";
+import { CustomFeedView, NewFeedModal, useFeedOwner } from "@/components/CustomFeeds";
+import { syncFeeds, useCustomFeeds } from "@/lib/customFeeds";
 import { cn } from "@/lib/utils";
 
-type Tab = "following" | "discover";
+/** Built-in tabs, or `feed:<id>` for one of the viewer's custom feeds. */
+type Tab = "following" | "discover" | `feed:${string}`;
 
 export default function Home() {
   const { t } = useTranslation();
@@ -23,8 +26,18 @@ export default function Home() {
   // Remember the chosen tab so each person lands on what they prefer.
   const selectTab = (next: Tab) => {
     setTab(next);
-    setHomeTab(next);
+    if (next === "following" || next === "discover") setHomeTab(next);
   };
+  const feedOwner = useFeedOwner();
+  const customFeeds = useCustomFeeds(feedOwner);
+  const [creatingFeed, setCreatingFeed] = useState(false);
+  const customFeed = tab.startsWith("feed:")
+    ? customFeeds.find((f) => `feed:${f.id}` === tab)
+    : undefined;
+  // A deleted (or other-account) custom feed falls back to Discover.
+  useEffect(() => {
+    if (tab.startsWith("feed:") && !customFeed) setTab("discover");
+  }, [tab, customFeed]);
   const rougeFollowing = useFollowingFeed();
   // The Following tab spans both networks: RougeChain follows + the accounts you
   // follow on Nostr. Only subscribe to the Nostr side while that tab is open.
@@ -36,6 +49,7 @@ export default function Home() {
   // Load the viewer's Nostr follows / mutes / bookmarks once, for the cards.
   useEffect(() => {
     loadNostrLists(address || "anon");
+    syncFeeds(address || "anon");
   }, [address]);
 
   // Merge both follow graphs, newest-first, deduped by id.
@@ -70,14 +84,36 @@ export default function Home() {
       <StoriesTray />
 
       {/* Segmented tabs */}
-      <div className="sticky top-[var(--top-bar-h)] z-20 flex border-b border-ink-border bg-ink/55 backdrop-blur md:top-0">
+      <div
+        className="sticky top-[var(--top-bar-h)] z-20 flex overflow-x-auto border-b border-ink-border bg-ink/55 backdrop-blur md:top-0"
+        style={{ scrollbarWidth: "none" }}
+      >
         <TabButton active={tab === "discover"} onClick={() => selectTab("discover")}>
           {t("home.discover")}
         </TabButton>
         <TabButton active={tab === "following"} onClick={() => selectTab("following")}>
           {t("common.following")}
         </TabButton>
+        {customFeeds.map((f) => (
+          <TabButton key={f.id} active={tab === `feed:${f.id}`} onClick={() => selectTab(`feed:${f.id}`)}>
+            {f.name}
+          </TabButton>
+        ))}
+        <button
+          onClick={() => setCreatingFeed(true)}
+          className="flex shrink-0 items-center px-4 text-ink-muted hover:text-white"
+          aria-label="New custom feed"
+          title="New custom feed"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
       </div>
+      {creatingFeed && (
+        <NewFeedModal
+          onClose={() => setCreatingFeed(false)}
+          onCreated={(f) => selectTab(`feed:${f.id}`)}
+        />
+      )}
 
       {tab === "discover" && (
         <div
@@ -112,6 +148,9 @@ export default function Home() {
         </button>
       )}
 
+      {customFeed ? (
+        <CustomFeedView key={customFeed.id} feed={customFeed} />
+      ) : (
       <FeedList
         // Remount per tab/topic so each starts from the first batch again.
         key={`${tab}:${topic ?? ""}`}
@@ -158,6 +197,7 @@ export default function Home() {
           )
         }
       />
+      )}
     </div>
   );
 }
@@ -175,7 +215,7 @@ function TabButton({
     <button
       onClick={onClick}
       className={cn(
-        "relative flex-1 py-3.5 text-sm font-semibold transition-colors",
+        "relative min-w-[6rem] flex-1 shrink-0 whitespace-nowrap px-4 py-3.5 text-sm font-semibold transition-colors",
         active ? "text-white" : "text-ink-muted hover:text-white",
       )}
     >
