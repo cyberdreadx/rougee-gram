@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { resolveNostrPubkey } from "@/lib/nostrLink";
+import { setFollow as setNostrFollow } from "@/lib/nostrSocial";
+import { getMirrorPref } from "@/lib/nostrMirror";
 import {
   useMutation,
   useQuery,
@@ -287,7 +290,7 @@ export function useAddToStory() {
 }
 
 export function useToggleFollow(pubkey: string) {
-  const { wallet, publicKey, isExtensionWallet } = useAuth();
+  const { wallet, publicKey, isExtensionWallet, address } = useAuth();
   const client = useQueryClient();
   const key = qk.artistStats(pubkey, publicKey);
 
@@ -312,6 +315,17 @@ export function useToggleFollow(pubkey: string) {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) client.setQueryData(key, ctx.prev);
+    },
+    onSuccess: (_d, _v, ctx) => {
+      // Follow (or unfollow) them on Nostr too, when their accounts are linked
+      // and the viewer hasn't turned Nostr off. Best-effort, in the background.
+      if (!ctx?.prev || !getMirrorPref() || pubkey === publicKey) return;
+      const nowFollowing = !ctx.prev.isFollowing;
+      resolveNostrPubkey(pubkey)
+        .then((np) => {
+          if (np) return setNostrFollow(address || "anon", np, nowFollowing);
+        })
+        .catch(() => {});
     },
     onSettled: () => {
       client.invalidateQueries({ queryKey: key });

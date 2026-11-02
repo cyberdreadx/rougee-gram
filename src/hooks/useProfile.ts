@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getSigner } from "@/lib/nostrAuth";
 import { getProfile, invalidateProfile, type Profile } from "@/lib/profile";
 import { useAuth } from "@/store/auth";
 import { encodeProfile, PINNED_MAX, type ProfileLink } from "@/lib/envelope";
@@ -45,7 +46,14 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: async (update: ProfileUpdate) => {
       if (!wallet) throw new Error("Locked");
+      // Link this account's Nostr key in the profile (unless Nostr is off).
+      const np = getMirrorPref()
+        ? await getSigner(address || "anon")
+            .then((s) => s.pubkey)
+            .catch(() => undefined)
+        : undefined;
       const body = encodeProfile({
+        np,
         name: update.name.trim() || undefined,
         bio: update.bio.trim() || undefined,
         avatar: update.avatarRef || undefined,
