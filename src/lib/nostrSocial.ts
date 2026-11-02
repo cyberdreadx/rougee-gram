@@ -108,7 +108,32 @@ export async function setBookmark(owner: string, eventId: string, on: boolean): 
   }
 }
 
+/**
+ * Make sure we're editing the newest contact list before republishing it. A
+ * kind-3 event replaces the whole list, so writing from a stale or not-yet-
+ * loaded copy would wipe the viewer's other follows.
+ */
+async function freshContacts(owner: string): Promise<void> {
+  let pubkey: string;
+  try {
+    pubkey = (await getSigner(owner)).pubkey;
+  } catch {
+    return;
+  }
+  const evs = await getPool()
+    .querySync(NOSTR_RELAYS, { kinds: [3], authors: [pubkey] }, { maxWait: 4000 })
+    .catch(() => [] as Event[]);
+  const newest = evs.sort((a, b) => b.created_at - a.created_at)[0];
+  if (newest && (!followsEvent || newest.created_at > followsEvent.created_at)) {
+    followsEvent = newest;
+    follows = pTags(newest);
+    refresh();
+  }
+}
+
 export async function setFollow(owner: string, pubkey: string, on: boolean): Promise<void> {
+  await freshContacts(owner);
+  if (follows.has(pubkey) === on) return; // already in that state
   const next = new Set(follows);
   if (on) next.add(pubkey);
   else next.delete(pubkey);

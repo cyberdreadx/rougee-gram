@@ -21,6 +21,7 @@ export interface Profile {
   vfy: string; // verified-badge attestation (HQ signature hex), "" if none
   pins: string[]; // pinned post ids (shown first on the profile grid)
   subPrice: number; // monthly subscription price in XRGE (0 = not a creator sub)
+  nostrPubkey: string; // linked Nostr pubkey (hex) from the profile, "" if none
 }
 
 const cache = new Map<string, { at: number; profile: Profile }>();
@@ -44,6 +45,7 @@ export async function getProfile(pubkey: string): Promise<Profile> {
     vfy: "",
     pins: [],
     subPrice: 0,
+    nostrPubkey: "",
   };
 
   try {
@@ -64,6 +66,8 @@ export async function getProfile(pubkey: string): Promise<Profile> {
         ? latest.pins.filter((id): id is string => typeof id === "string" && !!id).slice(0, 3)
         : [];
       base.subPrice = typeof latest.sub === "number" && latest.sub > 0 ? Math.floor(latest.sub) : 0;
+      base.nostrPubkey =
+        typeof latest.np === "string" && /^[0-9a-f]{64}$/.test(latest.np) ? latest.np : "";
     }
   } catch {
     /* keep the address-derived defaults */
