@@ -4,7 +4,14 @@ import { CheckCircle2, Loader2, Megaphone, XCircle } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { getSigner, npub } from "@/lib/nostrAuth";
 import { NOSTR_RELAYS, getPool } from "@/lib/nostrFeed";
-import { buildHandlerEvent, buildRecommendations, HANDLER_D, APP_ORIGIN } from "@/lib/nip89";
+import {
+  buildHandlerEvent,
+  buildListingDeletion,
+  buildRecommendations,
+  HANDLER_D,
+  APP_ORIGIN,
+  OFFICIAL_HANDLER_PUBKEY,
+} from "@/lib/nip89";
 
 type RelayResult = { relay: string; ok: boolean; note?: string };
 
@@ -24,7 +31,16 @@ export default function AnnounceApp() {
 
   // Existing Rougee listings on relays (to recommend the official one).
   const [listings, setListings] = useState<string[]>([]);
-  const [recommendFor, setRecommendFor] = useState("");
+  const [recommendFor, setRecommendFor] = useState<string>(npub(OFFICIAL_HANDLER_PUBKEY));
+  // Who's signed in, to know whether this is the official account.
+  const [me, setMe] = useState<string | null>(null);
+  useEffect(() => {
+    getSigner(address || "anon")
+      .then((s) => setMe(s.pubkey))
+      .catch(() => {});
+  }, [address]);
+  const isOfficial = me === OFFICIAL_HANDLER_PUBKEY;
+  const hasStrayListing = !!me && !isOfficial && listings.includes(me);
   useEffect(() => {
     getPool()
       .querySync(NOSTR_RELAYS, { kinds: [31990], "#d": [HANDLER_D] }, { maxWait: 5000 })
@@ -40,13 +56,41 @@ export default function AnnounceApp() {
           .map((e) => e.pubkey);
         const uniq = [...new Set(authors)];
         setListings(uniq);
-        if (uniq.length === 1) setRecommendFor(npub(uniq[0]));
       })
       .catch(() => {});
   }, [results]);
 
   /** mode "listing": publish the app listing + recommend it (official account).
    *  mode "recommend": only recommend an existing listing (e.g. personal account). */
+  async function removeMyListing() {
+    setBusy(true);
+    setError(null);
+    setResults(null);
+    try {
+      const s = await getSigner(address || "anon");
+      setSigner(s.pubkey);
+      if (s.pubkey === OFFICIAL_HANDLER_PUBKEY) throw new Error("This is the official listing — not removing it.");
+      const del = await s.sign(buildListingDeletion(s.pubkey));
+      // Point this account's recommendations at the official listing instead.
+      const recs = await Promise.all(buildRecommendations(OFFICIAL_HANDLER_PUBKEY).map((t) => s.sign(t)));
+      const pool = getPool();
+      const outcomes = await Promise.allSettled(pool.publish(NOSTR_RELAYS, del));
+      await Promise.allSettled(recs.flatMap((ev) => pool.publish(NOSTR_RELAYS, ev)));
+      setResults(
+        outcomes.map((o, i) => ({
+          relay: NOSTR_RELAYS[i],
+          ok: o.status === "fulfilled",
+          note: o.status === "rejected" ? String(o.reason).slice(0, 80) : undefined,
+        })),
+      );
+      setListings((l) => l.filter((x) => x !== s.pubkey));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function publish(mode: "listing" | "recommend") {
     setBusy(true);
     setError(null);
@@ -55,6 +99,9 @@ export default function AnnounceApp() {
       const s = await getSigner(address || "anon");
       setSigner(s.pubkey);
       let handlerPubkey = s.pubkey;
+      if (mode === "listing" && s.pubkey !== OFFICIAL_HANDLER_PUBKEY) {
+        throw new Error("Sign in as the official RouGee account to publish the listing.");
+      }
       if (mode === "recommend") {
         const d = nip19.decode(recommendFor.trim());
         if (d.type !== "npub") throw new Error("Paste the official Rougee npub");
@@ -111,7 +158,16 @@ export default function AnnounceApp() {
           Publishes the app listing. Back up this account's Nostr key first (Settings → Your Nostr
           identity) — only that key can update the listing later.
         </p>
-        <button className="btn-primary mt-3 w-full" onClick={() => publish("listing")} disabled={busy}>
+        {me && !isOfficial && (
+          <p className="mt-2 text-xs text-amber-400">
+            You're not signed in as the official RouGee account, so this is disabled.
+          </p>
+        )}
+        <button
+          className="btn-primary mt-3 w-full"
+          onClick={() => publish("listing")}
+          disabled={busy || !isOfficial}
+        >
           {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Publish listing"}
         </button>
       </div>
@@ -131,10 +187,21 @@ export default function AnnounceApp() {
           autoCorrect="off"
           spellCheck={false}
         />
-        {listings.length > 1 && (
+        {hasStrayListing && (
+          <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2">
+            <p className="text-xs text-amber-300">
+              This account published its own Rougee listing. Remove it so only the official one
+              shows, and point your recommendation at the official listing.
+            </p>
+            <button className="btn-soft mt-2 w-full text-sm" onClick={removeMyListing} disabled={busy}>
+              Remove my listing
+            </button>
+          </div>
+        )}
+        {listings.filter((x) => x !== OFFICIAL_HANDLER_PUBKEY).length > 0 && !hasStrayListing && (
           <p className="mt-1 text-[11px] text-amber-400">
-            {listings.length} accounts have published a Rougee listing — double-check this is the
-            official one.
+            Other accounts have also published a Rougee listing. The official one is prefilled
+            above.
           </p>
         )}
         <button

@@ -8,6 +8,22 @@ import type { EventTemplate } from "nostr-tools";
  */
 export const APP_ORIGIN = "https://rougee.app";
 export const HANDLER_D = "rougee";
+/** Nostr pubkey of the official RouGee account, which owns the app listing. */
+export const OFFICIAL_HANDLER_PUBKEY =
+  "547eda33fe060aceb67f781135d7cb48465b0d56368be9106e35640684b2d343";
+
+/** NIP-09 deletion request for a listing this signer published by mistake. */
+export function buildListingDeletion(pubkey: string): EventTemplate {
+  return {
+    kind: 5,
+    created_at: Math.floor(Date.now() / 1000),
+    content: "Duplicate listing; the official RouGee listing is published by the RouGee account.",
+    tags: [
+      ["a", `31990:${pubkey}:${HANDLER_D}`],
+      ["k", "31990"],
+    ],
+  };
+}
 /** Event kinds Rougee can display: profiles (0) and notes (1). */
 export const HANDLED_KINDS = [0, 1];
 
