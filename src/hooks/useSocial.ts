@@ -45,11 +45,11 @@ export function useGlobalTimeline() {
   });
 }
 
-export function useFollowingFeed() {
+export function useFollowingFeed(enabled = true) {
   const { publicKey } = useAuth();
   return useQuery({
     queryKey: qk.feed(publicKey),
-    enabled: Boolean(publicKey),
+    enabled: Boolean(publicKey) && enabled,
     // Build the feed CLIENT-SIDE from the follow graph rather than the server
     // `getFollowingFeed` endpoint: that endpoint lags behind new follows and
     // omits followees' older posts, so a freshly-followed user's posts never

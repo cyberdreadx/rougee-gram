@@ -323,9 +323,12 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
               loading="lazy"
               onClick={() => setLightbox(url)}
               onError={() => setBrokenImgs((prev) => new Set(prev).add(url))}
+              onLoad={(e) => e.currentTarget.classList.remove("min-h-[16rem]", "bg-white/5")}
               className={
                 "w-full cursor-zoom-in object-cover " +
-                (images.length === 1 ? "max-h-[70vh]" : "aspect-square")
+                // Hold space until a lone image loads, so the feed doesn't
+                // collapse and pull far more posts into view than it shows.
+                (images.length === 1 ? "max-h-[70vh] min-h-[16rem] bg-white/5" : "aspect-square")
               }
             />
           ))}

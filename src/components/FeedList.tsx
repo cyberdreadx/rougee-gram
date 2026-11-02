@@ -91,18 +91,33 @@ function FeedBody({
   const visible = all.length > count ? all.slice(0, count) : all;
   const hasMore = all.length > count;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // Grow only in response to the viewer scrolling. (An IntersectionObserver
+  // chained batch after batch on load: cards whose images hadn't loaded yet
+  // were near-zero height, so the sentinel never left the viewport and the
+  // whole feed mounted at once.)
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || !hasMore) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) setCount((c) => c + BATCH);
-      },
-      { rootMargin: "1200px 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasMore, count]);
+    if (!hasMore) return;
+    let raf = 0;
+    let coolUntil = 0;
+    const check = () => {
+      raf = 0;
+      const el = sentinelRef.current;
+      if (!el || performance.now() < coolUntil) return;
+      if (el.getBoundingClientRect().top < window.innerHeight + 1000) {
+        coolUntil = performance.now() + 500; // let the new batch lay out first
+        setCount((c) => c + BATCH);
+      }
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(check);
+    };
+    // Capture so it also fires for scrolling inner containers.
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll, { capture: true });
+      cancelAnimationFrame(raf);
+    };
+  }, [hasMore]);
   const sentinel = hasMore ? <div ref={sentinelRef} className="h-px" aria-hidden /> : null;
   const shownIds = new Set(visible.map((p) => p.id));
   // Don't double-show a boosted post that's already organically in the feed.

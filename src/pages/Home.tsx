@@ -38,11 +38,13 @@ export default function Home() {
   useEffect(() => {
     if (tab.startsWith("feed:") && !customFeed) setTab("discover");
   }, [tab, customFeed]);
-  const rougeFollowing = useFollowingFeed();
+  // Only load the feed whose tab is open — loading Discover and Following
+  // together doubled the work on every visit.
+  const rougeFollowing = useFollowingFeed(tab === "following");
   // The Following tab spans both networks: RougeChain follows + the accounts you
   // follow on Nostr. Only subscribe to the Nostr side while that tab is open.
   const nostrFollowing = useNostrFollowingFeed(tab === "following");
-  const discover = useDiscoverFeed(topic);
+  const discover = useDiscoverFeed(topic, tab === "discover");
   const { open } = useCreatePost();
   const { address } = useAuth();
 

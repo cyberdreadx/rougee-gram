@@ -744,14 +744,24 @@ function postHashtags(p: FeedPost): string[] {
   return tagsFromText(cap);
 }
 
-export function useDiscoverFeed(topic: string | null = null) {
+/** After this long, posts already on screen keep their place; late arrivals
+ *  are ranked among themselves and added below instead of reshuffling. */
+const DISCOVER_SETTLE_MS = 1500;
+
+export function useDiscoverFeed(topic: string | null = null, enabled = true) {
   const global = useGlobalTimeline();
-  const stream = useNostrStream(true, topic);
+  const stream = useNostrStream(enabled, topic);
   const { follows, mutes } = useNostrSocial();
   const { publicKey } = useAuth();
   // Freeze the ranked order so the feed doesn't reshuffle as counts trickle in;
   // it only re-ranks when the set of posts changes (new posts / refresh).
   const orderRef = useRef<{ sig: string; ids: string[] }>({ sig: "", ids: [] });
+  const startRef = useRef(performance.now());
+  const forceRerank = useRef(false);
+  useEffect(() => {
+    startRef.current = performance.now();
+    forceRerank.current = true;
+  }, [topic, enabled]);
 
   const data = useMemo<FeedPost[]>(() => {
     const rouge = (global.data ?? []) as FeedPost[];
@@ -787,10 +797,20 @@ export function useDiscoverFeed(topic: string | null = null) {
         return s;
       };
 
+      // Once settled, keep what's already placed and only rank the newcomers.
+      const settled =
+        !forceRerank.current &&
+        orderRef.current.ids.length > 0 &&
+        performance.now() - startRef.current > DISCOVER_SETTLE_MS;
+      forceRerank.current = false;
+      const kept = settled ? orderRef.current.ids.filter((id) => byId.has(id)) : [];
+      const keptSet = new Set(kept);
+      const toRank = settled ? all.filter((p) => !keptSet.has(p.id)) : all;
+
       // Sort by score, then interleave so one author can't dominate a run.
-      const scored = all.map((p) => ({ p, s: score(p) })).sort((a, b) => b.s - a.s);
+      const scored = toRank.map((p) => ({ p, s: score(p) })).sort((a, b) => b.s - a.s);
       const recent: string[] = [];
-      const ids: string[] = [];
+      const ids: string[] = [...kept];
       while (scored.length) {
         let idx = scored.findIndex((x) => !recent.includes(x.p.author_pubkey));
         if (idx === -1) idx = 0; // everyone's recent — just take the top
@@ -812,7 +832,11 @@ export function useDiscoverFeed(topic: string | null = null) {
     isLoading: global.isLoading,
     isError: global.isError,
     newCount: stream.pending,
-    showNew: stream.flush,
+    // Tapping "N new" is the one time a settled feed fully re-ranks.
+    showNew: () => {
+      forceRerank.current = true;
+      stream.flush();
+    },
     trending: stream.trending,
   };
 }

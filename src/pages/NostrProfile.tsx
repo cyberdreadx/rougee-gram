@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { AddToFeedButton } from "@/components/CustomFeeds";
+import FeedList from "@/components/FeedList";
 import { ArrowLeft, Globe, ExternalLink, Loader2, Link as LinkIcon, UserPlus, UserCheck, Ban, Copy, Check } from "lucide-react";
 import { useNostrAuthor, useNostrSocial } from "@/hooks/useNostrFeed";
 import { npub, shortNpub } from "@/lib/nostrAuth";
 import { loadNostrLists, setFollow, setBlock } from "@/lib/nostrSocial";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
-import NostrPostCard from "@/components/NostrPostCard";
 import Avatar from "@/components/Avatar";
 
 /**
@@ -169,7 +169,7 @@ export default function NostrProfile() {
         ) : notes.length === 0 ? (
           <p className="px-4 py-16 text-center text-sm text-ink-muted">No posts yet.</p>
         ) : (
-          notes.map((p) => <NostrPostCard key={p.id} post={p} />)
+          <FeedList posts={notes} isLoading={false} />
         )}
       </div>
     </div>
