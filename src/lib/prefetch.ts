@@ -9,6 +9,7 @@
  * viewer's mobile data pulling clips they may scroll right past. The open TCP/TLS
  * connection (see the preconnect hints in index.html) covers the rest.
  */
+import { proxiedImage } from "@/lib/imageProxy";
 import { resolveMediaUrl } from "./media";
 import { decodeBody } from "./envelope";
 import { isNostrPost, type FeedPost } from "./nostrFeed";
@@ -59,8 +60,10 @@ export function prefetchPostMedia(post: FeedPost): void {
   if (isNostrPost(post)) {
     // Nostr media is already direct https — warm the first image (posters/clips
     // aren't modeled, and we avoid pulling remote video bytes).
-    const first = post.nostr?.images?.[0];
-    if (first) warmImageUrl(first);
+    // Warm the same resized URL the card will request (see NostrPostCard).
+    const imgs = post.nostr?.images ?? [];
+    const first = imgs[0];
+    if (first) warmImageUrl(proxiedImage(first, imgs.length === 1 ? 600 : 300) ?? first);
     return;
   }
   const d = decodeBody(post.body);

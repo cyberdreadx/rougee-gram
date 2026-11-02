@@ -51,7 +51,7 @@ function parseRange(header: string): R2Range | undefined {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
@@ -202,6 +202,17 @@ export default {
       const rangeHeader = request.headers.get("Range");
       const range = rangeHeader ? parseRange(rangeHeader) : undefined;
 
+      // Edge cache for whole-file reads (objects are content-addressed, so
+      // they never change). Skips a round trip to R2 on repeat views. Note:
+      // Cloudflare ignores the Cache API on *.workers.dev — it takes effect
+      // once the Worker is served from a custom domain on a Cloudflare zone.
+      const cache = (caches as unknown as { default: Cache }).default;
+      const cacheKey = new Request(url.toString(), { method: "GET" });
+      if (!range) {
+        const hit = await cache.match(cacheKey);
+        if (hit) return hit;
+      }
+
       const obj = await env.BUCKET.get(objectKey, range ? { range } : undefined);
       if (!obj) return new Response("Not found", { status: 404, headers: cors(env) });
 
@@ -220,7 +231,9 @@ export default {
         headers.set("Content-Length", String(length));
         return new Response(obj.body, { status: 206, headers });
       }
-      return new Response(obj.body, { headers });
+      const res = new Response(obj.body, { headers });
+      if (!range) ctx.waitUntil(cache.put(cacheKey, res.clone()));
+      return res;
     }
 
     if (url.pathname === "/") {

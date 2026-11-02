@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { proxiedImage, onProxyError } from "@/lib/imageProxy";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
@@ -184,10 +185,10 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
         <Link to={`/nostr/${n.pubkey}`} className="shrink-0" aria-label={`${n.name} on Nostr`}>
           {n.avatar && !brokenAvatar ? (
             <img
-              src={n.avatar}
+              src={proxiedImage(n.avatar, 40)}
               alt=""
               loading="lazy"
-              onError={() => setBrokenAvatar(true)}
+              onError={(e) => onProxyError(e.currentTarget, n.avatar!) || setBrokenAvatar(true)}
               className="h-10 w-10 rounded-full object-cover"
             />
           ) : (
@@ -318,11 +319,15 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           {images.map((url) => (
             <img
               key={url}
-              src={url}
+              src={proxiedImage(url, images.length === 1 ? 600 : 300)}
               alt=""
               loading="lazy"
+              decoding="async"
               onClick={() => setLightbox(url)}
-              onError={() => setBrokenImgs((prev) => new Set(prev).add(url))}
+              onError={(e) =>
+                onProxyError(e.currentTarget, url) ||
+                setBrokenImgs((prev) => new Set(prev).add(url))
+              }
               onLoad={(e) => e.currentTarget.classList.remove("min-h-[16rem]", "bg-white/5")}
               className={
                 "w-full cursor-zoom-in object-cover " +
@@ -410,9 +415,10 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
                       <Link to={`/nostr/${rep.pubkey}`} className="shrink-0">
                         {rp?.picture ? (
                           <img
-                            src={rp.picture}
+                            src={proxiedImage(rp.picture, 28)}
                             alt=""
                             loading="lazy"
+                            onError={(e) => onProxyError(e.currentTarget, rp.picture!)}
                             className="h-7 w-7 rounded-full object-cover"
                           />
                         ) : (
