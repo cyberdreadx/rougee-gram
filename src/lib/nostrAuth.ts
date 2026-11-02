@@ -43,6 +43,37 @@ export function loadOrCreateSecretKey(owner: string): string {
   return hex;
 }
 
+/** The local Nostr key as an nsec, for backup. Null when an extension signs
+ *  (its key lives in the extension) or no local key exists yet. */
+export function exportLocalNsec(owner: string): string | null {
+  if (getExtension()) return null;
+  const saved = localStorage.getItem(skKey(owner));
+  if (!saved || !/^[0-9a-f]{64}$/i.test(saved)) return null;
+  return nip19.nsecEncode(hexToBytes(saved));
+}
+
+/**
+ * Restore a backed-up key (nsec or 64-char hex) as this account's local Nostr
+ * key. Returns the new pubkey. Throws on an invalid key. The caller should
+ * reload so follows/lists/feeds load for the restored key.
+ */
+export function importLocalKey(owner: string, input: string): string {
+  const s = input.trim();
+  let hex: string;
+  if (/^nsec1/i.test(s)) {
+    const d = nip19.decode(s);
+    if (d.type !== "nsec") throw new Error("Not an nsec key");
+    hex = bytesToHex(d.data as Uint8Array);
+  } else if (/^[0-9a-f]{64}$/i.test(s)) {
+    hex = s.toLowerCase();
+  } else {
+    throw new Error("Paste an nsec1… key");
+  }
+  const pubkey = getPublicKey(hexToBytes(hex)); // validates the key
+  localStorage.setItem(skKey(owner), hex);
+  return pubkey;
+}
+
 export interface NostrSigner {
   pubkey: string;
   viaExtension: boolean;

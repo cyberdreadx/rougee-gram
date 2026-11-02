@@ -42,7 +42,7 @@ import { clearTaste } from "@/lib/taste";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getHomeTab, setHomeTab, type HomeTab } from "@/lib/homeTab";
-import { getSigner, npub as toNpub } from "@/lib/nostrAuth";
+import { getSigner, npub as toNpub, exportLocalNsec, importLocalKey, getExtension } from "@/lib/nostrAuth";
 import { useVerified } from "@/hooks/useVerified";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { startVerify, confirmVerify } from "@/lib/verifyApi";
@@ -330,7 +330,108 @@ function NostrIdentitySection({ address }: { address: string }) {
           <Loader2 className="h-4 w-4 animate-spin text-ink-muted" />
         </div>
       )}
+      <NostrKeyBackup address={address} />
     </Section>
+  );
+}
+
+/**
+ * Back up / restore the account's Nostr key. It's a random key kept only in
+ * this browser (not derived from the recovery phrase), so without a backup it's
+ * lost when browser data is cleared — along with anything only it can update
+ * (custom feeds, the NIP-89 app listing).
+ */
+function NostrKeyBackup({ address }: { address: string }) {
+  const { toast } = useToast();
+  const owner = address || "anon";
+  const [nsec, setNsec] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [input, setInput] = useState("");
+  const viaExtension = !!getExtension();
+
+  if (viaExtension) {
+    return (
+      <p className="mt-3 text-xs text-ink-muted">
+        Signing with your Nostr extension — your key is backed up wherever that extension keeps it.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-ink-border/60 pt-3">
+      <p className="text-xs text-ink-muted">
+        This Nostr key is stored only in this browser and is <b>not</b> part of your recovery
+        phrase. Back it up, or you'll lose it if browser data is cleared.
+      </p>
+      {nsec ? (
+        <>
+          <p className="text-xs font-semibold text-rose-400">
+            Secret key — anyone with it can post as you on Nostr. Never share it.
+          </p>
+          <CopyRow label="nsec (secret)" value={nsec} />
+          <button className="btn-soft w-full py-2 text-sm" onClick={() => setNsec(null)}>
+            Hide
+          </button>
+        </>
+      ) : (
+        <button
+          className="btn-soft flex w-full items-center justify-center gap-2 py-2.5 text-sm"
+          onClick={() => {
+            const k = exportLocalNsec(owner);
+            if (k) setNsec(k);
+            else toast("No local Nostr key on this device yet", "error");
+          }}
+        >
+          <KeyRound className="h-4 w-4" /> Back up Nostr key
+        </button>
+      )}
+
+      {restoring ? (
+        <div className="space-y-2">
+          <input
+            className="input w-full font-mono text-xs"
+            placeholder="nsec1…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            type="password"
+          />
+          <p className="text-xs text-ink-muted">
+            Replaces this account's Nostr key on this device. Back up the current one first if you
+            still need it.
+          </p>
+          <div className="flex gap-2">
+            <button className="btn-soft flex-1 py-2 text-sm" onClick={() => setRestoring(false)}>
+              Cancel
+            </button>
+            <button
+              className="btn-primary flex-1 py-2 text-sm"
+              disabled={!input.trim()}
+              onClick={() => {
+                try {
+                  importLocalKey(owner, input);
+                  toast("Nostr key restored", "success");
+                  setTimeout(() => window.location.reload(), 600);
+                } catch (e) {
+                  toast(e instanceof Error ? e.message : "Invalid key", "error");
+                }
+              }}
+            >
+              Restore
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          className="w-full py-1 text-xs text-ink-muted hover:text-white"
+          onClick={() => setRestoring(true)}
+        >
+          Restore a backed-up key
+        </button>
+      )}
+    </div>
   );
 }
 
