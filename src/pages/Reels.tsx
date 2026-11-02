@@ -37,8 +37,18 @@ const isReel = (p: SocialPost): boolean => {
   return d.kind === "video" && d.data.t === "reel";
 };
 
+/** Reels kept mounted on each side of the one in view. Each mounted reel
+ *  preloads its whole video, so mounting every reel at once was very heavy. */
+const REEL_WINDOW = 2;
+
 export default function Reels() {
   const { data, isLoading } = useGlobalTimeline();
+  const [active, setActive] = useState(0);
+  const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const i = Math.round(el.scrollTop / Math.max(1, el.clientHeight));
+    if (i !== active) setActive(i);
+  };
   const { data: sponsored } = useSponsoredPosts();
   const { open } = useCreatePost();
 
@@ -85,10 +95,19 @@ export default function Reels() {
   }
 
   return (
-    <div className="hide-scrollbar h-[calc(100dvh-var(--top-bar-h)-var(--bottom-nav-h))] snap-y snap-mandatory overflow-y-auto md:h-[calc(100dvh-2rem)]">
-      {feed.map(({ post, sponsored }, i) => (
-        <ReelItem key={sponsored ? `ad-${post.id}-${i}` : post.id} post={post} sponsored={sponsored} />
-      ))}
+    <div
+      onScroll={onScroll}
+      className="hide-scrollbar h-[calc(100dvh-var(--top-bar-h)-var(--bottom-nav-h))] snap-y snap-mandatory overflow-y-auto md:h-[calc(100dvh-2rem)]"
+    >
+      {feed.map(({ post, sponsored }, i) => {
+        const key = sponsored ? `ad-${post.id}-${i}` : post.id;
+        // Far-away reels are empty full-height slots so snapping still works.
+        return Math.abs(i - active) <= REEL_WINDOW ? (
+          <ReelItem key={key} post={post} sponsored={sponsored} />
+        ) : (
+          <div key={key} className="h-full w-full snap-start snap-always bg-black" />
+        );
+      })}
     </div>
   );
 }
