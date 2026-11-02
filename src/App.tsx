@@ -14,6 +14,8 @@ import Profile from "./pages/Profile";
 import NostrProfile from "./pages/NostrProfile";
 import PostDetail from "./pages/PostDetail";
 import NostrPost from "./pages/NostrPost";
+import OpenNostr from "./pages/OpenNostr";
+import AnnounceApp from "./pages/AnnounceApp";
 import SoundPage from "./pages/SoundPage";
 import SoundsPage from "./pages/SoundsPage";
 import Settings from "./pages/Settings";
@@ -50,6 +52,8 @@ export default function App() {
         {DMS_ENABLED && <Route path="/messages/:id" element={<Chat />} />}
         <Route path="/p/:postId" element={<PostDetail />} />
         <Route path="/n/:eventId" element={<NostrPost />} />
+        <Route path="/open/:entity" element={<OpenNostr />} />
+        <Route path="/dev/announce" element={<AnnounceApp />} />
         <Route path="/sounds" element={<SoundsPage />} />
         <Route path="/sound/:id" element={<SoundPage />} />
         <Route path="/u/:address" element={<Profile />} />
