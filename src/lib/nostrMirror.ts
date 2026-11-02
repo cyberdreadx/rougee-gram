@@ -4,6 +4,7 @@
  * the composer toggle), best-effort, signed with the viewer's Nostr key. Media
  * is referenced by its public IPFS-gateway URL (local-only refs are skipped).
  */
+import { tagsFromText } from "./taste";
 import { decodeBody } from "./envelope";
 import { resolveMediaUrl } from "./media";
 import { getSigner, ensureNostrProfile, publishNostrProfile } from "./nostrAuth";
@@ -117,11 +118,37 @@ export async function mirrorPostToNostr(
     created_at: Math.floor(Date.now() / 1000),
     tags: [
       ["t", "rougee"],
+      // Caption hashtags as `t` tags — Nostr clients find hashtag posts by tag,
+      // not by scanning text, so without these #introductions etc. never surface.
+      ...tagsFromText(text)
+        .filter((t) => t !== "rougee")
+        .slice(0, 20)
+        .map((t) => ["t", t]),
       // Back-reference to the original post so a Nostr like can deep-link home.
       ...(postId ? [["r", rougeePostUrl(postId)]] : []),
-      ...urls.map((u) => ["imeta", `url ${u}`]),
+      ...urls.map((u) => {
+        const m = mimeOf(u);
+        return m ? ["imeta", `url ${u}`, `m ${m}`] : ["imeta", `url ${u}`];
+      }),
     ],
     content,
   });
   await Promise.allSettled(getPool().publish(NOSTR_RELAYS, ev));
+}
+
+/** Best-guess MIME from a media URL's extension (NIP-92 `m` field). */
+function mimeOf(url: string): string | null {
+  const ext = url.split(/[?#]/)[0].split(".").pop()?.toLowerCase();
+  const map: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+    mp4: "video/mp4",
+    webm: "video/webm",
+    mov: "video/quicktime",
+    m3u8: "application/x-mpegURL",
+  };
+  return (ext && map[ext]) || null;
 }
