@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
   Ban,
   EyeOff,
+  ImageOff,
 } from "lucide-react";
 import type { FeedPost } from "@/lib/nostrFeed";
 import { timeAgo, shortAddress } from "@/lib/format";
@@ -186,6 +187,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
           {n.avatar && !brokenAvatar ? (
             <img
               src={proxiedImage(n.avatar, 40)}
+              referrerPolicy="no-referrer"
               alt=""
               loading="lazy"
               onError={(e) => onProxyError(e.currentTarget, n.avatar!) || setBrokenAvatar(true)}
@@ -295,12 +297,19 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
         </>
       )}
 
+      {/* Every image failed and there's no text or video: say so instead of
+          leaving an empty card. */}
+      {!post.body.trim() && images.length === 0 && videos.length === 0 && n.images.length > 0 && (
+        <MediaUnavailable href={n.noteUrl} label="Image couldn't load" />
+      )}
+
       {/* videos — same in-feed player as RougeChain posts: inline muted autoplay
           while on screen, tap = mute, double-tap = like, hold = pause. */}
       {videos.map((url) => (
         <NostrVideo
           key={url}
           url={url}
+          noteUrl={n.noteUrl}
           liked={!!acted?.liked}
           onLike={() => {
             if (!acted?.liked && busy === null) like();
@@ -320,6 +329,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
             <img
               key={url}
               src={proxiedImage(url, images.length === 1 ? 600 : 300)}
+              referrerPolicy="no-referrer"
               alt=""
               loading="lazy"
               decoding="async"
@@ -500,19 +510,53 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
  * hold = pause). Nostr notes carry no dimensions, so the container sizes itself
  * from the video's intrinsic ratio once metadata loads (16:9 until then).
  */
-function NostrVideo({ url, liked, onLike }: { url: string; liked: boolean; onLike: () => void }) {
+function NostrVideo({
+  url,
+  liked,
+  onLike,
+  noteUrl,
+}: {
+  url: string;
+  liked: boolean;
+  onLike: () => void;
+  noteUrl: string;
+}) {
   const [ar, setAr] = useState<number | null>(null);
+  const [failed, setFailed] = useState(false);
+  if (failed) return <MediaUnavailable href={noteUrl} label="Video couldn't load" />;
   return (
     <div
       className="relative mt-3 w-full overflow-hidden rounded-xl bg-black"
       style={{ aspectRatio: ar ?? 16 / 9, maxHeight: "70vh" }}
+      // <video> errors don't bubble, but React delivers them in the capture phase.
+      onErrorCapture={(e) => {
+        if ((e.target as HTMLElement).tagName === "VIDEO") setFailed(true);
+      }}
     >
       <FeedVideo
-        refUri={url}
+        // Nostr videos have no poster. The #t fragment makes iOS Safari fetch
+        // and paint the first frame instead of a black box until it plays
+        // (autoplay is often blocked in in-app browsers).
+        refUri={url.includes("#") ? url : `${url}#t=0.001`}
         liked={liked}
         onLike={onLike}
         onLoadedMeta={(w, h) => h > 0 && setAr(w / h)}
       />
     </div>
+  );
+}
+
+/** Placeholder for media that failed to load, with a way to see it elsewhere. */
+function MediaUnavailable({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-ink-border bg-white/5 px-4 py-8 text-sm text-ink-muted hover:text-white"
+    >
+      <ImageOff className="h-4 w-4" />
+      {label} · open on Nostr
+    </a>
   );
 }
