@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { proxiedImage, onProxyError } from "@/lib/imageProxy";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -200,7 +201,7 @@ function NostrNotifRow({ item }: { item: NostrNotification }) {
     >
       <div className="relative shrink-0">
         {item.profile?.picture ? (
-          <img src={item.profile.picture} alt="" loading="lazy" className="h-9 w-9 rounded-full object-cover" />
+          <img src={proxiedImage(item.profile.picture, 36)} onError={(e) => onProxyError(e.currentTarget, item.profile!.picture!)} alt="" loading="lazy" className="h-9 w-9 rounded-full object-cover" />
         ) : (
           <Avatar seed={item.fromPubkey} name={name} size={38} />
         )}

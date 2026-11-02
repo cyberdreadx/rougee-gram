@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { proxiedImage, onProxyError } from "@/lib/imageProxy";
 import { useParams, Link } from "react-router-dom";
 import { AddToFeedButton } from "@/components/CustomFeeds";
 import FeedList from "@/components/FeedList";
@@ -72,7 +73,8 @@ export default function NostrProfile() {
         <div className="shrink-0 rounded-full p-0.5 ring-2 ring-rouge-500/40">
           {profile?.picture ? (
             <img
-              src={profile.picture}
+              src={proxiedImage(profile.picture, 80)}
+              onError={(e) => onProxyError(e.currentTarget, profile.picture!)}
               alt=""
               className="h-20 w-20 rounded-full object-cover"
             />

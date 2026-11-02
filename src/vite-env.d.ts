@@ -2,6 +2,8 @@
 
 interface ImportMetaEnv {
   readonly VITE_ROUGE_API?: string;
+  /** wsrv-compatible image proxy base for remote (Nostr) images, or "off". */
+  readonly VITE_IMAGE_PROXY?: string;
   readonly VITE_ROUGE_NETWORK?: string;
   readonly VITE_PINATA_JWT?: string;
   readonly VITE_IPFS_GATEWAY?: string;
