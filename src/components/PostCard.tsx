@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useMirrorStats } from "@/lib/mirrorStats";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -73,7 +74,16 @@ export default function PostCard({
   const decoded = decodeBody(post.body);
   const cta = postCta(post);
   const { data: profile } = useProfile(post.author_pubkey);
-  const { data: stats } = usePostStats(post.id);
+  const { data: chainStats } = usePostStats(post.id);
+  // Add the likes/reposts its Nostr copy got (RougeChain only counts its own).
+  const { data: mirror } = useMirrorStats(post.id, post.author_pubkey);
+  const stats = chainStats
+    ? {
+        ...chainStats,
+        likes: chainStats.likes + (mirror?.likes ?? 0),
+        reposts: chainStats.reposts + (mirror?.reposts ?? 0),
+      }
+    : chainStats;
   const like = useToggleLike(post.id);
   const navigate = useNavigate();
   const [burst, setBurst] = useState(false);
@@ -368,7 +378,16 @@ function TextPostCard({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data: stats } = usePostStats(post.id);
+  const { data: chainStats } = usePostStats(post.id);
+  // Add the likes/reposts its Nostr copy got (RougeChain only counts its own).
+  const { data: mirror } = useMirrorStats(post.id, post.author_pubkey);
+  const stats = chainStats
+    ? {
+        ...chainStats,
+        likes: chainStats.likes + (mirror?.likes ?? 0),
+        reposts: chainStats.reposts + (mirror?.reposts ?? 0),
+      }
+    : chainStats;
   const like = useToggleLike(post.id);
   const [expanded, setExpanded] = useState(false);
   const liked = stats?.liked ?? false;
