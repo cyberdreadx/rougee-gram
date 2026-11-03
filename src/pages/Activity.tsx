@@ -182,18 +182,33 @@ function postThumb(post: { body: string }): string | undefined {
 
 function NostrNotifRow({ item }: { item: NostrNotification }) {
   const name = item.profile?.name?.trim() || shortNpub(item.fromPubkey);
+  // What was reacted to: a post (kind 1), the app listing (31990), etc.
+  const what =
+    item.targetKind === undefined || item.targetKind === 1
+      ? "your post"
+      : item.targetKind === 31990
+        ? "your app listing"
+        : item.targetKind === 0
+          ? "your profile"
+          : "your note";
   const verb =
     item.type === "like"
-      ? "liked your post"
+      ? item.emoji
+        ? `reacted ${item.emoji} to ${what}`
+        : `liked ${what}`
       : item.type === "repost"
-        ? "reposted your post"
+        ? `reposted ${what}`
         : "replied";
   const Icon = item.type === "like" ? Heart : item.type === "repost" ? Repeat2 : MessageCircle;
   const tone =
     item.type === "like" ? "text-rose-400" : item.type === "repost" ? "text-emerald-400" : "text-sky-400";
   // Open the post that was liked/reposted/replied to when we know it; otherwise
   // fall back to the sender's profile.
-  const to = item.targetEventId ? `/n/${item.targetEventId}` : `/nostr/${item.fromPubkey}`;
+  // (Only notes open in Rougee; anything else goes to the sender's profile.)
+  const to =
+    item.targetEventId && (item.targetKind === undefined || item.targetKind === 1)
+      ? `/n/${item.targetEventId}`
+      : `/nostr/${item.fromPubkey}`;
   return (
     <Link
       to={to}

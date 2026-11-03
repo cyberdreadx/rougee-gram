@@ -17,6 +17,10 @@ export interface NostrNotification {
   fromPubkey: string;
   targetEventId?: string;
   content?: string;
+  /** For reactions: the emoji, when it isn't a plain like ("+" / "❤️"). */
+  emoji?: string;
+  /** Kind of the event reacted to / reposted (from the NIP-25/18 `k` tag). */
+  targetKind?: number;
   created_at: number;
   profile?: NostrProfile;
 }
@@ -110,6 +114,8 @@ export async function startNostrNotifications(owner: string): Promise<void> {
         fromPubkey: ev.pubkey,
         targetEventId,
         content: ev.kind === 1 ? ev.content : undefined,
+        emoji: ev.kind === 7 ? reactionEmoji(ev.content) : undefined,
+        targetKind: ev.kind !== 1 ? kTag(ev) : undefined,
         created_at: ev.created_at,
         profile: profiles.get(ev.pubkey),
       },
@@ -155,4 +161,19 @@ export async function startNostrNotifications(owner: string): Promise<void> {
       /* relays flaky; retry next tick */
     }
   }, 1500);
+}
+
+/** The reaction's emoji, or undefined for a plain like. */
+function reactionEmoji(content: string): string | undefined {
+  const c = content.trim();
+  if (!c || c === "+" || c === "❤️" || c === "❤" || c === "🤙") return undefined;
+  if (c.startsWith(":") && c.endsWith(":")) return undefined; // custom emoji shortcode
+  return [...c].slice(0, 2).join("");
+}
+
+/** The `k` tag (kind of the target event), if present. */
+function kTag(ev: Event): number | undefined {
+  const k = ev.tags.find((t) => t[0] === "k")?.[1];
+  const n = k ? Number(k) : NaN;
+  return Number.isFinite(n) ? n : undefined;
 }
