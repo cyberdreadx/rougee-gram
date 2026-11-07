@@ -212,7 +212,7 @@ function CommentRow({
   const { t } = useTranslation();
   const { data: profile } = useProfile(comment.author_pubkey);
   const { data: stats } = usePostStats(comment.id);
-  const like = useToggleLike(comment.id);
+  const like = useToggleLike(comment.id, comment.author_pubkey);
   const liked = stats?.liked ?? false;
   const content = decodeComment(comment.body);
   const [expanded, setExpanded] = useState(false);

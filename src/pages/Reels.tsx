@@ -121,7 +121,7 @@ function ReelItem({ post, sponsored }: { post: SocialPost; sponsored?: boolean }
   const reel = decoded.kind === "video" ? (decoded.data as VideoEnvelope) : null;
   const { data: profile } = useProfile(post.author_pubkey);
   const { data: stats } = usePostStats(post.id);
-  const like = useToggleLike(post.id);
+  const like = useToggleLike(post.id, post.author_pubkey);
   const repost = useToggleRepost(post.id);
   const navigate = useNavigate();
 

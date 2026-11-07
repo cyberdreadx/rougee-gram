@@ -93,7 +93,7 @@ export default function PostCard({
       onClose={() => setShowLikes(false)}
     />
   );
-  const like = useToggleLike(post.id);
+  const like = useToggleLike(post.id, post.author_pubkey);
   const navigate = useNavigate();
   const [burst, setBurst] = useState(false);
   const lastTap = useRef(0);
@@ -412,7 +412,7 @@ function TextPostCard({
       onClose={() => setShowLikes(false)}
     />
   );
-  const like = useToggleLike(post.id);
+  const like = useToggleLike(post.id, post.author_pubkey);
   const [expanded, setExpanded] = useState(false);
   const liked = stats?.liked ?? false;
 
