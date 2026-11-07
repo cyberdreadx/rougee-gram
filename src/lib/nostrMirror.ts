@@ -79,28 +79,30 @@ export async function mirrorPostToNostr(
   body: string,
   meta: { name?: string; picture?: string },
   postId?: string,
-): Promise<void> {
+  /** Unix seconds to date the note (backfilling older posts); default now. */
+  createdAt?: number,
+): Promise<boolean> {
   const d = decodeBody(body);
   let text = "";
   const refs: string[] = [];
   if (d.kind === "text") text = d.text;
   else if (d.kind === "photo") {
-    if (d.data.g) return; // never leak gated (subscribers-only) content to Nostr
+    if (d.data.g) return false; // never leak gated (subscribers-only) content to Nostr
     text = d.data.cap ?? "";
     refs.push(d.data.cid);
   } else if (d.kind === "video") {
-    if (d.data.g) return;
+    if (d.data.g) return false;
     text = d.data.cap ?? "";
     refs.push(d.data.cid);
     // Include the poster too — HLS (.m3u8) won't play in a Nostr client, so a
     // viewable thumbnail keeps the note from looking empty.
     if (d.data.poster) refs.push(d.data.poster);
   } else if (d.kind === "carousel") {
-    if (d.data.g) return;
+    if (d.data.g) return false;
     text = d.data.cap ?? "";
     for (const it of d.data.items) refs.push(it.cid);
   } else {
-    return; // skip story / profile / note / repost / highlight
+    return false; // skip story / profile / note / repost / highlight
   }
 
   // Only public (https, i.e. IPFS-gateway) urls work on Nostr; drop local refs.
@@ -109,13 +111,13 @@ export async function mirrorPostToNostr(
   ).filter((u): u is string => !!u && /^https:\/\//i.test(u));
 
   const content = [text.trim(), ...urls].filter(Boolean).join("\n");
-  if (!content) return;
+  if (!content) return false;
 
   const signer = await getSigner(owner);
   await ensureNostrProfile(signer, meta).catch(() => {});
   const ev = await signer.sign({
     kind: 1,
-    created_at: Math.floor(Date.now() / 1000),
+    created_at: createdAt ?? Math.floor(Date.now() / 1000),
     tags: [
       ["t", "rougee"],
       // Caption hashtags as `t` tags — Nostr clients find hashtag posts by tag,
@@ -133,7 +135,8 @@ export async function mirrorPostToNostr(
     ],
     content,
   });
-  await Promise.allSettled(getPool().publish(NOSTR_RELAYS, ev));
+  const res = await Promise.allSettled(getPool().publish(NOSTR_RELAYS, ev));
+  return res.some((r) => r.status === "fulfilled");
 }
 
 /** Best-guess MIME from a media URL's extension (NIP-92 `m` field). */

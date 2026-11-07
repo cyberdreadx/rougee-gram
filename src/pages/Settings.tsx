@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { planBackfill, runBackfill, type BackfillPlan } from "@/lib/nostrBackfill";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -33,7 +34,9 @@ import {
   networkIdForUrl,
   type NetworkId,
 } from "@/lib/config";
-import { testPinataJwt, testCloudflareWorker, activeBackend } from "@/lib/media";
+import { testPinataJwt, testCloudflareWorker, activeBackend, resolveMediaUrl } from "@/lib/media";
+import { getMirrorPref } from "@/lib/nostrMirror";
+import { useMyProfile } from "@/hooks/useProfile";
 import { requestFaucet } from "@/lib/rouge";
 import { rc } from "@/lib/rouge";
 import { changePassword } from "@/lib/keystore";
@@ -331,6 +334,7 @@ function NostrIdentitySection({ address }: { address: string }) {
         </div>
       )}
       <NostrKeyBackup address={address} />
+      <PastPostsToNostr address={address} />
     </Section>
   );
 }
@@ -430,6 +434,90 @@ function NostrKeyBackup({ address }: { address: string }) {
         >
           Restore a backed-up key
         </button>
+      )}
+    </div>
+  );
+}
+
+/** Share posts made before Nostr mirroring existed (dated to the original). */
+function PastPostsToNostr({ address }: { address: string }) {
+  const { publicKey } = useAuth();
+  const me = useMyProfile();
+  const { toast } = useToast();
+  const owner = address || "anon";
+  const [plan, setPlan] = useState<BackfillPlan | null>(null);
+  const [phase, setPhase] = useState<"idle" | "checking" | "ready" | "sharing" | "done">("idle");
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [shared, setShared] = useState(0);
+
+  if (!getMirrorPref()) return null; // Nostr sharing is off
+
+  const total = plan ? plan.missing.length + plan.relink.length : 0;
+
+  async function check() {
+    setPhase("checking");
+    try {
+      setPlan(await planBackfill(owner, publicKey));
+      setPhase("ready");
+    } catch {
+      toast("Couldn't check your posts — try again", "error");
+      setPhase("idle");
+    }
+  }
+
+  async function share() {
+    if (!plan) return;
+    setPhase("sharing");
+    const picture = me?.avatarRef ? (await resolveMediaUrl(me.avatarRef).catch(() => null)) ?? undefined : undefined;
+    const n = await runBackfill(owner, plan, { name: me?.name, picture }, (done, t) =>
+      setProgress({ done, total: t }),
+    );
+    setShared(n);
+    setPhase("done");
+  }
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-ink-border/60 pt-3">
+      <p className="text-xs text-ink-muted">
+        Posts from before Nostr sharing existed aren't on Nostr. Share them with their original
+        dates, so they fill in your history without showing up as new.
+      </p>
+      {phase === "idle" && (
+        <button className="btn-soft w-full py-2.5 text-sm" onClick={check}>
+          Check past posts
+        </button>
+      )}
+      {phase === "checking" && (
+        <div className="flex items-center justify-center gap-2 py-2 text-sm text-ink-muted">
+          <Loader2 className="h-4 w-4 animate-spin" /> Checking…
+        </div>
+      )}
+      {phase === "ready" && plan && (
+        total === 0 ? (
+          <p className="text-sm text-emerald-400">All your posts are already on Nostr.</p>
+        ) : (
+          <>
+            <p className="text-sm">
+              {plan.missing.length} post{plan.missing.length === 1 ? "" : "s"} not on Nostr yet
+              {plan.relink.length > 0 &&
+                `, ${plan.relink.length} to re-share with a link back to Rougee`}
+              .
+            </p>
+            <button className="btn-primary w-full py-2.5 text-sm" onClick={share}>
+              Share {total} to Nostr
+            </button>
+          </>
+        )
+      )}
+      {phase === "sharing" && (
+        <div className="flex items-center justify-center gap-2 py-2 text-sm text-ink-muted">
+          <Loader2 className="h-4 w-4 animate-spin" /> Sharing {progress.done} of {progress.total}…
+        </div>
+      )}
+      {phase === "done" && (
+        <p className="text-sm text-emerald-400">
+          Shared {shared} of {total} post{total === 1 ? "" : "s"} to Nostr.
+        </p>
       )}
     </div>
   );
