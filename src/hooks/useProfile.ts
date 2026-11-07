@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { sealNostrKey } from "@/lib/nostrVault";
 import { getSigner } from "@/lib/nostrAuth";
 import { getProfile, invalidateProfile, type Profile } from "@/lib/profile";
 import { useAuth } from "@/store/auth";
-import { encodeProfile, PINNED_MAX, type ProfileLink } from "@/lib/envelope";
+import { encodeProfile, PINNED_MAX, POST_BODY_LIMIT, type ProfileLink } from "@/lib/envelope";
 import { invalidateFeeds } from "./useSocial";
 import { mirrorProfileToNostr, getMirrorPref } from "@/lib/nostrMirror";
 import * as write from "@/lib/write";
@@ -52,8 +53,13 @@ export function useUpdateProfile() {
             .then((s) => s.pubkey)
             .catch(() => undefined)
         : undefined;
-      const body = encodeProfile({
+      // Encrypted backup of the Nostr key, so it survives new devices.
+      const nk = np
+        ? await sealNostrKey(address || "anon", { wallet, isExtensionWallet })
+        : undefined;
+      const fields = {
         np,
+        nk,
         name: update.name.trim() || undefined,
         bio: update.bio.trim() || undefined,
         avatar: update.avatarRef || undefined,
@@ -63,7 +69,10 @@ export function useUpdateProfile() {
         vfy: update.vfy || undefined,
         pins: update.pins?.length ? update.pins : undefined,
         sub: update.subPrice && update.subPrice > 0 ? update.subPrice : undefined,
-      });
+      };
+      let body = encodeProfile(fields);
+      // Never let the backup push the profile over the on-chain size limit.
+      if (body.length > POST_BODY_LIMIT && fields.nk) body = encodeProfile({ ...fields, nk: undefined });
       const res = await write.createPost({ wallet, publicKey, isExtensionWallet }, body);
       if (!res.success) throw new Error(res.error || "Failed to save profile");
       return res;

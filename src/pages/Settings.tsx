@@ -36,7 +36,7 @@ import {
 } from "@/lib/config";
 import { testPinataJwt, testCloudflareWorker, activeBackend, resolveMediaUrl } from "@/lib/media";
 import { getMirrorPref } from "@/lib/nostrMirror";
-import { useMyProfile } from "@/hooks/useProfile";
+import { useMyProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { requestFaucet } from "@/lib/rouge";
 import { rc } from "@/lib/rouge";
 import { changePassword } from "@/lib/keystore";
@@ -333,9 +333,70 @@ function NostrIdentitySection({ address }: { address: string }) {
           <Loader2 className="h-4 w-4 animate-spin text-ink-muted" />
         </div>
       )}
+      <ProfileKeyBackup address={address} />
       <NostrKeyBackup address={address} />
       <PastPostsToNostr address={address} />
     </Section>
+  );
+}
+
+/**
+ * Status of the automatic, encrypted Nostr-key backup in the profile (see
+ * nostrVault), with a one-tap backup for profiles saved before it existed.
+ */
+function ProfileKeyBackup({ address }: { address: string }) {
+  const me = useMyProfile();
+  const update = useUpdateProfile();
+  const { toast } = useToast();
+  const [myNostr, setMyNostr] = useState<string | null>(null);
+  useEffect(() => {
+    getSigner(address || "anon")
+      .then((s) => setMyNostr(s.pubkey))
+      .catch(() => {});
+  }, [address]);
+  if (getExtension() || !getMirrorPref() || !me) return null;
+
+  const backedUp = !!me.nostrVault && !!myNostr && me.nostrPubkey === myNostr;
+  if (backedUp) {
+    return (
+      <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-400">
+        <ShieldCheck className="h-3.5 w-3.5" /> Nostr key backed up to your profile, encrypted so
+        only this account can unlock it. It's restored automatically when you sign in on another
+        device.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3 space-y-2 border-t border-ink-border/60 pt-3">
+      <p className="text-xs text-ink-muted">
+        Save an encrypted copy of your Nostr key in your profile, so signing in on any device
+        restores it automatically. Only this account can unlock it.
+      </p>
+      <button
+        className="btn-primary w-full py-2.5 text-sm"
+        disabled={update.isPending}
+        onClick={async () => {
+          try {
+            await update.mutateAsync({
+              name: me.name,
+              bio: me.bio,
+              avatarRef: me.avatarRef,
+              bannerRef: me.bannerRef,
+              bannerPos: me.bannerPos,
+              links: me.links,
+              vfy: me.vfy,
+              pins: me.pins,
+              subPrice: me.subPrice,
+            });
+            toast("Nostr key backed up to your profile", "success");
+          } catch (e) {
+            toast(e instanceof Error ? e.message : "Backup failed", "error");
+          }
+        }}
+      >
+        {update.isPending ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Back up to my profile"}
+      </button>
+    </div>
   );
 }
 
