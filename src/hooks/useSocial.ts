@@ -157,7 +157,7 @@ export function usePost(postId: string | undefined) {
   const { publicKey } = useAuth();
   return useQuery({
     queryKey: qk.post(postId ?? ""),
-    enabled: Boolean(postId) && !likersUnsupported,
+    enabled: Boolean(postId),
     queryFn: () => rc().social.getPost(postId as string, publicKey),
   });
 }
@@ -466,7 +466,7 @@ let likersUnsupported = false;
 export function usePostLikers(postId: string, limit = 3) {
   return useQuery({
     queryKey: ["postLikers", postId, limit],
-    enabled: Boolean(postId),
+    enabled: Boolean(postId) && !likersUnsupported,
     staleTime: 30_000,
     queryFn: async (): Promise<PostLikers> => {
       try {
