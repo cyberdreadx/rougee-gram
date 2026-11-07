@@ -217,6 +217,8 @@ export interface ProfileEnvelope {
   /** The account's Nostr pubkey (hex), linking the two identities so followers
    *  can follow it on Nostr too. Signed into the profile by the RougeChain key. */
   np?: string;
+  /** The Nostr key, sealed to this account's own ML-KEM key (see nostrVault). */
+  nk?: string;
 }
 
 /** Max posts a user can pin to their profile (Instagram-style). */
@@ -489,6 +491,7 @@ export function encodeProfile(env: Omit<ProfileEnvelope, "v" | "t">): string {
   full.pins = pins.length ? pins : undefined;
   full.sub = typeof full.sub === "number" && full.sub > 0 ? Math.floor(full.sub) : undefined;
   full.np = typeof full.np === "string" && /^[0-9a-f]{64}$/.test(full.np) ? full.np : undefined;
+  full.nk = typeof full.nk === "string" && full.nk.length <= 2600 ? full.nk : undefined;
   // Cover framing: keep only a meaningful, in-range, non-default (≠50) value.
   const bp = typeof full.bpos === "number" ? Math.round(full.bpos) : NaN;
   full.bpos = full.banner && bp >= 0 && bp <= 100 && bp !== 50 ? bp : undefined;

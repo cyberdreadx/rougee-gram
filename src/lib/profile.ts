@@ -22,6 +22,7 @@ export interface Profile {
   pins: string[]; // pinned post ids (shown first on the profile grid)
   subPrice: number; // monthly subscription price in XRGE (0 = not a creator sub)
   nostrPubkey: string; // linked Nostr pubkey (hex) from the profile, "" if none
+  nostrVault: string; // Nostr key sealed to the account's KEM key, "" if none
 }
 
 const cache = new Map<string, { at: number; profile: Profile }>();
@@ -46,6 +47,7 @@ export async function getProfile(pubkey: string): Promise<Profile> {
     pins: [],
     subPrice: 0,
     nostrPubkey: "",
+    nostrVault: "",
   };
 
   try {
@@ -68,6 +70,7 @@ export async function getProfile(pubkey: string): Promise<Profile> {
       base.subPrice = typeof latest.sub === "number" && latest.sub > 0 ? Math.floor(latest.sub) : 0;
       base.nostrPubkey =
         typeof latest.np === "string" && /^[0-9a-f]{64}$/.test(latest.np) ? latest.np : "";
+      base.nostrVault = typeof latest.nk === "string" ? latest.nk : "";
     }
   } catch {
     /* keep the address-derived defaults */

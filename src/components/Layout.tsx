@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
+import { restoreNostrKey } from "@/lib/nostrVault";
 import { useTranslation } from "react-i18next";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Home, Compass, Search, PlusSquare, Settings, LogOut, Film, Heart, Send } from "lucide-react";
@@ -20,11 +21,19 @@ import { DMS_ENABLED } from "@/lib/features";
 
 export default function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const { address } = useAuth();
+  const { address, publicKey, wallet, isExtensionWallet } = useAuth();
   // Start listening for likes/reposts/replies to the viewer's Nostr posts.
   useEffect(() => {
     startNostrNotifications(address || "anon");
   }, [address]);
+  // New device / cleared storage: bring back this account's Nostr key from the
+  // encrypted backup in its profile, then reload so everything uses it.
+  useEffect(() => {
+    if (!address || !publicKey || !wallet) return;
+    restoreNostrKey(address, { wallet, isExtensionWallet }, publicKey)
+      .then((restored) => restored && window.location.reload())
+      .catch(() => {});
+  }, [address, publicKey, wallet, isExtensionWallet]);
   return (
     <CreatePostProvider>
       <div className="min-h-screen bg-ink">
