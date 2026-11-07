@@ -15,6 +15,9 @@ import { resolveNostrPubkey } from "@/lib/nostrLink";
 export interface MirrorStats {
   likes: number;
   reposts: number;
+  /** Nostr pubkeys of the people who liked / reposted the Nostr copy. */
+  likers: string[];
+  reposters: string[];
 }
 
 type Req = { postId: string; author: string; resolve: (s: MirrorStats) => void };
@@ -25,11 +28,13 @@ function flush() {
   timer = null;
   const batch = queue;
   queue = [];
-  run(batch).catch(() => batch.forEach((r) => r.resolve({ likes: 0, reposts: 0 })));
+  run(batch).catch(() =>
+    batch.forEach((r) => r.resolve({ likes: 0, reposts: 0, likers: [], reposters: [] })),
+  );
 }
 
 async function run(batch: Req[]) {
-  const empty = { likes: 0, reposts: 0 };
+  const empty: MirrorStats = { likes: 0, reposts: 0, likers: [], reposters: [] };
   // Linked Nostr key per author (cached after the first lookup).
   const authors = [...new Set(batch.map((r) => r.author))];
   const keys = new Map<string, string | null>();
@@ -80,10 +85,9 @@ async function run(batch: Req[]) {
     m.get(pid)!.add(e.pubkey); // one per person
   }
   for (const r of batch) {
-    r.resolve({
-      likes: likers.get(r.postId)?.size ?? 0,
-      reposts: reposters.get(r.postId)?.size ?? 0,
-    });
+    const l = [...(likers.get(r.postId) ?? [])];
+    const rp = [...(reposters.get(r.postId) ?? [])];
+    r.resolve({ likes: l.length, reposts: rp.length, likers: l, reposters: rp });
   }
 }
 

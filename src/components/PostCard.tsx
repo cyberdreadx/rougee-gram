@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import LikesSheet from "./LikesSheet";
 import { useMirrorStats } from "@/lib/mirrorStats";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -84,6 +85,14 @@ export default function PostCard({
         reposts: chainStats.reposts + (mirror?.reposts ?? 0),
       }
     : chainStats;
+  const [showLikes, setShowLikes] = useState(false);
+  const likesSheet = showLikes && (
+    <LikesSheet
+      chainLikes={chainStats?.likes ?? 0}
+      nostrLikers={mirror?.likers ?? []}
+      onClose={() => setShowLikes(false)}
+    />
+  );
   const like = useToggleLike(post.id);
   const navigate = useNavigate();
   const [burst, setBurst] = useState(false);
@@ -317,13 +326,20 @@ export default function PostCard({
       {/* meta */}
       <div className="space-y-1 px-3 pt-2 sm:px-0">
         <TipsRow postId={post.id} />
+        {likesSheet}
         {!hideLikes && <LikedByRow postId={post.id} />}
         {(((stats?.likes ?? 0) > 0 && !hideLikes) || (stats?.reposts ?? 0) > 0) && (
           <div className="flex items-center gap-3 text-sm">
             {(stats?.likes ?? 0) > 0 && !hideLikes && (
-              <span className="font-semibold">
+              <button
+                className="font-semibold hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowLikes(true);
+                }}
+              >
                 {formatCount(stats!.likes)} {stats!.likes === 1 ? "like" : "likes"}
-              </span>
+              </button>
             )}
             {(stats?.reposts ?? 0) > 0 && (
               <span className="text-ink-muted">
@@ -388,6 +404,14 @@ function TextPostCard({
         reposts: chainStats.reposts + (mirror?.reposts ?? 0),
       }
     : chainStats;
+  const [showLikes, setShowLikes] = useState(false);
+  const likesSheet = showLikes && (
+    <LikesSheet
+      chainLikes={chainStats?.likes ?? 0}
+      nostrLikers={mirror?.likers ?? []}
+      onClose={() => setShowLikes(false)}
+    />
+  );
   const like = useToggleLike(post.id);
   const [expanded, setExpanded] = useState(false);
   const liked = stats?.liked ?? false;
@@ -495,12 +519,19 @@ function TextPostCard({
       {/* meta */}
       <div className="space-y-1 pt-2">
         <TipsRow postId={post.id} />
+        {likesSheet}
         {(((stats?.likes ?? 0) > 0) || (stats?.reposts ?? 0) > 0) && (
           <div className="flex items-center gap-3 text-sm">
             {(stats?.likes ?? 0) > 0 && (
-              <span className="font-semibold">
+              <button
+                className="font-semibold hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowLikes(true);
+                }}
+              >
                 {formatCount(stats!.likes)} {stats!.likes === 1 ? "like" : "likes"}
-              </span>
+              </button>
             )}
             {(stats?.reposts ?? 0) > 0 && (
               <span className="text-ink-muted">
