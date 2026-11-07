@@ -2,6 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { NOSTR_RELAYS, getPool } from "@/lib/nostrFeed";
 import { rougeePostUrl, rougeePostIdFromEvent } from "@/lib/nostrMirror";
 import { resolveNostrPubkey } from "@/lib/nostrLink";
+import { getSigner } from "@/lib/nostrAuth";
+import type { EventTemplate } from "nostr-tools";
+
+/** Marks a Nostr like that Rougee sent alongside a RougeChain like. It's
+ *  already in RougeChain's count, so counts skip it; the likes list still
+ *  shows the person's name. */
+export const ROUGEE_LIKE_TAG = ["client", "rougee"];
+const isRougeeLike = (tags: string[][]) =>
+  tags.some((t) => t[0] === ROUGEE_LIKE_TAG[0] && t[1] === ROUGEE_LIKE_TAG[1]);
 
 /**
  * Likes / reposts a RougeChain post got on its Nostr copy. Rougee mirrors
@@ -13,6 +22,7 @@ import { resolveNostrPubkey } from "@/lib/nostrLink";
  * tagging a note with the same `r` link can't inflate a post.
  */
 export interface MirrorStats {
+  /** Likes made on Nostr itself (not already counted on RougeChain). */
   likes: number;
   reposts: number;
   /** Nostr pubkeys of the people who liked / reposted the Nostr copy. */
@@ -72,6 +82,7 @@ async function run(batch: Req[]) {
     { maxWait: 4000 },
   );
   const likers = new Map<string, Set<string>>();
+  const counted = new Map<string, Set<string>>(); // Nostr-native likers only
   const reposters = new Map<string, Set<string>>();
   for (const e of reacts) {
     if (e.kind === 7 && e.content.trim() === "-") continue; // downvote
@@ -83,11 +94,16 @@ async function run(batch: Req[]) {
     const m = e.kind === 7 ? likers : reposters;
     if (!m.has(pid)) m.set(pid, new Set());
     m.get(pid)!.add(e.pubkey); // one per person
+    if (e.kind === 7 && !isRougeeLike(e.tags)) {
+      if (!counted.has(pid)) counted.set(pid, new Set());
+      counted.get(pid)!.add(e.pubkey);
+    }
   }
   for (const r of batch) {
     const l = [...(likers.get(r.postId) ?? [])];
     const rp = [...(reposters.get(r.postId) ?? [])];
-    r.resolve({ likes: l.length, reposts: rp.length, likers: l, reposters: rp });
+    const c = counted.get(r.postId)?.size ?? 0;
+    r.resolve({ likes: c, reposts: rp.length, likers: l, reposters: rp });
   }
 }
 
@@ -105,4 +121,66 @@ export function useMirrorStats(postId: string, author: string | undefined) {
     staleTime: 2 * 60_000,
     queryFn: () => fetchMirrorStats(postId, author as string),
   });
+}
+
+/** The post's Nostr copy (by the author's linked key), or null. */
+async function findMirrorNote(
+  postId: string,
+  author: string,
+): Promise<{ id: string; pubkey: string } | null> {
+  const key = await resolveNostrPubkey(author).catch(() => null);
+  if (!key) return null;
+  const notes = await getPool().querySync(
+    NOSTR_RELAYS,
+    { kinds: [1], authors: [key], "#r": [rougeePostUrl(postId)] },
+    { maxWait: 4000 },
+  );
+  const n = notes.sort((a, b) => a.created_at - b.created_at)[0];
+  return n ? { id: n.id, pubkey: n.pubkey } : null;
+}
+
+/**
+ * Mirror a RougeChain like/unlike onto the post's Nostr copy, so the liker's
+ * name shows in the likes list and the like reaches Nostr apps. Best-effort.
+ */
+export async function mirrorLike(
+  owner: string,
+  postId: string,
+  author: string,
+  liked: boolean,
+): Promise<void> {
+  const note = await findMirrorNote(postId, author);
+  if (!note) return;
+  const signer = await getSigner(owner);
+  const pool = getPool();
+  if (liked) {
+    const tmpl: EventTemplate = {
+      kind: 7,
+      created_at: Math.floor(Date.now() / 1000),
+      content: "+",
+      tags: [
+        ["e", note.id],
+        ["p", note.pubkey],
+        ["k", "1"],
+        ["r", rougeePostUrl(postId)],
+        ROUGEE_LIKE_TAG,
+      ],
+    };
+    await Promise.allSettled(pool.publish(NOSTR_RELAYS, await signer.sign(tmpl)));
+  } else {
+    // NIP-09: ask relays to delete this account's likes on that note.
+    const mine = await pool.querySync(
+      NOSTR_RELAYS,
+      { kinds: [7], authors: [signer.pubkey], "#e": [note.id] },
+      { maxWait: 4000 },
+    );
+    if (!mine.length) return;
+    const del: EventTemplate = {
+      kind: 5,
+      created_at: Math.floor(Date.now() / 1000),
+      content: "",
+      tags: [...mine.map((e) => ["e", e.id]), ["k", "7"]],
+    };
+    await Promise.allSettled(pool.publish(NOSTR_RELAYS, await signer.sign(del)));
+  }
 }

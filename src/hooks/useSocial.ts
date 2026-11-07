@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { mirrorLike } from "@/lib/mirrorStats";
 import { resolveNostrPubkey } from "@/lib/nostrLink";
 import { setFollow as setNostrFollow } from "@/lib/nostrSocial";
 import { getMirrorPref } from "@/lib/nostrMirror";
@@ -156,8 +157,8 @@ export function useArtistStats(pubkey: string | undefined) {
   });
 }
 
-export function useToggleLike(postId: string) {
-  const { wallet, publicKey, isExtensionWallet } = useAuth();
+export function useToggleLike(postId: string, authorPubkey?: string) {
+  const { wallet, publicKey, isExtensionWallet, address } = useAuth();
   const client = useQueryClient();
   const key = qk.postStats(postId, publicKey);
 
@@ -182,6 +183,15 @@ export function useToggleLike(postId: string) {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) client.setQueryData(key, ctx.prev);
+    },
+    onSuccess: (_d, _v, ctx) => {
+      // Mirror the like onto the post's Nostr copy (shows your name in the
+      // likes list, reaches Nostr apps). Skipped when Nostr is off.
+      if (!authorPubkey || !ctx?.prev || !getMirrorPref()) return;
+      const nowLiked = !ctx.prev.liked;
+      mirrorLike(address || "anon", postId, authorPubkey, nowLiked)
+        .then(() => client.invalidateQueries({ queryKey: ["mirrorStats", postId] }))
+        .catch(() => {});
     },
     onSettled: () => {
       client.invalidateQueries({ queryKey: key });
