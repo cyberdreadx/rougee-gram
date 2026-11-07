@@ -12,7 +12,6 @@ import {
 import type { SocialPost, PostStats, ArtistStats } from "@rougechain/sdk";
 import { rc, resolveTxId } from "@/lib/rouge";
 import { getConfig } from "@/lib/config";
-import { LIKERS_ENABLED } from "@/lib/features";
 import { useAuth } from "@/store/auth";
 import { invalidateProfile } from "@/lib/profile";
 import { decodeBody, isAdPost, encodeRepost } from "@/lib/envelope";
@@ -60,6 +59,10 @@ export function useFollowingFeed(enabled = true) {
     // appear. The on-chain follow list is the source of truth — fan out to each
     // followee's posts and merge. Also works for extension wallets (no privkey).
     queryFn: async (): Promise<SocialPost[]> => {
+      // Fast path: the node's public feed route (one request) + your own posts.
+      const fast = await nodeFollowingFeed(publicKey);
+      if (fast) return fast;
+      // Older nodes: build it client-side from the follow graph.
       const following = await rc().social.getUserFollowing(publicKey);
       const pubkeys = (Array.isArray(following) ? following : []).filter(
         (x): x is string => typeof x === "string" && x.length > 0,
@@ -69,6 +72,45 @@ export function useFollowingFeed(enabled = true) {
       return postsByAuthors([publicKey, ...pubkeys]);
     },
   });
+}
+
+/**
+ * The node's `GET /social/user/:pubkey/feed` (posts from everyone the viewer
+ * follows), merged with the viewer's own recent posts. Null when the node
+ * doesn't have the route yet, so callers fall back to the client-side build.
+ */
+async function nodeFollowingFeed(viewer: string): Promise<SocialPost[] | null> {
+  const base = getConfig().apiUrl.replace(/\/+$/, "");
+  try {
+    const [res, mine] = await Promise.all([
+      fetch(`${base}/social/user/${encodeURIComponent(viewer)}/feed?limit=${PAGE}`),
+      rc()
+        .social.getUserPosts(viewer, 20, 0)
+        .then((r) => ((r?.posts ?? []) as SocialPost[]))
+        .catch(() => [] as SocialPost[]),
+    ]);
+    if (!res.ok) return null;
+    const d = (await res.json()) as { posts?: SocialPost[] };
+    if (!Array.isArray(d.posts)) return null;
+    return mergePosts([...d.posts, ...mine]);
+  } catch {
+    return null;
+  }
+}
+
+/** Newest-first, deduped, top-level posts only (no replies or ad creatives). */
+function mergePosts(list: SocialPost[]): SocialPost[] {
+  const seen = new Set<string>();
+  const merged: SocialPost[] = [];
+  for (const p of list) {
+    if (!p || p.reply_to_id || seen.has(p.id) || isAdPost(p)) continue;
+    seen.add(p.id);
+    merged.push(p);
+  }
+  merged.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+  return merged.slice(0, PAGE);
 }
 
 /** Fan out to each author's recent posts and merge, newest-first, top-level only. */
@@ -83,17 +125,7 @@ async function postsByAuthors(authors: string[]): Promise<SocialPost[]> {
         .catch(() => [] as SocialPost[]),
     ),
   );
-  const seen = new Set<string>();
-  const merged: SocialPost[] = [];
-  for (const p of perUser.flat()) {
-    if (!p || p.reply_to_id || seen.has(p.id) || isAdPost(p)) continue;
-    seen.add(p.id);
-    merged.push(p);
-  }
-  merged.sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  );
-  return merged.slice(0, PAGE);
+  return mergePosts(perUser.flat());
 }
 
 /** Recent posts from a hand-picked set of RougeChain accounts (custom feeds). */
@@ -125,7 +157,7 @@ export function usePost(postId: string | undefined) {
   const { publicKey } = useAuth();
   return useQuery({
     queryKey: qk.post(postId ?? ""),
-    enabled: Boolean(postId),
+    enabled: Boolean(postId) && !likersUnsupported,
     queryFn: () => rc().social.getPost(postId as string, publicKey),
   });
 }
@@ -423,18 +455,18 @@ export interface PostLikers {
   total: number;
 }
 
+/** Set once the node answers 404 (no likers route yet) — stop asking. */
+let likersUnsupported = false;
+
 /**
- * Who liked a post (for the "Liked by … and others" facepile). Gated behind
- * LIKERS_ENABLED: the node doesn't expose a who-liked route yet, so this stays
- * disabled (no network call, no data) until the backend ships — see
- * lib/features.ts for the exact node + SDK spec. We call the route directly
- * because the published @rougechain/sdk has no getPostLikers yet; swap to
- * rc().social.getPostLikers(postId, limit) once it does. Never returns fake data.
+ * Who liked a post, from the node's `GET /social/post/:id/likers`
+ * ({ likers, total }). Nodes without the route answer 404; after the first one
+ * this stays off for the session. Never returns fake data.
  */
 export function usePostLikers(postId: string, limit = 3) {
   return useQuery({
     queryKey: ["postLikers", postId, limit],
-    enabled: LIKERS_ENABLED && Boolean(postId),
+    enabled: Boolean(postId),
     staleTime: 30_000,
     queryFn: async (): Promise<PostLikers> => {
       try {
@@ -442,6 +474,7 @@ export function usePostLikers(postId: string, limit = 3) {
         const res = await fetch(
           `${base}/social/post/${encodeURIComponent(postId)}/likers?limit=${limit}`,
         );
+        if (res.status === 404) likersUnsupported = true;
         if (!res.ok) return { likers: [], total: 0 };
         const d = (await res.json()) as { likers?: unknown; total?: unknown };
         const likers = Array.isArray(d.likers)

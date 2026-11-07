@@ -88,6 +88,7 @@ export default function PostCard({
   const [showLikes, setShowLikes] = useState(false);
   const likesSheet = showLikes && (
     <LikesSheet
+      postId={post.id}
       chainLikes={chainStats?.likes ?? 0}
       nostrLikers={mirror?.likers ?? []}
       onClose={() => setShowLikes(false)}
@@ -407,6 +408,7 @@ function TextPostCard({
   const [showLikes, setShowLikes] = useState(false);
   const likesSheet = showLikes && (
     <LikesSheet
+      postId={post.id}
       chainLikes={chainStats?.likes ?? 0}
       nostrLikers={mirror?.likers ?? []}
       onClose={() => setShowLikes(false)}
@@ -762,9 +764,8 @@ function LikerAvatar({ pubkey }: { pubkey: string }) {
 
 /**
  * Instagram-style "Liked by {name} and N others" social-proof row with an avatar
- * facepile. Dormant until the node exposes a who-liked route (usePostLikers is
- * gated by LIKERS_ENABLED) — renders nothing, never fabricated. See
- * lib/features.ts for the exact backend spec to light it up.
+ * facepile, from the node's who-liked route. Renders nothing on nodes without
+ * it (usePostLikers detects that) — never fabricated.
  */
 function LikedByRow({ postId }: { postId: string }) {
   const { data } = usePostLikers(postId);
