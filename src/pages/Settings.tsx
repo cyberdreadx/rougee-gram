@@ -425,8 +425,9 @@ function NostrKeyBackup({ address }: { address: string }) {
   return (
     <div className="mt-3 space-y-2 border-t border-ink-border/60 pt-3">
       <p className="text-xs text-ink-muted">
-        This Nostr key is stored only in this browser and is <b>not</b> part of your recovery
-        phrase. Back it up, or you'll lose it if browser data is cleared.
+        Your Nostr key isn't part of your recovery phrase. The encrypted profile backup restores
+        it when you sign in elsewhere; you can also keep your own copy here (for other Nostr
+        apps, or as a spare).
       </p>
       {nsec ? (
         <>
