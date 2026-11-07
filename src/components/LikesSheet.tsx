@@ -4,7 +4,9 @@ import { Globe, Loader2 } from "lucide-react";
 import { NOSTR_RELAYS, getPool, parseProfile, type NostrProfile } from "@/lib/nostrFeed";
 import { shortNpub } from "@/lib/nostrAuth";
 import { proxiedImage, onProxyError } from "@/lib/imageProxy";
+import { usePostLikers } from "@/hooks/useSocial";
 import Modal from "./Modal";
+import UserRow from "./UserRow";
 import Avatar from "./Avatar";
 
 /** Kind-0 profiles for a set of Nostr pubkeys. */
@@ -35,15 +37,20 @@ function useNostrProfiles(pubkeys: string[]) {
  * RougeChain only exposes a like count today, so those are shown as a number.
  */
 export default function LikesSheet({
+  postId,
   chainLikes,
   nostrLikers,
   onClose,
 }: {
+  postId: string;
   chainLikes: number;
   nostrLikers: string[];
   onClose: () => void;
 }) {
   const { data: profiles, isLoading } = useNostrProfiles(nostrLikers);
+  // RougeChain likers by name, where the node serves its who-liked route.
+  const { data: chain, isLoading: chainLoading } = usePostLikers(postId, 100);
+  const chainLikers = chain?.likers ?? [];
   return (
     <Modal onClose={onClose} title="Likes">
       {nostrLikers.length > 0 && (
@@ -94,10 +101,21 @@ export default function LikesSheet({
           <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">
             On RougeChain · {chainLikes}
           </div>
-          <p className="text-sm text-ink-muted">
-            RougeChain shows how many people liked a post, but not who — so these can't be listed
-            yet.
-          </p>
+          {chainLikers.length > 0 ? (
+            <div className="mt-2 space-y-3" onClick={onClose}>
+              {chainLikers.map((pk) => (
+                <UserRow key={pk} pubkey={pk} showFollow={false} subtitle="RougeChain" />
+              ))}
+            </div>
+          ) : chainLoading ? (
+            <div className="flex justify-center py-2">
+              <Loader2 className="h-4 w-4 animate-spin text-ink-muted" />
+            </div>
+          ) : (
+            <p className="text-sm text-ink-muted">
+              This RougeChain node shows how many people liked a post, but not who.
+            </p>
+          )}
         </div>
       )}
     </Modal>
