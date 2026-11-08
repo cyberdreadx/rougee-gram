@@ -5,6 +5,7 @@ import { NOSTR_RELAYS, getPool, parseProfile, type NostrProfile } from "@/lib/no
 import { shortNpub } from "@/lib/nostrAuth";
 import { proxiedImage, onProxyError } from "@/lib/imageProxy";
 import { usePostLikers } from "@/hooks/useSocial";
+import { resolveNostrPubkey } from "@/lib/nostrLink";
 import Modal from "./Modal";
 import UserRow from "./UserRow";
 import Avatar from "./Avatar";
@@ -47,19 +48,33 @@ export default function LikesSheet({
   nostrLikers: string[];
   onClose: () => void;
 }) {
-  const { data: profiles, isLoading } = useNostrProfiles(nostrLikers);
   // RougeChain likers by name, where the node serves its who-liked route.
   const { data: chain, isLoading: chainLoading } = usePostLikers(postId, 100);
   const chainLikers = chain?.likers ?? [];
+  // People who liked on both (a Rougee like is mirrored to Nostr) show once,
+  // under RougeChain: drop Nostr likers that are a RougeChain liker's own key.
+  const { data: linked } = useQuery({
+    queryKey: ["likerNostrKeys", [...chainLikers].sort().join(",")],
+    enabled: chainLikers.length > 0,
+    staleTime: 10 * 60_000,
+    queryFn: async () =>
+      new Set(
+        (await Promise.all(chainLikers.map((pk) => resolveNostrPubkey(pk).catch(() => null)))).filter(
+          (x): x is string => !!x,
+        ),
+      ),
+  });
+  const nostrOnly = linked ? nostrLikers.filter((pk) => !linked.has(pk)) : nostrLikers;
+  const { data: profiles, isLoading } = useNostrProfiles(nostrOnly);
   return (
     <Modal onClose={onClose} title="Likes">
-      {nostrLikers.length > 0 && (
+      {nostrOnly.length > 0 && (
         <div>
           <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            <Globe className="h-3.5 w-3.5" /> On Nostr · {nostrLikers.length}
+            <Globe className="h-3.5 w-3.5" /> On Nostr · {nostrOnly.length}
           </div>
           <div className="space-y-3">
-            {nostrLikers.map((pk) => {
+            {nostrOnly.map((pk) => {
               const p = profiles?.get(pk);
               const name = p?.name?.trim() || shortNpub(pk);
               return (
@@ -97,7 +112,7 @@ export default function LikesSheet({
       )}
 
       {chainLikes > 0 && (
-        <div className={nostrLikers.length ? "mt-5 border-t border-ink-border pt-4" : ""}>
+        <div className={nostrOnly.length ? "mt-5 border-t border-ink-border pt-4" : ""}>
           <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">
             On RougeChain · {chainLikes}
           </div>
