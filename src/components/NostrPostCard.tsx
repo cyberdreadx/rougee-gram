@@ -106,8 +106,14 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
     };
   };
 
+  // Counts as they were when you tapped, so your own like/repost shows as +1
+  // right away instead of waiting for the relays to report it back.
+  const [likeBase, setLikeBase] = useState<number | null>(null);
+  const [repostBase, setRepostBase] = useState<number | null>(null);
+
   const like = async () => {
     if (!n || acted?.liked || busy) return;
+    setLikeBase(n.likeCount ?? 0);
     setBusy("like");
     markActed(post.id, "liked"); // optimistic — the heart fills instantly
     // Taste signal for the personalized Discover re-rank (author keyed by nostr pubkey).
@@ -128,6 +134,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
 
   const repost = async () => {
     if (!n || acted?.reposted || busy) return;
+    setRepostBase(n.repostCount ?? 0);
     setBusy("repost");
     markActed(post.id, "reposted"); // optimistic
     try {
@@ -175,9 +182,15 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   const images = n.images.slice(0, 4).filter((u) => !brokenImgs.has(u)); // drop ones that 404 / aren't images
   const following = follows.has(n.pubkey);
   const videos = n.videos.slice(0, 2);
-  const likeCount = Math.max(n.likeCount ?? 0, acted?.liked ? 1 : 0);
+  const likeCount = Math.max(
+    n.likeCount ?? 0,
+    acted?.liked ? (likeBase !== null ? likeBase + 1 : 1) : 0,
+  );
   const replyCount = Math.max(n.replyCount ?? 0, threadReplies.length);
-  const repostCount = Math.max(n.repostCount ?? 0, acted?.reposted ? 1 : 0);
+  const repostCount = Math.max(
+    n.repostCount ?? 0,
+    acted?.reposted ? (repostBase !== null ? repostBase + 1 : 1) : 0,
+  );
 
   return (
     <article className="border-b border-ink-border px-4 py-3">
