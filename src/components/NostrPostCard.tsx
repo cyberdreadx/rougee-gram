@@ -51,7 +51,14 @@ import { recordTaste, tagsFromText, TASTE_WEIGHTS } from "@/lib/taste";
 /** Clamp long Nostr note text (some notes are enormous hashtag/URL walls). */
 const NOSTR_CLAMP = 280;
 
-export default function NostrPostCard({ post }: { post: FeedPost }) {
+export default function NostrPostCard({
+  post,
+  defaultShowComments = false,
+}: {
+  post: FeedPost;
+  /** Open the replies section on mount (e.g. arriving from a reply notification). */
+  defaultShowComments?: boolean;
+}) {
   const { address, publicKey } = useAuth();
   const myProfile = useMyProfile();
   const acted = useActed()[post.id];
@@ -61,7 +68,7 @@ export default function NostrPostCard({ post }: { post: FeedPost }) {
   const [followBusy, setFollowBusy] = useState(false);
   const [brokenAvatar, setBrokenAvatar] = useState(false);
   const [busy, setBusy] = useState<null | "like" | "repost">(null);
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(defaultShowComments);
   const [commentText, setCommentText] = useState("");
   const [sending, setSending] = useState(false);
   const [brokenImgs, setBrokenImgs] = useState<Set<string>>(new Set());

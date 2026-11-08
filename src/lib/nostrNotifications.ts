@@ -21,6 +21,8 @@ export interface NostrNotification {
   emoji?: string;
   /** Kind of the event reacted to / reposted (from the NIP-25/18 `k` tag). */
   targetKind?: number;
+  /** True when the event acted on is itself a reply (i.e. your comment). */
+  targetIsReply?: boolean;
   created_at: number;
   profile?: NostrProfile;
 }
@@ -89,6 +91,9 @@ export async function startNostrNotifications(owner: string): Promise<void> {
 
   const seen = new Set<string>();
   const wantProfiles = new Set<string>();
+  // Notes acted on whose kind (post vs comment) we haven't looked up yet.
+  const wantTargets = new Set<string>();
+  const targetIsReply = new Map<string, boolean>();
 
   const upsert = (ev: Event) => {
     if (ev.pubkey === pubkey || seen.has(ev.id)) return; // skip our own
@@ -116,6 +121,7 @@ export async function startNostrNotifications(owner: string): Promise<void> {
         content: ev.kind === 1 ? ev.content : undefined,
         emoji: ev.kind === 7 ? reactionEmoji(ev.content) : undefined,
         targetKind: ev.kind !== 1 ? kTag(ev) : undefined,
+        targetIsReply: targetEventId ? targetIsReply.get(targetEventId) : undefined,
         created_at: ev.created_at,
         profile: profiles.get(ev.pubkey),
       },
@@ -124,8 +130,29 @@ export async function startNostrNotifications(owner: string): Promise<void> {
       .sort((a, b) => b.created_at - a.created_at)
       .slice(0, MAX);
     if (!profiles.has(ev.pubkey)) wantProfiles.add(ev.pubkey);
+    if (targetEventId && !targetIsReply.has(targetEventId)) wantTargets.add(targetEventId);
     refresh();
   };
+
+  // Look up the notes that were liked / reposted / replied to, so Activity can
+  // say "your comment" when it was a reply rather than a post.
+  setInterval(async () => {
+    const want = [...wantTargets].slice(0, 50);
+    if (!want.length) return;
+    want.forEach((id) => wantTargets.delete(id));
+    try {
+      const evs = await getPool().querySync(NOSTR_RELAYS, { ids: want }, { maxWait: 4000 });
+      for (const e of evs) targetIsReply.set(e.id, e.kind === 1 && !!replyTargetOf(e));
+      items = items.map((n) =>
+        n.targetEventId && targetIsReply.has(n.targetEventId)
+          ? { ...n, targetIsReply: targetIsReply.get(n.targetEventId) }
+          : n,
+      );
+      refresh();
+    } catch {
+      want.forEach((id) => wantTargets.add(id)); // retry next tick
+    }
+  }, 2000);
 
   getPool().subscribeMany(
     NOSTR_RELAYS,
