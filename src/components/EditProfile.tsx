@@ -19,6 +19,21 @@ import {
 } from "@/lib/envelope";
 import { subsEnabled } from "@/lib/subs";
 
+/** Size caps for animated GIFs, which are uploaded without re-encoding. */
+const AVATAR_GIF_MAX = 4 * 1024 * 1024;
+const BANNER_GIF_MAX = 8 * 1024 * 1024;
+
+const isGif = (f: File) => f.type === "image/gif" || /\.gif$/i.test(f.name);
+
+function gifWithinLimit(f: File, max: number): File {
+  if (f.size > max) {
+    throw new Error(
+      `That GIF is ${(f.size / 1024 / 1024).toFixed(1)} MB — the limit is ${max / 1024 / 1024} MB. Try a shorter or smaller one.`,
+    );
+  }
+  return f;
+}
+
 export default function EditProfile({
   profile,
   onClose,
@@ -79,8 +94,14 @@ export default function EditProfile({
     setUploadingAvatar(true);
     try {
       setLocalPreview(URL.createObjectURL(f));
-      const img = await processImage(f, { square: true, maxSize: 400, quality: 0.85 });
-      const media = await putImage(img.blob, "avatar");
+      // Animated GIFs upload as-is: redrawing on a canvas keeps only the first
+      // frame. The round frame crops it visually (object-cover).
+      const media = isGif(f)
+        ? await putImage(gifWithinLimit(f, AVATAR_GIF_MAX), "avatar")
+        : await putImage(
+            (await processImage(f, { square: true, maxSize: 400, quality: 0.85 })).blob,
+            "avatar",
+          );
       setAvatarRef(media.ref);
     } catch (e) {
       toast(e instanceof Error ? e.message : t("edit.avatarUploadFailed"), "error");
@@ -95,8 +116,9 @@ export default function EditProfile({
     try {
       setLocalBanner(URL.createObjectURL(f));
       // Wide cover — downscale to a reasonable width, keep aspect (no square crop).
-      const img = await processImage(f, { maxSize: 1280, quality: 0.82 });
-      const media = await putImage(img.blob, "banner");
+      const media = isGif(f)
+        ? await putImage(gifWithinLimit(f, BANNER_GIF_MAX), "banner")
+        : await putImage((await processImage(f, { maxSize: 1280, quality: 0.82 })).blob, "banner");
       setBannerRef(media.ref);
       setBannerPos(50); // a fresh image starts centered
 
