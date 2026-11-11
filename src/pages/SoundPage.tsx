@@ -117,7 +117,7 @@ function ReelTile({ postId }: { postId: string }) {
   })();
   return (
     <Link to={`/p/${postId}`} className="block aspect-[9/16] overflow-hidden rounded-lg bg-ink-soft">
-      {poster && <MediaImage refUri={poster} alt="" className="h-full w-full object-cover" />}
+      {poster && <MediaImage refUri={poster} alt="" width={400} className="h-full w-full object-cover" />}
     </Link>
   );
 }

@@ -17,6 +17,16 @@ export interface Env {
   /** For Cloudflare Stream (adaptive HLS video) — set via wrangler secret. */
   CF_ACCOUNT_ID?: string;
   CF_STREAM_TOKEN?: string;
+  /** "on" enables on-the-fly image resize via ?w= (needs Cloudflare Image
+   *  Resizing on the zone — a custom domain, not workers.dev). Off by default. */
+  RESIZE?: string;
+}
+
+/** Widths we'll actually serve for a ?w= request (clamp to a small menu so the
+ *  edge cache stays warm instead of fragmenting across arbitrary sizes). */
+const RESIZE_WIDTHS = [200, 400, 800, 1280];
+function clampWidth(w: number): number {
+  return RESIZE_WIDTHS.find((x) => w <= x) ?? RESIZE_WIDTHS[RESIZE_WIDTHS.length - 1];
 }
 
 const MAX_BYTES = 100 * 1024 * 1024; // keep in sync with the app's VIDEO_MAX_BYTES
@@ -202,12 +212,34 @@ export default {
       const rangeHeader = request.headers.get("Range");
       const range = rangeHeader ? parseRange(rangeHeader) : undefined;
 
-      // Edge cache for whole-file reads (objects are content-addressed, so
-      // they never change). Skips a round trip to R2 on repeat views. Note:
-      // Cloudflare ignores the Cache API on *.workers.dev — it takes effect
-      // once the Worker is served from a custom domain on a Cloudflare zone.
+      // On-the-fly image resize (opt-in): ?w=<px> serves a smaller variant so
+      // grids/feeds don't download full-res photos into tiny cells. Needs
+      // Cloudflare Image Resizing (RESIZE=on + a custom domain); otherwise the
+      // param is ignored and the original is served. Never for range requests.
+      const wParam = Number(url.searchParams.get("w"));
+      if (env.RESIZE === "on" && !range && wParam > 0) {
+        const width = clampWidth(wParam);
+        const origin = `${url.origin}/f/${encodeURIComponent(objectKey)}`;
+        const resized = await fetch(origin, {
+          cf: { image: { width, fit: "scale-down", format: "auto", quality: 82 } },
+          headers: { Accept: request.headers.get("Accept") || "image/*" },
+        } as unknown as RequestInit);
+        if (resized.ok) {
+          const h = new Headers(resized.headers);
+          for (const [k, v] of Object.entries(cors(env))) h.set(k, v);
+          h.set("Cache-Control", "public, max-age=31536000, immutable");
+          return new Response(resized.body, { status: resized.status, headers: h });
+        }
+        // fall through to the original on any resize failure
+      }
+
+      // Edge-cache full (non-range) reads so repeat loads skip R2 entirely.
+      // Objects are content-addressed, so they never change. Key ignores the
+      // query (so ?w= requests that fall through to the original share one
+      // entry). Cloudflare ignores the Cache API on *.workers.dev — this takes
+      // effect once the Worker is served from a custom domain on a CF zone.
       const cache = (caches as unknown as { default: Cache }).default;
-      const cacheKey = new Request(url.toString(), { method: "GET" });
+      const cacheKey = new Request(`${url.origin}/f/${encodeURIComponent(objectKey)}`);
       if (!range) {
         const hit = await cache.match(cacheKey);
         if (hit) return hit;
@@ -231,9 +263,9 @@ export default {
         headers.set("Content-Length", String(length));
         return new Response(obj.body, { status: 206, headers });
       }
-      const res = new Response(obj.body, { headers });
-      if (!range) ctx.waitUntil(cache.put(cacheKey, res.clone()));
-      return res;
+      const resp = new Response(obj.body, { headers });
+      if (!range) ctx.waitUntil(cache.put(cacheKey, resp.clone())); // populate edge cache
+      return resp;
     }
 
     if (url.pathname === "/") {

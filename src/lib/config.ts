@@ -18,6 +18,9 @@ export interface RuntimeConfig {
   /** Route video through Cloudflare Stream (adaptive HLS). Requires the Worker
    *  to be configured with Stream secrets. */
   cfStream: boolean;
+  /** Request resized image variants (?w=) from the media Worker. Needs the
+   *  Worker's RESIZE=on + Cloudflare Image Resizing. Safe no-op when off. */
+  cfResize: boolean;
   /** RouGee HQ verification Worker base URL (issues verified-badge attestations). */
   verifyWorkerUrl: string;
   /** RouGee tips-ledger Worker base URL (per-post tip attribution). */
@@ -73,6 +76,7 @@ const defaults: RuntimeConfig = {
   cfWorkerUrl: import.meta.env.VITE_CF_WORKER_URL || "",
   cfUploadSecret: import.meta.env.VITE_CF_UPLOAD_SECRET || "",
   cfStream: (import.meta.env.VITE_CF_STREAM || "") === "true",
+  cfResize: (import.meta.env.VITE_CF_RESIZE || "") === "true",
   verifyWorkerUrl: import.meta.env.VITE_VERIFY_WORKER_URL || "",
   tipsWorkerUrl: import.meta.env.VITE_TIPS_WORKER_URL || "",
   storyWorkerUrl: import.meta.env.VITE_STORY_WORKER_URL || "",

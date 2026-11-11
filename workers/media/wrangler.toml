@@ -15,6 +15,13 @@ bucket_name = "rougee-gram-media"
 # site origin (e.g. https://rougee-gram.netlify.app) to reduce abuse.
 ALLOW_ORIGIN = "*"
 
+# On-the-fly image resize for ?w= requests (grids/feeds serve small variants
+# instead of full-res photos). Needs Cloudflare Image Resizing, which only works
+# on a CUSTOM DOMAIN (not *.workers.dev). Set to "on" after you've: (1) mapped
+# this Worker to a custom domain/route, (2) enabled Image Resizing on that zone,
+# then also set VITE_CF_RESIZE=true in the app. Leave unset = originals only.
+# RESIZE = "on"
+
 # Optional anti-spam: require an X-Upload-Secret header on uploads. Set it with:
 #   npx wrangler secret put UPLOAD_SECRET --config workers/media/wrangler.toml
 # then paste the same value into the app's Settings → Media storage.

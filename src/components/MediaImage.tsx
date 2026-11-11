@@ -12,11 +12,13 @@ interface Props {
   rounded?: boolean;
   /** Inline styles for the <img> (e.g. objectPosition for cover framing). */
   style?: React.CSSProperties;
+  /** Display width hint (px) — requests a resized variant for small cells. */
+  width?: number;
 }
 
 /** Resolves a media reference (ipfs://… / local://…) and renders it with a
  *  loading skeleton and a graceful "unavailable" fallback. */
-export default function MediaImage({ refUri, alt, className, rounded, style }: Props) {
+export default function MediaImage({ refUri, alt, className, rounded, style, width }: Props) {
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
@@ -31,7 +33,7 @@ export default function MediaImage({ refUri, alt, className, rounded, style }: P
     let active = true;
     setState("loading");
     setUrl(null);
-    resolveMediaUrl(refUri)
+    resolveMediaUrl(refUri, width)
       .then((u) => {
         if (!active) return;
         if (u) setUrl(u);
@@ -41,7 +43,7 @@ export default function MediaImage({ refUri, alt, className, rounded, style }: P
     return () => {
       active = false;
     };
-  }, [refUri]);
+  }, [refUri, width]);
 
   if (gated) {
     return (
@@ -88,6 +90,7 @@ export default function MediaImage({ refUri, alt, className, rounded, style }: P
       src={url}
       alt={alt ?? ""}
       loading="lazy"
+      decoding="async"
       onError={() => setState("error")}
       className={cn("block", rounded && "rounded-2xl", className)}
       style={style}

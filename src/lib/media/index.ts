@@ -41,7 +41,7 @@ const urlCache = new Map<string, string>();
  * - ipfs://<cid>: gateway URL
  * - local://<hash>: object URL from IndexedDB (null if not on this device)
  */
-export async function resolveMediaUrl(ref: string): Promise<string | null> {
+export async function resolveMediaUrl(ref: string, width?: number): Promise<string | null> {
   if (!ref) return null;
   if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("data:")) {
     return ref;
@@ -51,8 +51,12 @@ export async function resolveMediaUrl(ref: string): Promise<string | null> {
   if (ref.startsWith("cf:")) {
     const base = getConfig().cfWorkerUrl.replace(/\/+$/, "");
     if (!base) return null;
-    const url = `${base}/f/${ref.slice(3)}`;
-    urlCache.set(ref, url);
+    // Request a resized variant for small cells (grids/avatars) when the Worker
+    // supports it. `width` is a hint; the Worker clamps to a fixed size menu and
+    // ignores it unless resizing is enabled, so this is always safe.
+    const q = width && getConfig().cfResize ? `?w=${Math.round(width)}` : "";
+    const url = `${base}/f/${ref.slice(3)}${q}`;
+    if (!q) urlCache.set(ref, url);
     return url;
   }
   if (ref.startsWith("ipfs://")) {

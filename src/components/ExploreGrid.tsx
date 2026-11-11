@@ -125,6 +125,7 @@ function GridTile({ cell, sponsored, i }: { cell: Cell; sponsored: boolean; i: n
         <MediaImage
           refUri={thumbRef}
           alt=""
+          width={400}
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
       ) : (
