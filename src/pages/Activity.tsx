@@ -184,7 +184,9 @@ function NostrNotifRow({ item }: { item: NostrNotification }) {
   const name = item.profile?.name?.trim() || shortNpub(item.fromPubkey);
   // What was reacted to: a post (kind 1), the app listing (31990), etc.
   const what =
-    item.targetKind === undefined || item.targetKind === 1
+    item.targetIsReply
+      ? "your comment"
+      : item.targetKind === undefined || item.targetKind === 1
       ? "your post"
       : item.targetKind === 31990
         ? "your app listing"
@@ -198,7 +200,7 @@ function NostrNotifRow({ item }: { item: NostrNotification }) {
         : `liked ${what}`
       : item.type === "repost"
         ? `reposted ${what}`
-        : "replied";
+        : `replied to ${what}:`;
   const Icon = item.type === "like" ? Heart : item.type === "repost" ? Repeat2 : MessageCircle;
   const tone =
     item.type === "like" ? "text-rose-400" : item.type === "repost" ? "text-emerald-400" : "text-sky-400";
@@ -207,7 +209,8 @@ function NostrNotifRow({ item }: { item: NostrNotification }) {
   // (Only notes open in Rougee; anything else goes to the sender's profile.)
   const to =
     item.targetEventId && (item.targetKind === undefined || item.targetKind === 1)
-      ? `/n/${item.targetEventId}`
+      ? // Replies open the conversation (your note with its replies shown).
+        `/n/${item.targetEventId}${item.type === "reply" ? "?replies=1" : ""}`
       : `/nostr/${item.fromPubkey}`;
   return (
     <Link

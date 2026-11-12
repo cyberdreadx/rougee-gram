@@ -571,8 +571,11 @@ export function useNostrPost(eventId: string | undefined): {
   loading: boolean;
   /** Original RougeChain post id, if this note is a rougee mirror (`r` tag). */
   rougeeId?: string;
+  /** The note this one replies to, when it's a reply. */
+  parentId?: string;
 } {
   const [post, setPost] = useState<FeedPost | null>(null);
+  const [parentId, setParentId] = useState<string | undefined>(undefined);
   const [rougeeId, setRougeeId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(Boolean(eventId));
   useEffect(() => {
@@ -586,6 +589,7 @@ export function useNostrPost(eventId: string | undefined): {
     setLoading(true);
     setPost(null);
     setRougeeId(undefined);
+    setParentId(undefined);
     (async () => {
       try {
         const pool = getPool();
@@ -612,6 +616,7 @@ export function useNostrPost(eventId: string | undefined): {
         const prof = metas[0] ? parseProfile(metas[0].content) : undefined;
         if (cancelled) return;
         setPost(eventToFeedPost(ev, prof ?? undefined));
+        setParentId(replyTargetOf(ev));
         setLoading(false);
       } catch {
         if (!cancelled) setLoading(false);
@@ -621,7 +626,7 @@ export function useNostrPost(eventId: string | undefined): {
       cancelled = true;
     };
   }, [eventId]);
-  return { post, loading, rougeeId };
+  return { post, loading, rougeeId, parentId };
 }
 
 /** Live replies to one note (kind-1 with #e), fetched only while `open`. */
